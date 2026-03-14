@@ -11,6 +11,8 @@ export class HUDScene extends Phaser.Scene {
   private stateText!: Phaser.GameObjects.Text;
   private controlsText!: Phaser.GameObjects.Text;
   private xpBar!: Phaser.GameObjects.Graphics;
+  private powerText!: Phaser.GameObjects.Text;
+  private powerCooldownBar!: Phaser.GameObjects.Graphics;
 
   constructor() {
     super({ key: 'HUDScene' });
@@ -24,6 +26,7 @@ export class HUDScene extends Phaser.Scene {
     this.hpBar = this.add.graphics();
     this.energyBar = this.add.graphics();
     this.xpBar = this.add.graphics();
+    this.powerCooldownBar = this.add.graphics();
 
     this.levelText = this.add.text(8, 6, '', {
       fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#ffcc44',
@@ -40,8 +43,14 @@ export class HUDScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(1, 0);
 
+    // Boss power display (bottom-left)
+    this.powerText = this.add.text(8, GAME_HEIGHT - 28, '', {
+      fontSize: '12px', fontFamily: 'Consolas, monospace', color: '#00ffcc',
+      stroke: '#000000', strokeThickness: 2,
+    });
+
     this.controlsText = this.add.text(GAME_WIDTH / 2, 80,
-      'ARROWS: Move/Jump  |  Z: Attack  |  X: Dash  |  TAB: Inventory  |  1/2/3: Class', {
+      'ARROWS: Move/Jump | Z: Attack | X: Dash | C: Power | S: Swap | TAB: Inventory', {
       fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#667788',
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
@@ -106,6 +115,38 @@ export class HUDScene extends Phaser.Scene {
       this.comboText.setScale(1 + p.attackCombo * 0.2);
     } else {
       this.comboText.setAlpha(Math.max(0, this.comboText.alpha - 0.05));
+    }
+
+    // Boss power display
+    const inv = this.gameScene.getInventory();
+    const activePower = inv.getActivePower();
+    this.powerCooldownBar.clear();
+
+    if (activePower) {
+      const slot = inv.activePowerSlot;
+      const otherPower = inv.getSlotPower(slot === 0 ? 1 : 0);
+      const otherName = otherPower ? ` | [S] ${otherPower.name}` : '';
+      const colorStr = '#' + activePower.color.toString(16).padStart(6, '0');
+      this.powerText.setText(`[C] ${activePower.name} (${activePower.energyCost} EN)${otherName}`);
+      this.powerText.setColor(colorStr);
+
+      // Cooldown bar
+      const cdRemaining = this.gameScene.bossPowerSystem.getCooldownRemaining(this.gameScene.time.now);
+      if (cdRemaining > 0) {
+        const cdRatio = cdRemaining / activePower.cooldownMs;
+        const barW = 80;
+        const barY = GAME_HEIGHT - 14;
+        this.powerCooldownBar.fillStyle(0x000000, 0.5);
+        this.powerCooldownBar.fillRect(8, barY, barW, 4);
+        this.powerCooldownBar.fillStyle(activePower.color, 0.7);
+        this.powerCooldownBar.fillRect(8, barY, barW * (1 - cdRatio), 4);
+      }
+    } else if (inv.collectedPowers.length === 0) {
+      this.powerText.setText('[C] No power — defeat a boss!');
+      this.powerText.setColor('#555555');
+    } else {
+      this.powerText.setText('[C] Equip a power in inventory');
+      this.powerText.setColor('#555555');
     }
 
     this.stateText.setText(

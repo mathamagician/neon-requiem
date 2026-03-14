@@ -2,18 +2,22 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../../shared/constants';
 import { RARITY_COLORS, RARITY_NAMES } from '../../shared/data/equipment';
 import type { EquipSlot } from '../../shared/data/equipment';
+import { SKILL_BRANCHES } from '../../shared/data/skillTrees';
 import type { InventorySystem } from '../systems/InventorySystem';
 import type { GameScene } from './GameScene';
 
 const FONT = 'Arial, Helvetica, sans-serif';
 const MONO = 'Consolas, "Courier New", monospace';
 
+type TabMode = 'stats' | 'backpack' | 'skills';
+const TABS: TabMode[] = ['stats', 'backpack', 'skills'];
+
 export class InventoryScene extends Phaser.Scene {
   private gameScene!: GameScene;
   private bg!: Phaser.GameObjects.Graphics;
   private texts: Phaser.GameObjects.Text[] = [];
   private selectedIndex = 0;
-  private mode: 'stats' | 'backpack' = 'stats';
+  private mode: TabMode = 'stats';
   private _discardBound = false;
 
   constructor() {
@@ -31,14 +35,23 @@ export class InventoryScene extends Phaser.Scene {
     this.bg.fillStyle(0x0a0a18, 0.92);
     this.bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    // Border frame
     this.bg.lineStyle(2, 0x00ffcc, 0.4);
     this.bg.strokeRect(10, 10, GAME_WIDTH - 20, GAME_HEIGHT - 20);
 
     this.input.keyboard!.on('keydown-TAB', (e: KeyboardEvent) => { e.preventDefault(); this.closeInventory(); });
     this.input.keyboard!.on('keydown-ESC', () => this.closeInventory());
-    this.input.keyboard!.on('keydown-LEFT', () => { this.mode = 'stats'; this.selectedIndex = 0; this.refresh(); });
-    this.input.keyboard!.on('keydown-RIGHT', () => { this.mode = 'backpack'; this.selectedIndex = 0; this.refresh(); });
+    this.input.keyboard!.on('keydown-LEFT', () => {
+      const idx = TABS.indexOf(this.mode);
+      this.mode = TABS[(idx - 1 + TABS.length) % TABS.length];
+      this.selectedIndex = 0;
+      this.refresh();
+    });
+    this.input.keyboard!.on('keydown-RIGHT', () => {
+      const idx = TABS.indexOf(this.mode);
+      this.mode = TABS[(idx + 1) % TABS.length];
+      this.selectedIndex = 0;
+      this.refresh();
+    });
     this.input.keyboard!.on('keydown-UP', () => { this.selectedIndex = Math.max(0, this.selectedIndex - 1); this.refresh(); });
     this.input.keyboard!.on('keydown-DOWN', () => { this.selectedIndex++; this.refresh(); });
     this.input.keyboard!.on('keydown-Z', () => this.handleAction());
@@ -53,7 +66,6 @@ export class InventoryScene extends Phaser.Scene {
     const inv = this.gameScene.getInventory();
     const player = this.gameScene.player;
 
-    // Helper: create text and track it
     const t = (text: string, x: number, y: number, opts: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => {
       const obj = this.add.text(x, y, text, {
         fontSize: '13px', fontFamily: FONT, color: '#cccccc',
@@ -70,14 +82,16 @@ export class InventoryScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Tab switcher
-    const statsActive = this.mode === 'stats';
     const tabY = 46;
-    t(statsActive ? '[ STATS ]' : '  STATS  ', GAME_WIDTH / 2 - 70, tabY, {
-      fontSize: '14px', color: statsActive ? '#ffffff' : '#555555', fontFamily: MONO,
-    });
-    t(!statsActive ? '[ BACKPACK ]' : '  BACKPACK  ', GAME_WIDTH / 2 + 20, tabY, {
-      fontSize: '14px', color: !statsActive ? '#ffffff' : '#555555', fontFamily: MONO,
-    });
+    const tabNames = ['STATS', 'BACKPACK', 'SKILLS'];
+    const tabWidth = 100;
+    const tabStart = GAME_WIDTH / 2 - (tabNames.length * tabWidth) / 2;
+    for (let i = 0; i < tabNames.length; i++) {
+      const isActive = this.mode === TABS[i];
+      t(isActive ? `[ ${tabNames[i]} ]` : `  ${tabNames[i]}  `, tabStart + i * tabWidth, tabY, {
+        fontSize: '14px', color: isActive ? '#ffffff' : '#555555', fontFamily: MONO,
+      });
+    }
 
     // Footer
     t('TAB/ESC: Close  |  LEFT/RIGHT: Tab  |  UP/DOWN: Select  |  Z: Use', GAME_WIDTH / 2, GAME_HEIGHT - 22, {
@@ -86,8 +100,10 @@ export class InventoryScene extends Phaser.Scene {
 
     if (this.mode === 'stats') {
       this.renderStats(inv, player, t);
-    } else {
+    } else if (this.mode === 'backpack') {
       this.renderBackpack(inv, t);
+    } else {
+      this.renderSkills(inv, player, t);
     }
   }
 
@@ -96,12 +112,11 @@ export class InventoryScene extends Phaser.Scene {
     player: any,
     t: (text: string, x: number, y: number, opts?: Partial<Phaser.Types.GameObjects.Text.TextStyle>) => Phaser.GameObjects.Text
   ) {
-    const lx = 30; // Left column
-    const rx = GAME_WIDTH / 2 + 20; // Right column
+    const lx = 30;
+    const rx = GAME_WIDTH / 2 + 20;
     let ly = 70;
     let ry = 70;
 
-    // -- Left column: Player Info + Stats --
     t(`Level ${player.level}`, lx, ly, { fontSize: '16px', color: '#ffcc44', fontStyle: 'bold' });
     t(`XP: ${player.xp} / ${player.xpToNext}`, lx + 100, ly + 2, { fontSize: '12px', color: '#aa8833' });
     ly += 24;
@@ -110,7 +125,6 @@ export class InventoryScene extends Phaser.Scene {
     t(`Energy: ${player.energy} / ${player.maxEnergy}`, lx + 140, ly, { fontSize: '13px', color: '#4488ff' });
     ly += 28;
 
-    // Stats header
     t('STATS', lx, ly, { fontSize: '14px', color: '#00ffcc', fontStyle: 'bold' });
     if (inv.stats.unspent > 0) {
       t(`(${inv.stats.unspent} points — Z to allocate)`, lx + 60, ly + 1, { fontSize: '12px', color: '#ffcc44' });
@@ -139,7 +153,7 @@ export class InventoryScene extends Phaser.Scene {
       ly += isSelected ? 38 : 22;
     }
 
-    // -- Right column: Equipped items --
+    // Equipped items
     t('EQUIPPED', rx, ry, { fontSize: '14px', color: '#00ffcc', fontStyle: 'bold' });
     ry += 24;
 
@@ -161,6 +175,24 @@ export class InventoryScene extends Phaser.Scene {
         t('  (empty)', rx, ry, { fontSize: '13px', color: '#444444' });
       }
       ry += 22;
+    }
+
+    // Boss powers section
+    ry += 8;
+    t('BOSS POWERS', rx, ry, { fontSize: '14px', color: '#00ffcc', fontStyle: 'bold' });
+    ry += 20;
+    for (let s = 0; s < 2; s++) {
+      const power = inv.getSlotPower(s as 0 | 1);
+      const isActive = inv.activePowerSlot === s;
+      const label = isActive ? `[C] Slot ${s + 1}:` : `    Slot ${s + 1}:`;
+      t(label, rx, ry, { fontSize: '12px', color: isActive ? '#ffffff' : '#888888' });
+      if (power) {
+        const c = '#' + power.color.toString(16).padStart(6, '0');
+        t(` ${power.name}`, rx + 80, ry, { fontSize: '12px', color: c, fontStyle: 'bold' });
+      } else {
+        t(' (empty)', rx + 80, ry, { fontSize: '12px', color: '#444444' });
+      }
+      ry += 18;
     }
   }
 
@@ -226,8 +258,83 @@ export class InventoryScene extends Phaser.Scene {
     }
   }
 
+  private renderSkills(
+    inv: InventorySystem,
+    player: any,
+    t: (text: string, x: number, y: number, opts?: Partial<Phaser.Types.GameObjects.Text.TextStyle>) => Phaser.GameObjects.Text
+  ) {
+    const x = 30;
+    let y = 70;
+
+    const branchId = inv.activeBranch;
+    if (!branchId || !SKILL_BRANCHES[branchId]) {
+      t('No skill branch selected', x, y, { fontSize: '13px', color: '#555555' });
+      return;
+    }
+
+    const branch = SKILL_BRANCHES[branchId];
+
+    t(`${branch.name.toUpperCase()} — ${branch.description}`, x, y, {
+      fontSize: '14px', color: '#00ffcc', fontStyle: 'bold',
+    });
+    y += 20;
+    t(`Skill Points: ${inv.skillPoints}`, x, y, {
+      fontSize: '13px', color: inv.skillPoints > 0 ? '#ffcc44' : '#666666',
+    });
+    y += 26;
+
+    const skills = branch.skills;
+    this.selectedIndex = Math.min(this.selectedIndex, skills.length - 1);
+
+    for (let i = 0; i < skills.length; i++) {
+      const skill = skills[i];
+      const isUnlocked = inv.hasSkill(skill.id);
+      const prereqMet = !skill.prerequisite || inv.hasSkill(skill.prerequisite);
+      const levelMet = player.level >= skill.levelReq;
+      const canAfford = inv.skillPoints >= skill.cost;
+      const canUnlock = !isUnlocked && prereqMet && levelMet && canAfford;
+
+      const isSel = this.selectedIndex === i;
+      const arrow = isSel ? '>' : ' ';
+
+      let color = '#444444'; // locked
+      let status = '';
+      if (isUnlocked) {
+        color = '#44ff44';
+        status = ' [UNLOCKED]';
+      } else if (canUnlock) {
+        color = '#ffffff';
+        status = ` [${skill.cost} pts]`;
+      } else if (!prereqMet) {
+        status = ' [locked]';
+      } else if (!levelMet) {
+        status = ` [Lv ${skill.levelReq}]`;
+      } else {
+        status = ` [${skill.cost} pts]`;
+      }
+
+      t(`${arrow} ${skill.name}${status}`, x, y, {
+        fontSize: '13px', color: isSel ? (isUnlocked ? '#88ff88' : '#ffffff') : color,
+        fontFamily: MONO, fontStyle: isSel ? 'bold' : 'normal',
+      });
+
+      if (isSel) {
+        y += 18;
+        t(`  ${skill.description}`, x + 10, y, { fontSize: '12px', color: '#aaaaaa' });
+        if (canUnlock) {
+          y += 16;
+          t('  Z: Unlock', x + 10, y, { fontSize: '12px', color: '#ffcc44', fontStyle: 'bold' });
+        }
+        y += 6;
+      }
+      y += 20;
+    }
+  }
+
   private handleAction() {
     const inv = this.gameScene.getInventory();
+    const player = this.gameScene.player;
+
     if (this.mode === 'stats') {
       const statNames = ['might', 'precision', 'arcana', 'vitality'] as const;
       if (this.selectedIndex < statNames.length) {
@@ -239,6 +346,15 @@ export class InventoryScene extends Phaser.Scene {
       if (item) {
         inv.equip(item);
         this.refresh();
+      }
+    } else if (this.mode === 'skills') {
+      const branchId = inv.activeBranch;
+      if (branchId && SKILL_BRANCHES[branchId]) {
+        const skill = SKILL_BRANCHES[branchId].skills[this.selectedIndex];
+        if (skill) {
+          inv.unlockSkill(skill.id, player.level);
+          this.refresh();
+        }
       }
     }
   }

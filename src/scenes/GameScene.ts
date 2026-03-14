@@ -6,10 +6,13 @@ import { Wraith } from '../entities/Wraith';
 import { Enemy } from '../entities/Enemy';
 import { CombatSystem } from '../systems/CombatSystem';
 import { InventorySystem } from '../systems/InventorySystem';
+import { BossPowerSystem } from '../systems/BossPowerSystem';
 import { generateDrop } from '../../shared/data/equipment';
-import { createTestLevel, LEVEL_WIDTH_TILES, LEVEL_HEIGHT_TILES, BOSS_SPAWN_X, BOSS_TRIGGER_X } from '../levels/testLevel';
+import { createTestLevel, LEVEL_WIDTH_TILES, LEVEL_HEIGHT_TILES, BOSS_SPAWN_X, BOSS_TRIGGER_X, BOSS2_SPAWN_X, BOSS2_TRIGGER_X } from '../levels/testLevel';
 import { Boss } from '../entities/Boss';
+import { HollowKing } from '../entities/HollowKing';
 import type { AnyPlayer } from '../entities/PlayerTypes';
+import { getDefaultBranch } from '../../shared/data/skillTrees';
 
 export type ClassName = 'vanguard' | 'gunner' | 'wraith';
 
@@ -18,6 +21,7 @@ export class GameScene extends Phaser.Scene {
   enemies!: Phaser.Physics.Arcade.Group;
   groundLayer!: Phaser.Tilemaps.TilemapLayer;
   combat!: CombatSystem;
+  bossPowerSystem!: BossPowerSystem;
   debugMode = false;
   currentClass: ClassName = 'vanguard';
   private classLabel!: Phaser.GameObjects.Text;
@@ -27,6 +31,12 @@ export class GameScene extends Phaser.Scene {
   bossPowers: string[] = [];
   private boss: Boss | null = null;
   private bossTriggered = false;
+  private boss2: HollowKing | null = null;
+  private boss2Triggered = false;
+
+  // Boss power input
+  private powerKey!: Phaser.Input.Keyboard.Key;
+  private swapPowerKey!: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -40,6 +50,8 @@ export class GameScene extends Phaser.Scene {
 
   create() {
     this.inventory = new InventorySystem();
+    this.inventory.setActiveBranch(getDefaultBranch(this.currentClass).id);
+    this.bossPowerSystem = new BossPowerSystem(this);
 
     // -- Build tilemap --
     const map = this.make.tilemap({
@@ -68,10 +80,13 @@ export class GameScene extends Phaser.Scene {
     this.physics.add.collider(this.player.sprite, this.groundLayer);
     this.physics.add.collider(this.enemies, this.groundLayer);
 
-    // -- Boss --
+    // -- Bosses --
     const bossFloorY = LEVEL_HEIGHT_TILES * TILE_SIZE - 32;
     this.boss = new Boss(this, BOSS_SPAWN_X, bossFloorY);
     this.physics.add.collider(this.boss.sprite, this.groundLayer);
+
+    this.boss2 = new HollowKing(this, BOSS2_SPAWN_X, bossFloorY);
+    this.physics.add.collider(this.boss2.sprite, this.groundLayer);
 
     // -- Combat --
     this.combat = new CombatSystem(this);
@@ -106,8 +121,12 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-TWO', () => this.switchClass('gunner'));
     this.input.keyboard!.on('keydown-THREE', () => this.switchClass('wraith'));
 
+    // Boss power keys
+    this.powerKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.C);
+    this.swapPowerKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+
     const classColors: Record<ClassName, string> = { vanguard: '#4488ff', gunner: '#44ff88', wraith: '#aa44ff' };
-    this.classLabel = this.add.text(GAME_WIDTH / 2, 6, `${this.currentClass.toUpperCase()}  [1/2/3 | TAB: Inventory]`, {
+    this.classLabel = this.add.text(GAME_WIDTH / 2, 6, `${this.currentClass.toUpperCase()}  [1/2/3 | TAB | C: Power | S: Swap]`, {
       fontSize: '12px', fontFamily: 'Consolas, monospace', color: classColors[this.currentClass],
       stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
@@ -119,9 +138,11 @@ export class GameScene extends Phaser.Scene {
   update(time: number, delta: number) {
     this.player.update(time, delta);
     this.combat.update(time, delta);
+    this.bossPowerSystem.update(time, delta);
     this.checkLootPickup();
+    this.handleBossPowerInput(time);
 
-    // Boss trigger
+    // Boss triggers
     if (this.boss && !this.bossTriggered && this.player.sprite.x > BOSS_TRIGGER_X) {
       this.bossTriggered = true;
       this.boss.activate();
@@ -129,11 +150,53 @@ export class GameScene extends Phaser.Scene {
     if (this.boss?.isActive) {
       this.boss.update(time, delta);
     }
+
+    if (this.boss2 && !this.boss2Triggered && this.player.sprite.x > BOSS2_TRIGGER_X) {
+      this.boss2Triggered = true;
+      this.boss2.activate();
+    }
+    if (this.boss2?.isActive) {
+      this.boss2.update(time, delta);
+    }
   }
 
-  getBoss(): Boss | null { return this.boss; }
+  private handleBossPowerInput(time: number) {
+    // C key: use equipped boss power
+    if (Phaser.Input.Keyboard.JustDown(this.powerKey)) {
+      const power = this.inventory.getActivePower();
+      if (power) {
+        this.bossPowerSystem.usePower(power, time);
+      }
+    }
+
+    // S key: swap active power slot
+    if (Phaser.Input.Keyboard.JustDown(this.swapPowerKey)) {
+      this.inventory.toggleActivePowerSlot();
+    }
+  }
+
+  /** Returns the first active boss (for combat system hit detection) */
+  getBoss(): Boss | HollowKing | null {
+    if (this.boss2?.isActive && this.boss2.state !== 'dead') return this.boss2;
+    if (this.boss?.isActive && this.boss.state !== 'dead') return this.boss;
+    return null;
+  }
+
+  /** Returns all active bosses for systems that need to check both */
+  getAllActiveBosses(): (Boss | HollowKing)[] {
+    const bosses: (Boss | HollowKing)[] = [];
+    if (this.boss?.isActive && this.boss.state !== 'dead') bosses.push(this.boss);
+    if (this.boss2?.isActive && this.boss2.state !== 'dead') bosses.push(this.boss2);
+    return bosses;
+  }
 
   getInventory(): InventorySystem { return this.inventory; }
+
+  /** Called by Boss on death — absorbs power into inventory */
+  absorbBossPower(powerId: string) {
+    this.bossPowers.push(powerId);
+    this.inventory.absorbPower(powerId);
+  }
 
   /** Called by Enemy on death — spawns a loot drop */
   spawnLootDrop(x: number, y: number) {
@@ -201,10 +264,8 @@ export class GameScene extends Phaser.Scene {
 
       const dist = Phaser.Math.Distance.Between(px, py, drop.sprite.x, drop.sprite.y);
       if (dist < 20) {
-        // Pick up!
         const added = this.inventory.addItem(drop.item);
         if (added) {
-          // Pickup flash
           this.showLootText(drop.sprite.x, drop.sprite.y - 10, drop.item.name, drop.item.rarity);
           drop.sprite.destroy();
           this.lootDrops.splice(i, 1);
@@ -234,7 +295,6 @@ export class GameScene extends Phaser.Scene {
   /** On level up, grant stat points */
   onPlayerLevelUp() {
     this.inventory.onLevelUp();
-    // Flash notification
     const text = this.add.text(this.player.sprite.x, this.player.sprite.y - 30, 'LEVEL UP!', {
       fontSize: '16px', fontFamily: 'Arial, sans-serif', color: '#ffcc44',
       fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
@@ -272,7 +332,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
     this.currentClass = cls;
     const colors: Record<ClassName, string> = { vanguard: '#4488ff', gunner: '#44ff88', wraith: '#aa44ff' };
-    (this.classLabel as Phaser.GameObjects.Text).setText(`${cls.toUpperCase()}  [1/2/3 | TAB: Inventory]`).setColor(colors[cls]);
+    (this.classLabel as Phaser.GameObjects.Text).setText(`${cls.toUpperCase()}  [1/2/3 | TAB | C: Power | S: Swap]`).setColor(colors[cls]);
   }
 
   private spawnEnemies() {

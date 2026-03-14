@@ -1,43 +1,42 @@
 import Phaser from 'phaser';
 import { COLORS, HITSTOP_DURATION_MS, GAME_WIDTH, GAME_HEIGHT } from '../../shared/constants';
 
-export type BossPhase = 1 | 2 | 3;
+type BossPhase = 1 | 2 | 3;
 type BossState = 'idle' | 'telegraph' | 'attack' | 'hurt' | 'dead' | 'transition';
 
 interface BossAttack {
   name: string;
-  telegraph: number; // ms warning before attack
-  duration: number;  // ms attack lasts
-  cooldown: number;  // ms before next attack
+  telegraph: number;
+  duration: number;
+  cooldown: number;
   execute: () => void;
 }
 
 /**
- * VOLTREXX — Boss of the Neon Foundry
- * A massive power-core construct that controls electricity.
+ * THE HOLLOW KING — Boss of the Cryptvault
+ * An undead monarch on a throne of skulls.
  *
- * Phase 1 (100-66% HP): Simple patterns — ground slam, horizontal lightning
- * Phase 2 (66-33% HP): Adds chain lightning, faster patterns
- * Phase 3 (33-0% HP): Arena hazards, desperation attacks
+ * Phase 1 (100-66% HP): Bone volley, soul slash
+ * Phase 2 (66-33% HP): Adds skull summon, faster attacks
+ * Phase 3 (33-0% HP): Death grip pull, undead rage
  */
-export class Boss {
+export class HollowKing {
   scene: Phaser.Scene;
   sprite: Phaser.Physics.Arcade.Sprite;
   body: Phaser.Physics.Arcade.Body;
 
-  name = 'VOLTREXX';
-  powerId = 'chain_lightning';
-  powerName = 'CHAIN LIGHTNING';
+  name = 'THE HOLLOW KING';
+  powerId = 'soul_drain';
+  powerName = 'SOUL DRAIN';
   hp: number;
   maxHp: number;
-  damage = 15;
+  damage = 12;
   state: BossState = 'idle';
   phase: BossPhase = 1;
   isActive = false;
 
   private attackTimer = 0;
   private currentAttack: BossAttack | null = null;
-  private attackQueue: BossAttack[] = [];
   private actionCooldown = 1500;
   private hitstopUntil = 0;
   private facingRight = false;
@@ -48,59 +47,70 @@ export class Boss {
   private nameText: Phaser.GameObjects.Text;
   private phaseText: Phaser.GameObjects.Text;
 
-  // Attack projectiles/hazards
+  // Hazards
   private hazards: Phaser.GameObjects.GameObject[] = [];
 
-  // Arena bounds
+  // Arena
   private arenaLeft: number;
   private arenaRight: number;
   private arenaFloor: number;
 
+  // Summoned skulls (Phase 2+)
+  private skulls: Phaser.Physics.Arcade.Sprite[] = [];
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
-    this.maxHp = 300;
+    this.maxHp = 250;
     this.hp = this.maxHp;
 
-    // Arena bounds (boss fight area)
     this.arenaLeft = x - 100;
     this.arenaRight = x + 100;
     this.arenaFloor = y;
 
-    // Generate boss texture (large, imposing)
+    // Generate boss texture (skeletal king)
     const g = scene.add.graphics();
-    // Core body
-    g.fillStyle(0x2244aa);
-    g.fillRect(0, 0, 32, 40);
-    // Neon core
-    g.fillStyle(COLORS.neon, 0.8);
-    g.fillCircle(16, 16, 6);
-    // Electric arcs (decorative lines)
-    g.lineStyle(1, 0x00ffcc, 0.6);
-    g.lineBetween(4, 8, 12, 16);
-    g.lineBetween(28, 8, 20, 16);
-    g.lineBetween(8, 32, 16, 24);
-    g.lineBetween(24, 32, 16, 24);
+    // Body — dark bone/purple
+    g.fillStyle(0x442266);
+    g.fillRect(0, 0, 28, 36);
+    // Crown
+    g.fillStyle(0xffcc44);
+    g.fillRect(4, 0, 20, 4);
+    g.fillRect(6, -3, 4, 4);
+    g.fillRect(14, -3, 4, 4);
+    g.fillRect(18, -3, 4, 4);
+    // Skull face
+    g.fillStyle(0xddddcc);
+    g.fillRect(6, 6, 16, 12);
+    // Eye sockets
+    g.fillStyle(0x4488ff);
+    g.fillRect(8, 8, 4, 4);
+    g.fillRect(16, 8, 4, 4);
+    // Ribcage lines
+    g.lineStyle(1, 0xddddcc, 0.6);
+    g.lineBetween(6, 22, 22, 22);
+    g.lineBetween(6, 26, 22, 26);
+    g.lineBetween(6, 30, 22, 30);
     // Border
     g.lineStyle(2, 0x4488ff);
-    g.strokeRect(0, 0, 32, 40);
-    g.generateTexture('boss-voltrexx', 32, 40);
+    g.strokeRect(0, 0, 28, 36);
+    g.generateTexture('boss-hollowking', 28, 36);
     g.destroy();
 
     // Sprite
-    this.sprite = scene.physics.add.sprite(x, y, 'boss-voltrexx');
+    this.sprite = scene.physics.add.sprite(x, y, 'boss-hollowking');
     this.sprite.setOrigin(0.5, 1);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    this.body.setSize(28, 38);
+    this.body.setSize(24, 34);
     this.body.setImmovable(true);
     this.body.setAllowGravity(false);
     (this.sprite as any).owner = this;
     (this.sprite as any).isBoss = true;
 
-    // HP bar (screen-fixed, wide bar at top)
+    // HP bar
     this.hpBarBg = scene.add.graphics().setScrollFactor(0).setDepth(200);
     this.hpBar = scene.add.graphics().setScrollFactor(0).setDepth(201);
     this.nameText = scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 28, '', {
-      fontSize: '14px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#ff4444',
+      fontSize: '14px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#4488ff',
       fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(202);
     this.phaseText = scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, '', {
@@ -114,7 +124,6 @@ export class Boss {
     this.hpBar.setVisible(false);
   }
 
-  /** Activate the boss (called when player enters boss arena) */
   activate() {
     if (this.isActive) return;
     this.isActive = true;
@@ -123,22 +132,18 @@ export class Boss {
     this.hpBar.setVisible(true);
     this.nameText.setText(this.name);
 
-    // Dramatic entrance
     this.scene.cameras.main.shake(300, 0.015);
-    this.scene.cameras.main.flash(200, 0, 100, 200);
+    this.scene.cameras.main.flash(200, 50, 0, 150);
   }
 
   update(time: number, delta: number) {
     if (!this.isActive || this.state === 'dead') return;
-
-    // Hitstop
     if (time < this.hitstopUntil) return;
 
     const gameScene = this.scene as any;
     const player = gameScene.player;
     if (!player) return;
 
-    // Face player
     this.facingRight = player.sprite.x > this.sprite.x;
     this.sprite.setFlipX(this.facingRight);
 
@@ -152,20 +157,16 @@ export class Boss {
       this.onPhaseChange();
     }
 
-    // State machine
     switch (this.state) {
       case 'idle':
         this.actionCooldown -= delta;
-        if (this.actionCooldown <= 0) {
-          this.chooseAttack();
-        }
-        // Gentle hover
-        this.sprite.y = this.arenaFloor + Math.sin(time * 0.003) * 3;
+        if (this.actionCooldown <= 0) this.chooseAttack();
+        // Hover
+        this.sprite.y = this.arenaFloor + Math.sin(time * 0.002) * 4;
         break;
 
       case 'telegraph':
         this.attackTimer -= delta;
-        // Flash during telegraph
         this.sprite.setTint(time % 200 > 100 ? 0xffffff : 0x4488ff);
         if (this.attackTimer <= 0) {
           this.sprite.clearTint();
@@ -190,9 +191,8 @@ export class Boss {
         break;
 
       case 'transition':
-        // Phase change animation
         this.attackTimer -= delta;
-        this.sprite.setTint(0xffcc44);
+        this.sprite.setTint(0x4488ff);
         if (this.attackTimer <= 0) {
           this.sprite.clearTint();
           this.state = 'idle';
@@ -201,6 +201,8 @@ export class Boss {
         break;
     }
 
+    // Update skulls
+    this.updateSkulls(player, time);
     this.drawHpBar();
     this.checkHazardHits(player, time);
   }
@@ -211,7 +213,6 @@ export class Boss {
     this.hp = Math.max(0, this.hp - amount);
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
 
-    // Flash
     this.sprite.setTint(0xffffff);
     this.scene.time.delayedCall(100, () => {
       if (this.state !== 'dead') this.sprite.clearTint();
@@ -219,30 +220,28 @@ export class Boss {
 
     this.scene.cameras.main.shake(60, 0.008);
 
-    if (this.hp <= 0) {
-      this.die();
-    }
+    if (this.hp <= 0) this.die();
   }
 
   private die() {
     this.state = 'dead';
     this.cleanupHazards();
+    this.cleanupSkulls();
 
-    // Explosion sequence
     this.scene.cameras.main.shake(500, 0.03);
 
-    // Multiple explosions
+    // Explosion sequence — blue/purple themed
     for (let i = 0; i < 5; i++) {
       this.scene.time.delayedCall(i * 200, () => {
         const ox = (Math.random() - 0.5) * 30;
         const oy = (Math.random() - 0.5) * 30;
         const emitter = this.scene.add.particles(
-          this.sprite.x + ox, this.sprite.y - 20 + oy, 'particle', {
+          this.sprite.x + ox, this.sprite.y - 18 + oy, 'particle', {
             speed: { min: 40, max: 120 },
             angle: { min: 0, max: 360 },
             scale: { start: 1.5, end: 0 },
             lifespan: 400,
-            tint: [COLORS.neon, 0x4488ff, 0xffffff],
+            tint: [0x4488ff, 0x442266, 0xddddcc],
             quantity: 15,
             emitting: false,
           }
@@ -252,35 +251,27 @@ export class Boss {
       });
     }
 
-    // Boss death reward
     this.scene.time.delayedCall(1200, () => {
-      // Grant XP
       const gameScene = this.scene as any;
       if (gameScene.player) {
-        gameScene.player.gainXP(200);
+        gameScene.player.gainXP(250);
       }
 
-      // Show power absorbed text
       const text = this.scene.add.text(this.sprite.x, this.sprite.y - 50,
         `POWER ABSORBED: ${this.powerName}`, {
-          fontSize: '14px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#00ffcc',
+          fontSize: '14px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#4488ff',
           fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
         }).setOrigin(0.5).setDepth(100);
 
       this.scene.tweens.add({
-        targets: text,
-        y: text.y - 30,
-        alpha: 0,
-        duration: 3000,
+        targets: text, y: text.y - 30, alpha: 0, duration: 3000,
         onComplete: () => text.destroy(),
       });
 
-      // Add boss power to inventory
       if (gameScene.absorbBossPower) {
         gameScene.absorbBossPower(this.powerId);
       }
 
-      // Spawn loot
       if (gameScene.spawnLootDrop) {
         for (let i = 0; i < 3; i++) {
           gameScene.spawnLootDrop(this.sprite.x + (i - 1) * 15, this.sprite.y);
@@ -300,10 +291,8 @@ export class Boss {
     this.attackTimer = 1000;
     this.cleanupHazards();
     this.phaseText.setText(`PHASE ${this.phase}`);
-
-    // Screen effects
     this.scene.cameras.main.shake(200, 0.02);
-    this.scene.cameras.main.flash(150, 255, 200, 0);
+    this.scene.cameras.main.flash(150, 50, 0, 200);
   }
 
   private chooseAttack() {
@@ -317,168 +306,205 @@ export class Boss {
   private getAttacksForPhase(): BossAttack[] {
     const base: BossAttack[] = [
       {
-        name: 'Ground Slam',
-        telegraph: 600,
+        name: 'Bone Volley',
+        telegraph: 500,
         duration: 400,
         cooldown: 1200,
-        execute: () => this.attackGroundSlam(),
+        execute: () => this.attackBoneVolley(),
       },
       {
-        name: 'Lightning Bolt',
-        telegraph: 500,
+        name: 'Soul Slash',
+        telegraph: 400,
         duration: 300,
         cooldown: 1000,
-        execute: () => this.attackLightningBolt(),
+        execute: () => this.attackSoulSlash(),
       },
     ];
 
     if (this.phase >= 2) {
       base.push({
-        name: 'Chain Lightning',
-        telegraph: 700,
-        duration: 500,
-        cooldown: 1500,
-        execute: () => this.attackChainLightning(),
+        name: 'Skull Summon',
+        telegraph: 600,
+        duration: 200,
+        cooldown: 2000,
+        execute: () => this.attackSkullSummon(),
       });
     }
 
     if (this.phase >= 3) {
       base.push({
-        name: 'Electric Storm',
-        telegraph: 800,
-        duration: 800,
-        cooldown: 2000,
-        execute: () => this.attackElectricStorm(),
+        name: 'Death Grip',
+        telegraph: 700,
+        duration: 600,
+        cooldown: 1800,
+        execute: () => this.attackDeathGrip(),
       });
     }
 
     return base;
   }
 
-  /** Ground slam — shockwave along the floor */
-  private attackGroundSlam() {
-    this.scene.cameras.main.shake(150, 0.015);
+  /** Bone Volley — fires 3-5 bone projectiles in a spread */
+  private attackBoneVolley() {
+    const gameScene = this.scene as any;
+    const playerX = gameScene.player?.sprite.x ?? this.sprite.x;
+    const dir = playerX > this.sprite.x ? 1 : -1;
+    const count = this.phase >= 3 ? 5 : 3;
+    const spreadAngle = 30; // degrees total spread
 
-    // Two shockwaves going left and right
-    for (const dir of [-1, 1]) {
-      const wave = this.scene.physics.add.sprite(this.sprite.x, this.arenaFloor - 4, 'projectile-enemy');
-      wave.setDisplaySize(12, 8);
-      wave.setTint(0x4488ff);
-      const wb = wave.body as Phaser.Physics.Arcade.Body;
-      wb.setAllowGravity(false);
-      wb.setVelocityX(dir * 120);
-      (wave as any).damage = this.damage;
-      (wave as any).isEnemyProjectile = true;
-      this.hazards.push(wave);
+    for (let i = 0; i < count; i++) {
+      const angle = -spreadAngle / 2 + (spreadAngle / (count - 1)) * i;
+      const rad = angle * Math.PI / 180;
+      const speed = 130;
+      const vx = dir * speed * Math.cos(rad);
+      const vy = speed * Math.sin(rad) - 30;
 
-      const gameScene = this.scene as any;
-      gameScene.combat?.addEnemyProjectile(wave);
+      const bone = this.scene.physics.add.sprite(
+        this.sprite.x + dir * 10,
+        this.sprite.y - 16,
+        'projectile-enemy'
+      );
+      bone.setDisplaySize(6, 6);
+      bone.setTint(0xddddcc);
+      const bb = bone.body as Phaser.Physics.Arcade.Body;
+      bb.setAllowGravity(false);
+      bb.setVelocity(vx, vy);
+      (bone as any).damage = this.damage;
+      this.hazards.push(bone);
+      gameScene.combat?.addEnemyProjectile(bone);
 
-      this.scene.time.delayedCall(1500, () => {
-        if (wave.active) wave.destroy();
-      });
+      this.scene.time.delayedCall(2000, () => { if (bone.active) bone.destroy(); });
     }
   }
 
-  /** Lightning bolt — vertical strike at player position */
-  private attackLightningBolt() {
+  /** Soul Slash — wide melee arc in front of the boss */
+  private attackSoulSlash() {
+    const dir = this.facingRight ? 1 : -1;
+    const sx = this.sprite.x + dir * 24;
+    const sy = this.sprite.y - 16;
+
+    // Visual slash
+    const slash = this.scene.add.graphics();
+    slash.fillStyle(0x4488ff, 0.5);
+    slash.fillEllipse(0, 0, 40, 20);
+    slash.setPosition(sx, sy);
+    slash.setDepth(5);
+
+    // Damage zone
+    const zone = this.scene.physics.add.sprite(sx, sy, 'projectile-enemy');
+    zone.setDisplaySize(40, 20);
+    zone.setAlpha(0.3);
+    zone.setTint(0x4488ff);
+    const zb = zone.body as Phaser.Physics.Arcade.Body;
+    zb.setAllowGravity(false);
+    (zone as any).damage = this.damage + 3;
+    this.hazards.push(zone);
     const gameScene = this.scene as any;
-    const playerX = gameScene.player?.sprite.x ?? this.sprite.x;
+    gameScene.combat?.addEnemyProjectile(zone);
 
-    // Warning indicator
-    const warning = this.scene.add.graphics();
-    warning.lineStyle(2, 0xff4444, 0.5);
-    warning.lineBetween(playerX, 0, playerX, this.arenaFloor);
-    warning.setDepth(5);
-
-    this.scene.time.delayedCall(300, () => {
-      warning.destroy();
-
-      // Lightning strike
-      const bolt = this.scene.add.graphics();
-      bolt.lineStyle(3, COLORS.neon, 0.9);
-      // Jagged lightning line
-      let bx = playerX;
-      let by = 0;
-      while (by < this.arenaFloor) {
-        const nx = bx + (Math.random() - 0.5) * 15;
-        const ny = by + 10 + Math.random() * 15;
-        bolt.lineBetween(bx, by, nx, ny);
-        bx = nx;
-        by = ny;
-      }
-      bolt.setDepth(10);
-
-      // Damage zone
-      const strike = this.scene.physics.add.sprite(playerX, this.arenaFloor - 10, 'projectile-enemy');
-      strike.setDisplaySize(20, 20);
-      strike.setAlpha(0.3);
-      strike.setTint(COLORS.neon);
-      const sb = strike.body as Phaser.Physics.Arcade.Body;
-      sb.setAllowGravity(false);
-      (strike as any).damage = this.damage + 5;
-      (strike as any).isEnemyProjectile = true;
-      this.hazards.push(strike);
-      gameScene.combat?.addEnemyProjectile(strike);
-
-      this.scene.time.delayedCall(200, () => {
-        bolt.destroy();
-        if (strike.active) strike.destroy();
-      });
+    this.scene.time.delayedCall(250, () => {
+      slash.destroy();
+      if (zone.active) zone.destroy();
     });
   }
 
-  /** Chain lightning — arcs between multiple points */
-  private attackChainLightning() {
-    const count = this.phase >= 3 ? 5 : 3;
+  /** Skull Summon — spawns floating skulls that home toward player */
+  private attackSkullSummon() {
+    const count = this.phase >= 3 ? 3 : 2;
     for (let i = 0; i < count; i++) {
-      this.scene.time.delayedCall(i * 150, () => {
-        const x = this.arenaLeft + Math.random() * (this.arenaRight - this.arenaLeft);
-        const bolt = this.scene.physics.add.sprite(x, this.arenaFloor - 8, 'projectile-enemy');
-        bolt.setDisplaySize(10, 16);
-        bolt.setTint(COLORS.neon);
-        const bb = bolt.body as Phaser.Physics.Arcade.Body;
-        bb.setAllowGravity(false);
-        (bolt as any).damage = 10;
-        (bolt as any).isEnemyProjectile = true;
-        this.hazards.push(bolt);
-        const gameScene = this.scene as any;
-        gameScene.combat?.addEnemyProjectile(bolt);
+      const ox = (Math.random() - 0.5) * 60;
+      const skull = this.scene.physics.add.sprite(
+        this.sprite.x + ox,
+        this.sprite.y - 40,
+        'projectile-enemy'
+      );
+      skull.setDisplaySize(8, 8);
+      skull.setTint(0xddddcc);
+      const sb = skull.body as Phaser.Physics.Arcade.Body;
+      sb.setAllowGravity(false);
+      (skull as any).damage = 8;
+      (skull as any).isEnemyProjectile = true;
+      this.skulls.push(skull);
+      this.hazards.push(skull);
+      const gameScene = this.scene as any;
+      gameScene.combat?.addEnemyProjectile(skull);
 
-        // Flash
-        this.scene.cameras.main.flash(50, 0, 200, 255);
-
-        this.scene.time.delayedCall(400, () => {
-          if (bolt.active) bolt.destroy();
-        });
+      // Auto-destroy after 5 seconds
+      this.scene.time.delayedCall(5000, () => {
+        if (skull.active) skull.destroy();
+        this.skulls = this.skulls.filter(s => s !== skull);
       });
     }
   }
 
-  /** Electric storm — rain of projectiles from above */
-  private attackElectricStorm() {
-    this.scene.cameras.main.shake(300, 0.01);
+  /** Death Grip — pulls player toward boss */
+  private attackDeathGrip() {
+    const gameScene = this.scene as any;
+    const player = gameScene.player;
+    if (!player) return;
 
-    for (let i = 0; i < 8; i++) {
-      this.scene.time.delayedCall(i * 100, () => {
-        const x = this.arenaLeft + Math.random() * (this.arenaRight - this.arenaLeft);
-        const spark = this.scene.physics.add.sprite(x, this.arenaFloor - 100, 'projectile-enemy');
-        spark.setDisplaySize(6, 6);
-        spark.setTint(0x4488ff);
-        const sb = spark.body as Phaser.Physics.Arcade.Body;
-        sb.setAllowGravity(false);
-        sb.setVelocityY(100 + Math.random() * 60);
-        sb.setVelocityX((Math.random() - 0.5) * 30);
-        (spark as any).damage = 8;
-        (spark as any).isEnemyProjectile = true;
-        this.hazards.push(spark);
-        const gameScene = this.scene as any;
-        gameScene.combat?.addEnemyProjectile(spark);
+    // Warning visual — spectral hand reaching toward player
+    const hand = this.scene.add.graphics();
+    hand.lineStyle(3, 0x4488ff, 0.6);
+    hand.lineBetween(this.sprite.x, this.sprite.y - 16, player.sprite.x, player.sprite.y - 12);
+    hand.setDepth(5);
 
-        this.scene.time.delayedCall(2000, () => {
-          if (spark.active) spark.destroy();
-        });
-      });
+    // Pull player toward boss
+    const dx = this.sprite.x - player.sprite.x;
+    const dy = (this.sprite.y - 16) - player.sprite.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist > 10) {
+      const pullSpeed = 100;
+      player.body.setVelocityX((dx / dist) * pullSpeed);
+      player.body.setVelocityY((dy / dist) * pullSpeed * 0.5);
+    }
+
+    // Damage if close enough at end of pull
+    this.scene.time.delayedCall(500, () => {
+      hand.destroy();
+      const newDist = Phaser.Math.Distance.Between(
+        player.sprite.x, player.sprite.y,
+        this.sprite.x, this.sprite.y - 16
+      );
+      if (newDist < 35) {
+        player.takeDamage(this.damage + 5, this.sprite.x, this.scene.time.now);
+      }
+    });
+
+    this.scene.cameras.main.shake(100, 0.01);
+  }
+
+  /** Update homing skulls */
+  private updateSkulls(player: any, _time: number) {
+    for (const skull of this.skulls) {
+      if (!skull.active) continue;
+      const dx = player.sprite.x - skull.x;
+      const dy = (player.sprite.y - 12) - skull.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > 5) {
+        const speed = 50;
+        skull.body!.velocity.x += (dx / dist) * speed * 0.05;
+        skull.body!.velocity.y += (dy / dist) * speed * 0.05;
+        // Cap speed
+        const v = skull.body!.velocity;
+        const spd = Math.sqrt(v.x * v.x + v.y * v.y);
+        if (spd > 70) {
+          v.x = (v.x / spd) * 70;
+          v.y = (v.y / spd) * 70;
+        }
+      }
+    }
+  }
+
+  private checkHazardHits(player: any, time: number) {
+    if (this.state === 'attack' || this.state === 'idle') {
+      const dist = Phaser.Math.Distance.Between(
+        player.sprite.x, player.sprite.y,
+        this.sprite.x, this.sprite.y - 18
+      );
+      if (dist < 22) {
+        player.takeDamage(this.damage, this.sprite.x, time);
+      }
     }
   }
 
@@ -489,17 +515,11 @@ export class Boss {
     this.hazards = [];
   }
 
-  private checkHazardHits(player: any, time: number) {
-    // Contact damage from boss body
-    if (this.state === 'attack' || this.state === 'idle') {
-      const dist = Phaser.Math.Distance.Between(
-        player.sprite.x, player.sprite.y,
-        this.sprite.x, this.sprite.y - 20
-      );
-      if (dist < 25) {
-        player.takeDamage(this.damage, this.sprite.x, time);
-      }
+  private cleanupSkulls() {
+    for (const s of this.skulls) {
+      if (s.active) s.destroy();
     }
+    this.skulls = [];
   }
 
   private drawHpBar() {
@@ -510,18 +530,16 @@ export class Boss {
     const ratio = Math.max(0, this.hp / this.maxHp);
 
     this.hpBarBg.clear();
-    this.hpBarBg.fillStyle(0x220000, 0.8);
+    this.hpBarBg.fillStyle(0x110022, 0.8);
     this.hpBarBg.fillRect(x, y, barW, barH);
     this.hpBarBg.lineStyle(1, 0x444444);
     this.hpBarBg.strokeRect(x, y, barW, barH);
 
     this.hpBar.clear();
-    // Color changes by phase
-    const colors = [0x44ff44, 0xffcc44, 0xff4444];
+    const colors = [0x4488ff, 0x8844ff, 0xff44ff];
     this.hpBar.fillStyle(colors[this.phase - 1], 1);
     this.hpBar.fillRect(x, y, barW * ratio, barH);
 
-    // Phase markers
     this.hpBarBg.lineStyle(1, 0xffffff, 0.3);
     this.hpBarBg.lineBetween(x + barW * 0.33, y, x + barW * 0.33, y + barH);
     this.hpBarBg.lineBetween(x + barW * 0.66, y, x + barW * 0.66, y + barH);

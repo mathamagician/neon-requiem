@@ -352,7 +352,13 @@ export class Player {
   takeDamage(amount: number, sourceX: number, time: number) {
     if (time < this.invincibleUntil) return;
 
-    this.hp = Math.max(0, this.hp - amount);
+    // Vitality damage reduction: -2% per vitality above 5, capped at 40%
+    const inv = (this.scene as any).getInventory?.();
+    const vitality = inv ? inv.getEffectiveStat('vitality') : 5;
+    const reduction = Math.min(0.4, Math.max(0, (vitality - 5) * 0.02));
+    const finalDmg = Math.max(1, Math.round(amount * (1 - reduction)));
+
+    this.hp = Math.max(0, this.hp - finalDmg);
     this.invincibleUntil = time + INVINCIBILITY_FRAMES_MS;
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
 
@@ -394,7 +400,10 @@ export class Player {
       this.xp -= this.xpToNext;
       this.level++;
       this.xpToNext = Math.floor(this.xpToNext * 1.3);
-      this.maxHp += 8;
+      // Vitality scaling: base +8 HP, plus +2 HP per vitality above 5
+      const inv = (this.scene as any).getInventory?.();
+      const vitalityBonus = inv ? Math.max(0, inv.getEffectiveStat('vitality') - 5) * 2 : 0;
+      this.maxHp += 8 + vitalityBonus;
       this.hp = this.maxHp;
       this.maxEnergy += 3;
       this.energy = this.maxEnergy;
@@ -435,9 +444,27 @@ export class Player {
     );
   }
 
-  /** Damage dealt by current attack combo step */
+  /** Damage dealt by current attack combo step, scaled by might + skills */
   getAttackDamage(): number {
     const damages = [10, 12, 20]; // 3rd hit deals most
-    return damages[this.attackCombo];
+    let dmg = damages[this.attackCombo];
+
+    // Stat scaling: +4% melee damage per might above 5
+    const inv = (this.scene as any).getInventory?.();
+    if (inv) {
+      const might = inv.getEffectiveStat('might');
+      dmg = Math.round(dmg * (1 + (might - 5) * 0.04));
+
+      // Skill: meleeDamageBonus (percentage)
+      const meleeBonus = inv.getSkillEffect('meleeDamageBonus');
+      if (meleeBonus) dmg = Math.round(dmg * (1 + meleeBonus));
+
+      // Skill: finisherDamageBonus — applies only to 3rd hit
+      if (this.attackCombo === 2) {
+        const finisherBonus = inv.getSkillEffect('finisherDamageBonus');
+        if (finisherBonus) dmg = Math.round(dmg * (1 + finisherBonus));
+      }
+    }
+    return dmg;
   }
 }

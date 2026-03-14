@@ -111,3 +111,7 @@ export function createTestLevel(): number[][] {
 
 export const BOSS_SPAWN_X = 110 * 16;
 export const BOSS_TRIGGER_X = 101 * 16;
+
+// Second boss (Hollow King) — placed mid-level before the wall obstacle
+export const BOSS2_SPAWN_X = 60 * 16;
+export const BOSS2_TRIGGER_X = 52 * 16;

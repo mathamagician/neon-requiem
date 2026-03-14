@@ -268,19 +268,35 @@ export class Gunner {
     const projBody = proj.body as Phaser.Physics.Arcade.Body;
     projBody.setAllowGravity(false);
 
+    // Stat scaling: +4% ranged damage per precision above 5
+    const inv = (this.scene as any).getInventory?.();
+    let precisionMult = 1;
+    let rangedBonus = 0;
+    if (inv) {
+      const precision = inv.getEffectiveStat('precision');
+      precisionMult = 1 + (precision - 5) * 0.04;
+      rangedBonus = inv.getSkillEffect('rangedDamageBonus') || 0;
+    }
+
     if (isCharged) {
       // Charge shot: bigger, faster, pierces
       proj.setDisplaySize(12, 6);
       projBody.setVelocity(dir * 200, 0);
       proj.setTint(0x00ffcc);
-      (proj as any).damage = 25;
+      let chargeDmg = Math.round(25 * precisionMult * (1 + rangedBonus));
+      // Skill: overchargeDamageBonus — extra damage for charged shots
+      if (inv) {
+        const overcharge = inv.getSkillEffect('overchargeDamageBonus');
+        if (overcharge) chargeDmg = Math.round(chargeDmg * (1 + overcharge));
+      }
+      (proj as any).damage = chargeDmg;
       (proj as any).piercing = true;
     } else {
       // Normal shot
       proj.setDisplaySize(8, 4);
       projBody.setVelocity(dir * 160, 0);
       proj.clearTint();
-      (proj as any).damage = 8;
+      (proj as any).damage = Math.round(8 * precisionMult * (1 + rangedBonus));
       (proj as any).piercing = false;
     }
 
@@ -343,7 +359,13 @@ export class Gunner {
 
   takeDamage(amount: number, sourceX: number, time: number) {
     if (time < this.invincibleUntil) return;
-    this.hp = Math.max(0, this.hp - amount);
+    // Vitality damage reduction: -2% per vitality above 5, capped at 40%
+    const inv = (this.scene as any).getInventory?.();
+    const vitality = inv ? inv.getEffectiveStat('vitality') : 5;
+    const reduction = Math.min(0.4, Math.max(0, (vitality - 5) * 0.02));
+    const finalDmg = Math.max(1, Math.round(amount * (1 - reduction)));
+
+    this.hp = Math.max(0, this.hp - finalDmg);
     this.invincibleUntil = time + INVINCIBILITY_FRAMES_MS;
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
     const dir = this.sprite.x < sourceX ? -1 : 1;
@@ -370,7 +392,9 @@ export class Gunner {
       this.xp -= this.xpToNext;
       this.level++;
       this.xpToNext = Math.floor(this.xpToNext * 1.3);
-      this.maxHp += 6;
+      const inv = (this.scene as any).getInventory?.();
+      const vitalityBonus = inv ? Math.max(0, inv.getEffectiveStat('vitality') - 5) * 2 : 0;
+      this.maxHp += 6 + vitalityBonus;
       this.hp = this.maxHp;
       this.maxEnergy += 4;
       this.energy = this.maxEnergy;

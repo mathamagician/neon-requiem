@@ -364,7 +364,14 @@ export class Wraith {
 
   takeDamage(amount: number, sourceX: number, time: number) {
     if (time < this.invincibleUntil) return;
-    this.hp = Math.max(0, this.hp - amount);
+
+    // Vitality damage reduction: -2% per vitality above 5, capped at 40%
+    const inv = (this.scene as any).getInventory?.();
+    const vitality = inv ? inv.getEffectiveStat('vitality') : 5;
+    const reduction = Math.min(0.4, Math.max(0, (vitality - 5) * 0.02));
+    const finalDmg = Math.max(1, Math.round(amount * (1 - reduction)));
+
+    this.hp = Math.max(0, this.hp - finalDmg);
     this.invincibleUntil = time + INVINCIBILITY_FRAMES_MS;
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
     const dir = this.sprite.x < sourceX ? -1 : 1;
@@ -384,8 +391,10 @@ export class Wraith {
     this.hitstopUntil = time + HITSTOP_DURATION_MS * 0.6; // Shorter hitstop for fast attacks
     this.scene.cameras.main.shake(30, 0.003);
 
-    // Crit check
-    this.lastHitWasCrit = Math.random() < this.critChance;
+    // Crit check — base crit + skill bonuses
+    const inv = (this.scene as any).getInventory?.();
+    const skillCritBonus = inv ? inv.getSkillEffect('critChanceBonus') : 0;
+    this.lastHitWasCrit = Math.random() < (this.critChance + skillCritBonus);
     if (this.lastHitWasCrit) {
       this.critEmitter.emitParticleAt(this.sprite.x + (this.facingRight ? 15 : -15), this.sprite.y - 10, 6);
       this.scene.cameras.main.shake(60, 0.008);
@@ -400,7 +409,9 @@ export class Wraith {
       this.xp -= this.xpToNext;
       this.level++;
       this.xpToNext = Math.floor(this.xpToNext * 1.3);
-      this.maxHp += 5;
+      const inv = (this.scene as any).getInventory?.();
+      const vitalityBonus = inv ? Math.max(0, inv.getEffectiveStat('vitality') - 5) * 2 : 0;
+      this.maxHp += 5 + vitalityBonus;
       this.hp = this.maxHp;
       this.maxEnergy += 3;
       this.energy = this.maxEnergy;
@@ -435,7 +446,26 @@ export class Wraith {
   getAttackDamage(): number {
     const baseDamages = [6, 7, 6, 14]; // Low per-hit but fast and 4th hit is big
     let dmg = baseDamages[this.attackCombo];
-    if (this.lastHitWasCrit) dmg = Math.floor(dmg * this.critMultiplier);
+
+    // Stat scaling: +3% damage per precision above 5 (Wraith scales on precision)
+    const inv = (this.scene as any).getInventory?.();
+    if (inv) {
+      const precision = inv.getEffectiveStat('precision');
+      dmg = Math.round(dmg * (1 + (precision - 5) * 0.03));
+
+      // Skill: meleeDamageBonus (Shadowstrike mastery also gives this)
+      const meleeBonus = inv.getSkillEffect('meleeDamageBonus');
+      if (meleeBonus) dmg = Math.round(dmg * (1 + meleeBonus));
+
+      // Skill: critDamageBonus — adds to crit multiplier
+      const critDmgBonus = inv.getSkillEffect('critDamageBonus');
+      if (this.lastHitWasCrit) {
+        dmg = Math.floor(dmg * (this.critMultiplier + critDmgBonus));
+      }
+    } else {
+      if (this.lastHitWasCrit) dmg = Math.floor(dmg * this.critMultiplier);
+    }
+
     return dmg;
   }
 }
