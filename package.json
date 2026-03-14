@@ -1,0 +1,21 @@
+{
+  "name": "neon-requiem",
+  "version": "0.1.0",
+  "description": "A web-native multiplayer side-scroller / action-RPG",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "mathamagician",
+  "license": "ISC",
+  "dependencies": {
+    "phaser": "^3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "vite": "^8.0.0"
+  }
+}

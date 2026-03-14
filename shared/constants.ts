@@ -1,0 +1,46 @@
+// Game world constants
+export const TILE_SIZE = 16;
+export const GAME_WIDTH = 480;
+export const GAME_HEIGHT = 270;
+export const SCALE = 3; // Render at 480x270, display at 1440x810
+
+// Physics
+export const GRAVITY = 900;
+export const TERMINAL_VELOCITY = 600;
+
+// Player defaults
+export const PLAYER_SPEED = 120;
+export const PLAYER_JUMP_VELOCITY = -280;
+export const PLAYER_MAX_HP = 100;
+export const PLAYER_MAX_ENERGY = 50;
+export const COYOTE_TIME_MS = 80; // ms after leaving platform where jump still works
+export const JUMP_BUFFER_MS = 100; // ms before landing where jump input is remembered
+
+// Combat
+export const INVINCIBILITY_FRAMES_MS = 800;
+export const HITSTOP_DURATION_MS = 50;
+export const KNOCKBACK_VELOCITY = 150;
+
+// Enemy defaults
+export const ENEMY_PATROL_SPEED = 40;
+export const ENEMY_CHASE_SPEED = 70;
+export const ENEMY_DETECT_RANGE = 120;
+export const ENEMY_ATTACK_RANGE = 24;
+
+// Colors (for placeholder graphics)
+export const COLORS = {
+  vanguard: 0x4488ff,
+  gunner: 0x44ff88,
+  wraith: 0xaa44ff,
+  channeler: 0xff8844,
+  enemy: 0xff4444,
+  ground: 0x334455,
+  platform: 0x445566,
+  background: 0x0a0a1a,
+  hpBar: 0x44ff44,
+  hpBarBg: 0x442222,
+  energyBar: 0x4488ff,
+  energyBarBg: 0x222244,
+  neon: 0x00ffcc,
+  danger: 0xff2244,
+};
