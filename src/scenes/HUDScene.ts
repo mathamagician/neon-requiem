@@ -1,11 +1,7 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, COLORS } from '../../shared/constants';
+import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../../shared/constants';
 import type { GameScene } from './GameScene';
 
-/**
- * HUD overlay scene — renders on top of the game scene.
- * Shows HP bar, energy bar, level, combo counter, and controls help.
- */
 export class HUDScene extends Phaser.Scene {
   private gameScene!: GameScene;
   private hpBar!: Phaser.GameObjects.Graphics;
@@ -29,41 +25,29 @@ export class HUDScene extends Phaser.Scene {
     this.energyBar = this.add.graphics();
     this.xpBar = this.add.graphics();
 
-    const textStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '8px',
-      fontFamily: 'monospace',
-      color: '#ffffff',
-      resolution: 2,
-    };
+    this.levelText = this.add.text(8, 6, '', {
+      fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#ffcc44',
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
+    });
 
-    this.levelText = this.add.text(4, 4, '', { ...textStyle, color: '#ffcc44' });
-    this.comboText = this.add.text(GAME_WIDTH / 2, 30, '', {
-      ...textStyle,
-      fontSize: '10px',
-      color: '#00ffcc',
-    }).setOrigin(0.5);
-    this.comboText.setAlpha(0);
+    this.comboText = this.add.text(GAME_WIDTH / 2, 50, '', {
+      fontSize: '18px', fontFamily: 'Arial, sans-serif', color: '#00ffcc',
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
+    }).setOrigin(0.5).setAlpha(0);
 
-    this.stateText = this.add.text(GAME_WIDTH - 4, 4, '', {
-      ...textStyle,
-      fontSize: '6px',
-      color: '#888888',
+    this.stateText = this.add.text(GAME_WIDTH - 8, 6, '', {
+      fontSize: '11px', fontFamily: 'Consolas, monospace', color: '#999999',
+      stroke: '#000000', strokeThickness: 1,
     }).setOrigin(1, 0);
 
-    // Controls help (shown at start, fades after 10s)
-    this.controlsText = this.add.text(GAME_WIDTH / 2, 50,
-      'ARROWS: Move/Jump | Z: Attack | X: Dash | 1/2/3: Class | F1: Debug', {
-      ...textStyle,
-      fontSize: '6px',
-      color: '#556677',
+    this.controlsText = this.add.text(GAME_WIDTH / 2, 80,
+      'ARROWS: Move/Jump  |  Z: Attack  |  X: Dash  |  TAB: Inventory  |  1/2/3: Class', {
+      fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#667788',
+      stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
 
-    this.time.delayedCall(10000, () => {
-      this.tweens.add({
-        targets: this.controlsText,
-        alpha: 0,
-        duration: 2000,
-      });
+    this.time.delayedCall(12000, () => {
+      this.tweens.add({ targets: this.controlsText, alpha: 0, duration: 2000 });
     });
   }
 
@@ -72,29 +56,30 @@ export class HUDScene extends Phaser.Scene {
     const p = this.gameScene.player;
 
     // HP Bar
-    const hpX = 4;
-    const hpY = 14;
-    const hpW = 60;
-    const hpH = 4;
+    const hpX = 8;
+    const hpY = 24;
+    const hpW = 100;
+    const hpH = 8;
     const hpRatio = p.hp / p.maxHp;
 
     this.hpBar.clear();
-    // Background
+    this.hpBar.fillStyle(0x000000, 0.5);
+    this.hpBar.fillRect(hpX - 1, hpY - 1, hpW + 2, hpH + 2);
     this.hpBar.fillStyle(COLORS.hpBarBg, 0.8);
     this.hpBar.fillRect(hpX, hpY, hpW, hpH);
-    // Fill
     const hpColor = hpRatio > 0.5 ? COLORS.hpBar : hpRatio > 0.25 ? 0xffaa22 : COLORS.danger;
     this.hpBar.fillStyle(hpColor, 1);
     this.hpBar.fillRect(hpX, hpY, hpW * hpRatio, hpH);
-    // Border
     this.hpBar.lineStyle(1, 0x888888, 0.5);
     this.hpBar.strokeRect(hpX, hpY, hpW, hpH);
 
     // Energy Bar
-    const eY = hpY + hpH + 2;
+    const eY = hpY + hpH + 3;
     const eRatio = p.energy / p.maxEnergy;
 
     this.energyBar.clear();
+    this.energyBar.fillStyle(0x000000, 0.5);
+    this.energyBar.fillRect(hpX - 1, eY - 1, hpW + 2, hpH + 2);
     this.energyBar.fillStyle(COLORS.energyBarBg, 0.8);
     this.energyBar.fillRect(hpX, eY, hpW, hpH);
     this.energyBar.fillStyle(COLORS.energyBar, 1);
@@ -102,31 +87,29 @@ export class HUDScene extends Phaser.Scene {
     this.energyBar.lineStyle(1, 0x888888, 0.5);
     this.energyBar.strokeRect(hpX, eY, hpW, hpH);
 
-    // XP Bar (thin, below energy)
-    const xpY = eY + hpH + 2;
+    // XP Bar
+    const xpY = eY + hpH + 3;
     const xpRatio = p.xp / p.xpToNext;
     this.xpBar.clear();
-    this.xpBar.fillStyle(0x222222, 0.6);
-    this.xpBar.fillRect(hpX, xpY, hpW, 2);
-    this.xpBar.fillStyle(0xffcc44, 0.8);
-    this.xpBar.fillRect(hpX, xpY, hpW * xpRatio, 2);
+    this.xpBar.fillStyle(0x000000, 0.4);
+    this.xpBar.fillRect(hpX, xpY, hpW, 3);
+    this.xpBar.fillStyle(0xffcc44, 0.9);
+    this.xpBar.fillRect(hpX, xpY, hpW * xpRatio, 3);
 
-    // Level text
     this.levelText.setText(`LV ${p.level}`);
 
-    // Combo counter
+    // Combo
     if (p.isAttacking && p.attackCombo > 0) {
       const comboNames = ['', 'x2', 'x3!'];
       this.comboText.setText(comboNames[p.attackCombo]);
       this.comboText.setAlpha(1);
-      this.comboText.setScale(1 + p.attackCombo * 0.15);
+      this.comboText.setScale(1 + p.attackCombo * 0.2);
     } else {
       this.comboText.setAlpha(Math.max(0, this.comboText.alpha - 0.05));
     }
 
-    // Debug state text
     this.stateText.setText(
-      `${p.state} | HP:${p.hp}/${p.maxHp} | E:${p.energy}/${p.maxEnergy} | XP:${p.xp}/${p.xpToNext}`
+      `${p.state} | HP:${p.hp}/${p.maxHp} | EN:${p.energy}/${p.maxEnergy} | XP:${p.xp}/${p.xpToNext}`
     );
   }
 }

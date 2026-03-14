@@ -1,23 +1,20 @@
 /**
- * Test level for Phase 0 prototyping.
- * Returns a 2D array of tile indices:
+ * Test level for prototyping.
+ * Tile indices:
  *   0 = empty (air)
  *   1 = solid ground
  *   2 = one-way platform
  *   3 = neon accent wall
- *
- * Level is wider than the screen to test camera scrolling.
  */
 
-export const LEVEL_WIDTH_TILES = 120; // ~1920px
-export const LEVEL_HEIGHT_TILES = 18; // ~288px
+export const LEVEL_WIDTH_TILES = 120;
+export const LEVEL_HEIGHT_TILES = 22; // taller for more vertical room
 
 export function createTestLevel(): number[][] {
   const W = LEVEL_WIDTH_TILES;
   const H = LEVEL_HEIGHT_TILES;
   const level: number[][] = [];
 
-  // Initialize empty
   for (let y = 0; y < H; y++) {
     level[y] = new Array(W).fill(0);
   }
@@ -28,12 +25,11 @@ export function createTestLevel(): number[][] {
     level[H - 2][x] = 1;
   }
 
-  // -- Gaps in the ground (pits) --
+  // -- Pits (gaps in ground) --
   const pits = [
-    { start: 18, width: 3 },
-    { start: 45, width: 4 },
-    { start: 72, width: 3 },
-    { start: 95, width: 5 },
+    { start: 22, width: 3 },
+    { start: 50, width: 3 },
+    { start: 78, width: 3 },
   ];
   for (const pit of pits) {
     for (let px = pit.start; px < pit.start + pit.width; px++) {
@@ -42,55 +38,49 @@ export function createTestLevel(): number[][] {
     }
   }
 
-  // -- Platforms at various heights --
-  const platforms: { x: number; y: number; w: number; type?: number }[] = [
-    // Starting area — easy platforms
+  // -- Platforms --
+  const platforms: { x: number; y: number; w: number }[] = [
+    // Zone 1: Tutorial area (tiles 2-20)
     { x: 5, y: H - 5, w: 4 },
-    { x: 10, y: H - 7, w: 3 },
+    { x: 11, y: H - 7, w: 3 },
+    { x: 16, y: H - 5, w: 4 },
 
-    // Mid section — more complex
-    { x: 20, y: H - 5, w: 5 },
-    { x: 26, y: H - 8, w: 3 },
-    { x: 30, y: H - 6, w: 4 },
-    { x: 35, y: H - 9, w: 3 },
-    { x: 39, y: H - 5, w: 5 },
+    // Zone 2: Combat area (tiles 25-48)
+    { x: 25, y: H - 5, w: 5 },
+    { x: 32, y: H - 7, w: 4 },
+    { x: 38, y: H - 5, w: 5 },
+    { x: 44, y: H - 8, w: 3 },
 
-    // After first pit — staggered
-    { x: 48, y: H - 6, w: 3 },
-    { x: 52, y: H - 9, w: 4 },
-    { x: 57, y: H - 7, w: 3 },
-    { x: 61, y: H - 5, w: 4 },
+    // Zone 3: Platforming challenge (tiles 53-75)
+    { x: 53, y: H - 5, w: 3 },
+    { x: 58, y: H - 7, w: 3 },
+    { x: 63, y: H - 5, w: 3 },
+    { x: 58, y: H - 10, w: 4 },
+    { x: 64, y: H - 12, w: 3 },
+    { x: 69, y: H - 9, w: 4 },
+    { x: 74, y: H - 6, w: 3 },
 
-    // Vertical challenge section
-    { x: 65, y: H - 6, w: 2 },
-    { x: 68, y: H - 9, w: 2 },
-    { x: 65, y: H - 12, w: 2 },
-    { x: 68, y: H - 14, w: 3 },
+    // Zone 4: Pre-boss gauntlet (tiles 80-95)
+    { x: 81, y: H - 5, w: 4 },
+    { x: 86, y: H - 8, w: 3 },
+    { x: 91, y: H - 5, w: 4 },
 
-    // High road
-    { x: 75, y: H - 10, w: 6 },
-    { x: 82, y: H - 10, w: 4 },
-    { x: 87, y: H - 8, w: 3 },
-
-    // Final section
-    { x: 100, y: H - 5, w: 5 },
-    { x: 106, y: H - 8, w: 4 },
-    { x: 111, y: H - 6, w: 5 },
+    // Boss arena platforms (tiles 100-118)
+    { x: 104, y: H - 6, w: 4 },
+    { x: 112, y: H - 6, w: 4 },
+    { x: 108, y: H - 10, w: 3 },
   ];
 
   for (const plat of platforms) {
-    const tileType = plat.type ?? 2; // default to one-way platform
     for (let px = plat.x; px < plat.x + plat.w; px++) {
-      if (px < W) level[plat.y][px] = tileType;
+      if (px < W) level[plat.y][px] = 2;
     }
   }
 
-  // -- Walls (solid blocks creating corridors) --
+  // -- Low walls (jumpable — only 2 tiles tall, below jump height) --
   const walls: { x: number; y: number; h: number }[] = [
-    { x: 43, y: H - 6, h: 4 },
-    { x: 44, y: H - 6, h: 4 },
-    { x: 90, y: H - 8, h: 6 },
-    { x: 91, y: H - 8, h: 6 },
+    { x: 47, y: H - 4, h: 2 },
+    { x: 48, y: H - 4, h: 2 },
   ];
   for (const wall of walls) {
     for (let wy = wall.y; wy < wall.y + wall.h && wy < H - 2; wy++) {
@@ -98,37 +88,20 @@ export function createTestLevel(): number[][] {
     }
   }
 
-  // -- Neon accent walls (decorative but solid) --
-  const neonWalls = [
-    { x: 0, yStart: 0, yEnd: H - 2 },  // Left boundary
-    { x: W - 1, yStart: 0, yEnd: H - 2 }, // Right boundary
-  ];
-  for (const nw of neonWalls) {
-    for (let y = nw.yStart; y <= nw.yEnd; y++) {
-      level[y][nw.x] = 3;
-    }
-  }
-
-  // -- Ceiling sections --
-  for (let x = 62; x < 72; x++) {
-    level[H - 16][x] = 1;
-  }
-
-  // -- BOSS ARENA (rightmost section, tiles 100-118) --
-  // Clear the pit at 95 (it's before the arena)
-  // Boss arena walls (sealed during fight)
+  // -- Boundary walls (left and right edges) --
   for (let y = 0; y < H - 2; y++) {
-    level[y][99] = 3; // Left wall of arena
+    level[y][0] = 3;
+    level[y][W - 1] = 3;
   }
-  // Arena floor is already there (ground), with a platform for evasion
-  // Add some arena platforms
-  for (let px = 104; px < 108; px++) {
-    level[H - 6][px] = 2;
+
+  // -- Boss arena entrance wall (neon gate) --
+  // Only covers lower portion — player can walk through a gap at ground level
+  for (let y = 0; y < H - 5; y++) {
+    level[y][99] = 3;
   }
-  for (let px = 110; px < 114; px++) {
-    level[H - 6][px] = 2;
-  }
-  // Arena ceiling for enclosed feel
+  // Gap at tiles H-5 to H-3 lets the player walk into the arena
+
+  // -- Boss arena ceiling --
   for (let x = 100; x < W - 1; x++) {
     level[1][x] = 1;
   }
@@ -136,6 +109,5 @@ export function createTestLevel(): number[][] {
   return level;
 }
 
-/** Boss spawn position in the arena */
-export const BOSS_SPAWN_X = 110 * 16; // tile 110
-export const BOSS_TRIGGER_X = 101 * 16; // player crosses this to trigger boss
+export const BOSS_SPAWN_X = 110 * 16;
+export const BOSS_TRIGGER_X = 101 * 16;

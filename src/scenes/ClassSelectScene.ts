@@ -2,6 +2,9 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../../shared/constants';
 import type { ClassName } from './GameScene';
 
+const FONT = 'Arial, Helvetica, sans-serif';
+const MONO = 'Consolas, "Courier New", monospace';
+
 interface ClassInfo {
   name: string;
   id: ClassName;
@@ -56,47 +59,54 @@ export class ClassSelectScene extends Phaser.Scene {
     bg.fillGradientStyle(0x050510, 0x050510, 0x0a0a2e, 0x0a0a2e, 1);
     bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    this.add.text(GAME_WIDTH / 2, 20, 'CHOOSE YOUR CLASS', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#00ffcc', resolution: 2,
+    this.add.text(GAME_WIDTH / 2, 30, 'CHOOSE YOUR CLASS', {
+      fontSize: '22px', fontFamily: FONT, color: '#00ffcc',
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5);
 
     // Class options
-    const startY = 60;
-    const spacing = 30;
+    const startY = 90;
+    const spacing = 45;
 
     for (let i = 0; i < CLASSES.length; i++) {
       const cls = CLASSES[i];
       const colorStr = '#' + cls.color.toString(16).padStart(6, '0');
       const t = this.add.text(GAME_WIDTH / 2, startY + i * spacing, cls.name, {
-        fontSize: '10px', fontFamily: 'monospace', color: colorStr, resolution: 2,
+        fontSize: '20px', fontFamily: MONO, color: colorStr,
+        fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
       }).setOrigin(0.5);
       this.classTexts.push(t);
     }
 
     // Selection cursor
-    this.cursor = this.add.text(GAME_WIDTH / 2 - 55, startY, '>', {
-      fontSize: '10px', fontFamily: 'monospace', color: '#ffffff', resolution: 2,
+    this.cursor = this.add.text(GAME_WIDTH / 2 - 80, startY, '>', {
+      fontSize: '20px', fontFamily: MONO, color: '#ffffff',
+      stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5);
 
     // Details area
-    this.descText = this.add.text(GAME_WIDTH / 2, 170, '', {
-      fontSize: '6px', fontFamily: 'monospace', color: '#aaaaaa', resolution: 2, wordWrap: { width: 300 },
+    this.descText = this.add.text(GAME_WIDTH / 2, 245, '', {
+      fontSize: '14px', fontFamily: FONT, color: '#aaaaaa',
+      stroke: '#000000', strokeThickness: 1, wordWrap: { width: 500 },
     }).setOrigin(0.5);
 
-    this.statsText = this.add.text(GAME_WIDTH / 2, 185, '', {
-      fontSize: '6px', fontFamily: 'monospace', color: '#888888', resolution: 2,
+    this.statsText = this.add.text(GAME_WIDTH / 2, 270, '', {
+      fontSize: '13px', fontFamily: MONO, color: '#888888',
+      stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
 
-    this.weaponText = this.add.text(GAME_WIDTH / 2, 195, '', {
-      fontSize: '6px', fontFamily: 'monospace', color: '#556677', resolution: 2,
+    this.weaponText = this.add.text(GAME_WIDTH / 2, 292, '', {
+      fontSize: '13px', fontFamily: FONT, color: '#556677',
+      stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
 
     // Preview box
     this.preview = this.add.graphics();
 
     // Controls
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 15, 'UP/DOWN: Select | Z/ENTER: Confirm', {
-      fontSize: '6px', fontFamily: 'monospace', color: '#555555', resolution: 2,
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 22, 'UP/DOWN: Select  |  Z/ENTER: Confirm', {
+      fontSize: '12px', fontFamily: MONO, color: '#555566',
+      stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
 
     // Input
@@ -115,8 +125,8 @@ export class ClassSelectScene extends Phaser.Scene {
 
   private updateSelection() {
     const cls = CLASSES[this.selectedIndex];
-    const startY = 60;
-    const spacing = 30;
+    const startY = 90;
+    const spacing = 45;
 
     // Move cursor
     this.cursor.setY(startY + this.selectedIndex * spacing);
@@ -135,9 +145,9 @@ export class ClassSelectScene extends Phaser.Scene {
     // Preview character
     this.preview.clear();
     this.preview.fillStyle(cls.color);
-    this.preview.fillRect(GAME_WIDTH / 2 - 7, 135, 14, 24);
+    this.preview.fillRect(GAME_WIDTH / 2 - 7, 210, 14, 24);
     this.preview.lineStyle(1, 0xffffff, 0.3);
-    this.preview.strokeRect(GAME_WIDTH / 2 - 7, 135, 14, 24);
+    this.preview.strokeRect(GAME_WIDTH / 2 - 7, 210, 14, 24);
   }
 
   private confirm() {

@@ -1,8 +1,8 @@
 // Game world constants
 export const TILE_SIZE = 16;
-export const GAME_WIDTH = 480;
-export const GAME_HEIGHT = 270;
-export const SCALE = 3; // Render at 480x270, display at 1440x810
+export const GAME_WIDTH = 640;
+export const GAME_HEIGHT = 360;
+export const SCALE = 2; // Render at 640x360, display at 1280x720
 
 // Physics
 export const GRAVITY = 900;

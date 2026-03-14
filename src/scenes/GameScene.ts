@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TILE_SIZE } from '../../shared/constants';
+import { TILE_SIZE, GAME_WIDTH } from '../../shared/constants';
 import { Player } from '../entities/Player';
 import { Gunner } from '../entities/Gunner';
 import { Wraith } from '../entities/Wraith';
@@ -107,8 +107,9 @@ export class GameScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-THREE', () => this.switchClass('wraith'));
 
     const classColors: Record<ClassName, string> = { vanguard: '#4488ff', gunner: '#44ff88', wraith: '#aa44ff' };
-    this.classLabel = this.add.text(240, 4, `${this.currentClass.toUpperCase()}  [1/2/3 | TAB: Inventory]`, {
-      fontSize: '6px', fontFamily: 'monospace', color: classColors[this.currentClass], resolution: 2,
+    this.classLabel = this.add.text(GAME_WIDTH / 2, 6, `${this.currentClass.toUpperCase()}  [1/2/3 | TAB: Inventory]`, {
+      fontSize: '12px', fontFamily: 'Consolas, monospace', color: classColors[this.currentClass],
+      stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5, 0).setScrollFactor(0).setDepth(100);
 
     // -- Background --
@@ -217,7 +218,8 @@ export class GameScene extends Phaser.Scene {
       common: '#aaaaaa', uncommon: '#44cc44', rare: '#4488ff', epic: '#aa44ff', legendary: '#ffaa00',
     };
     const text = this.add.text(x, y, `+ ${name}`, {
-      fontSize: '6px', fontFamily: 'monospace', color: rarityColors[rarity] ?? '#ffffff', resolution: 2,
+      fontSize: '11px', fontFamily: 'Arial, sans-serif', color: rarityColors[rarity] ?? '#ffffff',
+      stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5).setDepth(50);
 
     this.tweens.add({
@@ -234,7 +236,8 @@ export class GameScene extends Phaser.Scene {
     this.inventory.onLevelUp();
     // Flash notification
     const text = this.add.text(this.player.sprite.x, this.player.sprite.y - 30, 'LEVEL UP!', {
-      fontSize: '8px', fontFamily: 'monospace', color: '#ffcc44', resolution: 2,
+      fontSize: '16px', fontFamily: 'Arial, sans-serif', color: '#ffcc44',
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setDepth(50).setScrollFactor(1);
 
     this.tweens.add({
@@ -269,7 +272,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
     this.currentClass = cls;
     const colors: Record<ClassName, string> = { vanguard: '#4488ff', gunner: '#44ff88', wraith: '#aa44ff' };
-    this.classLabel.setText(`${cls.toUpperCase()}  [1/2/3 | TAB: Inventory]`).setColor(colors[cls]);
+    (this.classLabel as Phaser.GameObjects.Text).setText(`${cls.toUpperCase()}  [1/2/3 | TAB: Inventory]`).setColor(colors[cls]);
   }
 
   private spawnEnemies() {

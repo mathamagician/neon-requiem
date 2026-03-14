@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { COLORS, HITSTOP_DURATION_MS } from '../../shared/constants';
+import { COLORS, HITSTOP_DURATION_MS, GAME_WIDTH, GAME_HEIGHT } from '../../shared/constants';
 
 export type BossPhase = 1 | 2 | 3;
 type BossState = 'idle' | 'telegraph' | 'attack' | 'hurt' | 'dead' | 'transition';
@@ -97,11 +97,13 @@ export class Boss {
     // HP bar (screen-fixed, wide bar at top)
     this.hpBarBg = scene.add.graphics().setScrollFactor(0).setDepth(200);
     this.hpBar = scene.add.graphics().setScrollFactor(0).setDepth(201);
-    this.nameText = scene.add.text(240, 248, '', {
-      fontSize: '7px', fontFamily: 'monospace', color: '#ff4444', resolution: 2,
+    this.nameText = scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 28, '', {
+      fontSize: '14px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#ff4444',
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(202);
-    this.phaseText = scene.add.text(240, 258, '', {
-      fontSize: '5px', fontFamily: 'monospace', color: '#ffcc44', resolution: 2,
+    this.phaseText = scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, '', {
+      fontSize: '12px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#ffcc44',
+      stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(202);
 
     // Start hidden
@@ -259,7 +261,8 @@ export class Boss {
       // Show power absorbed text
       const text = this.scene.add.text(this.sprite.x, this.sprite.y - 50,
         'POWER ABSORBED: CHAIN LIGHTNING', {
-          fontSize: '7px', fontFamily: 'monospace', color: '#00ffcc', resolution: 2,
+          fontSize: '14px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#00ffcc',
+          fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
         }).setOrigin(0.5).setDepth(100);
 
       this.scene.tweens.add({
@@ -498,10 +501,10 @@ export class Boss {
   }
 
   private drawHpBar() {
-    const barW = 200;
-    const barH = 5;
-    const x = 240 - barW / 2;
-    const y = 244;
+    const barW = 300;
+    const barH = 8;
+    const x = GAME_WIDTH / 2 - barW / 2;
+    const y = GAME_HEIGHT - 46;
     const ratio = Math.max(0, this.hp / this.maxHp);
 
     this.hpBarBg.clear();

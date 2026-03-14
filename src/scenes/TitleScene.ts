@@ -25,22 +25,26 @@ export class TitleScene extends Phaser.Scene {
     }
 
     // Title
-    this.add.text(GAME_WIDTH / 2, 60, 'NEON', {
-      fontSize: '24px', fontFamily: 'monospace', color: '#00ffcc', resolution: 2,
+    this.add.text(GAME_WIDTH / 2, 80, 'NEON', {
+      fontSize: '48px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#00ffcc',
+      fontStyle: 'bold', stroke: '#003333', strokeThickness: 4,
     }).setOrigin(0.5);
 
-    this.add.text(GAME_WIDTH / 2, 90, 'REQUIEM', {
-      fontSize: '24px', fontFamily: 'monospace', color: '#ff2244', resolution: 2,
+    this.add.text(GAME_WIDTH / 2, 130, 'REQUIEM', {
+      fontSize: '48px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#ff2244',
+      fontStyle: 'bold', stroke: '#330011', strokeThickness: 4,
     }).setOrigin(0.5);
 
     // Subtitle
-    this.add.text(GAME_WIDTH / 2, 120, 'Where dark magic meets dying technology', {
-      fontSize: '6px', fontFamily: 'monospace', color: '#556677', resolution: 2,
+    this.add.text(GAME_WIDTH / 2, 170, 'Where dark magic meets dying technology', {
+      fontSize: '14px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#556677',
+      stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
 
     // Pulsing "Press any key"
-    const startText = this.add.text(GAME_WIDTH / 2, 180, 'PRESS ANY KEY TO START', {
-      fontSize: '8px', fontFamily: 'monospace', color: '#ffffff', resolution: 2,
+    const startText = this.add.text(GAME_WIDTH / 2, 230, 'PRESS ANY KEY TO START', {
+      fontSize: '16px', fontFamily: 'Consolas, "Courier New", monospace', color: '#ffffff',
+      stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5);
 
     this.tweens.add({
@@ -52,12 +56,14 @@ export class TitleScene extends Phaser.Scene {
     });
 
     // Credits
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, 'A game by Eddie, Changa & Tai', {
-      fontSize: '5px', fontFamily: 'monospace', color: '#444455', resolution: 2,
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 40, 'A game by Eddie, Changa & Tai', {
+      fontSize: '13px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#444455',
+      stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 12, 'v0.1.0 - Phase 5 Prototype', {
-      fontSize: '5px', fontFamily: 'monospace', color: '#333344', resolution: 2,
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, 'v0.1.0 - Phase 5 Prototype', {
+      fontSize: '12px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#333344',
+      stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
 
     // Any key to continue
