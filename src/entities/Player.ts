@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { safeShake } from '../systems/AccessibilitySettings';
 import {
   PLAYER_SPEED,
   PLAYER_JUMP_VELOCITY,
@@ -368,7 +369,7 @@ export class Player {
     this.body.setVelocityY(-120);
 
     // Screen shake
-    this.scene.cameras.main.shake(100, 0.01);
+    safeShake(this.scene.cameras.main, 100, 0.01);
 
     // Hit particles
     this.hitEmitter.emitParticleAt(this.sprite.x, this.sprite.y - 12, 8);
@@ -390,7 +391,7 @@ export class Player {
   /** Called when the player's attack hits an enemy */
   onAttackHit(time: number) {
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
-    this.scene.cameras.main.shake(50, 0.005);
+    safeShake(this.scene.cameras.main, 50, 0.005);
     this.gainEnergy(3);
   }
 

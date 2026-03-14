@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { safeShake } from '../systems/AccessibilitySettings';
 import { COLORS, HITSTOP_DURATION_MS, GAME_WIDTH, GAME_HEIGHT } from '../../shared/constants';
 
 type BossPhase = 1 | 2 | 3;
@@ -132,7 +133,7 @@ export class HollowKing {
     this.hpBar.setVisible(true);
     this.nameText.setText(this.name);
 
-    this.scene.cameras.main.shake(300, 0.015);
+    safeShake(this.scene.cameras.main, 300, 0.015);
     this.scene.cameras.main.flash(200, 50, 0, 150);
   }
 
@@ -207,18 +208,39 @@ export class HollowKing {
     this.checkHazardHits(player, time);
   }
 
-  takeDamage(amount: number, _sourceX: number, time: number) {
+  /** Power this boss is weak to — takes 1.5x damage */
+  readonly weakTo = 'chain_lightning';
+
+  takeDamage(amount: number, _sourceX: number, time: number, powerId?: string) {
     if (this.state === 'dead' || this.state === 'transition') return;
 
-    this.hp = Math.max(0, this.hp - amount);
+    let finalDmg = amount;
+    let isWeak = false;
+    if (powerId && powerId === this.weakTo) {
+      finalDmg = Math.round(amount * 1.5);
+      isWeak = true;
+    }
+
+    this.hp = Math.max(0, this.hp - finalDmg);
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
 
-    this.sprite.setTint(0xffffff);
+    this.sprite.setTint(isWeak ? 0xffff00 : 0xffffff);
     this.scene.time.delayedCall(100, () => {
       if (this.state !== 'dead') this.sprite.clearTint();
     });
 
-    this.scene.cameras.main.shake(60, 0.008);
+    if (isWeak) {
+      const weakText = this.scene.add.text(this.sprite.x, this.sprite.y - 40, 'WEAK!', {
+        fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#ffff44',
+        fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5).setDepth(50);
+      this.scene.tweens.add({
+        targets: weakText, y: weakText.y - 16, alpha: 0, duration: 700,
+        onComplete: () => weakText.destroy(),
+      });
+    }
+
+    safeShake(this.scene.cameras.main, isWeak ? 80 : 60, isWeak ? 0.012 : 0.008);
 
     if (this.hp <= 0) this.die();
   }
@@ -228,7 +250,7 @@ export class HollowKing {
     this.cleanupHazards();
     this.cleanupSkulls();
 
-    this.scene.cameras.main.shake(500, 0.03);
+    safeShake(this.scene.cameras.main, 500, 0.03);
 
     // Explosion sequence — blue/purple themed
     for (let i = 0; i < 5; i++) {
@@ -269,7 +291,7 @@ export class HollowKing {
       });
 
       if (gameScene.absorbBossPower) {
-        gameScene.absorbBossPower(this.powerId);
+        gameScene.absorbBossPower(this.powerId, 'hollow_king');
       }
 
       if (gameScene.spawnLootDrop) {
@@ -291,7 +313,7 @@ export class HollowKing {
     this.attackTimer = 1000;
     this.cleanupHazards();
     this.phaseText.setText(`PHASE ${this.phase}`);
-    this.scene.cameras.main.shake(200, 0.02);
+    safeShake(this.scene.cameras.main, 200, 0.02);
     this.scene.cameras.main.flash(150, 50, 0, 200);
   }
 
@@ -471,7 +493,7 @@ export class HollowKing {
       }
     });
 
-    this.scene.cameras.main.shake(100, 0.01);
+    safeShake(this.scene.cameras.main, 100, 0.01);
   }
 
   /** Update homing skulls */

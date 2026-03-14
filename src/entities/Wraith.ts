@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { safeShake } from '../systems/AccessibilitySettings';
 import {
   PLAYER_SPEED,
   PLAYER_JUMP_VELOCITY,
@@ -377,7 +378,7 @@ export class Wraith {
     const dir = this.sprite.x < sourceX ? -1 : 1;
     this.body.setVelocityX(dir * KNOCKBACK_VELOCITY * 1.2); // Wraith gets knocked further
     this.body.setVelocityY(-120);
-    this.scene.cameras.main.shake(100, 0.01);
+    safeShake(this.scene.cameras.main, 100, 0.01);
     this.sprite.setTint(0xff4444);
     this.scene.time.delayedCall(100, () => this.sprite.clearTint());
     this.state = 'hurt';
@@ -389,7 +390,7 @@ export class Wraith {
 
   onAttackHit(time: number) {
     this.hitstopUntil = time + HITSTOP_DURATION_MS * 0.6; // Shorter hitstop for fast attacks
-    this.scene.cameras.main.shake(30, 0.003);
+    safeShake(this.scene.cameras.main, 30, 0.003);
 
     // Crit check — base crit + skill bonuses
     const inv = (this.scene as any).getInventory?.();
@@ -397,7 +398,7 @@ export class Wraith {
     this.lastHitWasCrit = Math.random() < (this.critChance + skillCritBonus);
     if (this.lastHitWasCrit) {
       this.critEmitter.emitParticleAt(this.sprite.x + (this.facingRight ? 15 : -15), this.sprite.y - 10, 6);
-      this.scene.cameras.main.shake(60, 0.008);
+      safeShake(this.scene.cameras.main, 60, 0.008);
     }
 
     this.gainEnergy(2);

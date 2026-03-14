@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { safeShake } from '../systems/AccessibilitySettings';
 import {
   PLAYER_SPEED,
   PLAYER_JUMP_VELOCITY,
@@ -371,7 +372,7 @@ export class Gunner {
     const dir = this.sprite.x < sourceX ? -1 : 1;
     this.body.setVelocityX(dir * KNOCKBACK_VELOCITY);
     this.body.setVelocityY(-120);
-    this.scene.cameras.main.shake(100, 0.01);
+    safeShake(this.scene.cameras.main, 100, 0.01);
     this.sprite.setTint(0xff4444);
     this.scene.time.delayedCall(100, () => this.sprite.clearTint());
     this.state = 'hurt';

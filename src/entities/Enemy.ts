@@ -9,7 +9,7 @@ import {
   COLORS,
 } from '../../shared/constants';
 
-export type EnemyType = 'grunt' | 'ranged' | 'flyer';
+export type EnemyType = 'grunt' | 'ranged' | 'flyer' | 'skeleton' | 'ghost' | 'bone_archer';
 
 type EnemyState = 'patrol' | 'chase' | 'attack' | 'hurt' | 'dead';
 
@@ -22,9 +22,14 @@ interface EnemyStats {
 }
 
 const ENEMY_CONFIGS: Record<EnemyType, EnemyStats> = {
+  // Neon Foundry enemies
   grunt: { hp: 30, damage: 10, speed: ENEMY_PATROL_SPEED, xpValue: 15, textureKey: 'enemy-grunt' },
   ranged: { hp: 20, damage: 8, speed: ENEMY_PATROL_SPEED * 0.7, xpValue: 20, textureKey: 'enemy-ranged' },
   flyer: { hp: 15, damage: 6, speed: ENEMY_PATROL_SPEED * 1.2, xpValue: 18, textureKey: 'enemy-flyer' },
+  // Cryptvault enemies
+  skeleton: { hp: 35, damage: 12, speed: ENEMY_PATROL_SPEED * 0.9, xpValue: 18, textureKey: 'enemy-skeleton' },
+  ghost: { hp: 20, damage: 8, speed: ENEMY_PATROL_SPEED * 1.3, xpValue: 22, textureKey: 'enemy-ghost' },
+  bone_archer: { hp: 22, damage: 10, speed: ENEMY_PATROL_SPEED * 0.6, xpValue: 25, textureKey: 'enemy-bone-archer' },
 };
 
 export class Enemy {
@@ -69,7 +74,7 @@ export class Enemy {
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setCollideWorldBounds(true);
 
-    if (type === 'flyer') {
+    if (type === 'flyer' || type === 'ghost') {
       this.body.setAllowGravity(false);
     }
 
@@ -149,7 +154,7 @@ export class Enemy {
 
     this.body.setVelocityX(this.patrolDir * this.speed);
 
-    if (this.type === 'flyer') {
+    if (this.type === 'flyer' || this.type === 'ghost') {
       this.body.setVelocityY(Math.sin(Date.now() * 0.003) * 20);
     }
   }
@@ -158,7 +163,7 @@ export class Enemy {
     const chaseSpeed = ENEMY_CHASE_SPEED;
     this.body.setVelocityX(distX > 0 ? chaseSpeed : -chaseSpeed);
 
-    if (this.type === 'flyer') {
+    if (this.type === 'flyer' || this.type === 'ghost') {
       this.body.setVelocityY(distY > 0 ? chaseSpeed * 0.6 : -chaseSpeed * 0.6);
     }
   }
@@ -166,7 +171,7 @@ export class Enemy {
   private doAttack(_player: any) {
     this.attackCooldown = 1000;
 
-    if (this.type === 'ranged') {
+    if (this.type === 'ranged' || this.type === 'bone_archer') {
       this.shootProjectile(_player);
     }
     // Grunt/flyer damage is handled by contact collision in CombatSystem
@@ -210,7 +215,7 @@ export class Enemy {
     // Knockback
     const dir = this.sprite.x < sourceX ? -1 : 1;
     this.body.setVelocityX(dir * KNOCKBACK_VELOCITY);
-    if (this.type !== 'flyer') {
+    if (this.type !== 'flyer' && this.type !== 'ghost') {
       this.body.setVelocityY(-80);
     }
 

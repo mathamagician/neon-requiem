@@ -33,11 +33,11 @@ export class BossPowerSystem {
     const damageMultiplier = 1 + (arcana - 5) * 0.03;
     const damage = Math.round(power.baseDamage * damageMultiplier);
 
-    // Execute the power
+    // Execute the power (pass power.id for weakness checks)
     switch (power.id) {
-      case 'chain_lightning': this.chainLightning(damage, power.color); break;
-      case 'soul_drain': this.soulDrain(damage, power.color); break;
-      default: this.genericProjectile(damage, power); break;
+      case 'chain_lightning': this.chainLightning(damage, power.color, power.id); break;
+      case 'soul_drain': this.soulDrain(damage, power.color, power.id); break;
+      default: this.genericProjectile(damage, power, power.id); break;
     }
 
     return true;
@@ -54,7 +54,7 @@ export class BossPowerSystem {
   }
 
   /** Chain Lightning: arcs between nearby enemies */
-  private chainLightning(damage: number, color: number) {
+  private chainLightning(damage: number, color: number, powerId: string) {
     const player = this.scene.player;
     const px = player.sprite.x;
     const py = player.sprite.y - 12;
@@ -104,13 +104,13 @@ export class BossPowerSystem {
           arc.lineStyle(2, color, 0.8);
           this.drawLightningArc(arc, bolt.x, bolt.y, boss.sprite.x, boss.sprite.y - 20);
           this.scene.time.delayedCall(150, () => arc.destroy());
-          boss.takeDamage(Math.round(damage * 0.6), bolt.x, this.scene.time.now);
+          boss.takeDamage(Math.round(damage * 0.6), bolt.x, this.scene.time.now, powerId);
         }
       }
     });
 
     // Hit detection for main bolt
-    this.addPlayerProjectileHitDetection(bolt, damage);
+    this.addPlayerProjectileHitDetection(bolt, damage, powerId);
 
     // Auto-destroy
     this.scene.time.delayedCall(1000, () => { if (bolt.active) bolt.destroy(); });
@@ -120,7 +120,7 @@ export class BossPowerSystem {
   }
 
   /** Soul Drain: melee-range hit that heals the player */
-  private soulDrain(damage: number, color: number) {
+  private soulDrain(damage: number, color: number, powerId: string) {
     const player = this.scene.player;
     const dir = player.facingRight ? 1 : -1;
     const sx = player.sprite.x + dir * 20;
@@ -156,7 +156,7 @@ export class BossPowerSystem {
     const boss = this.scene.getBoss();
     if (boss && boss.isActive && boss.state !== 'dead') {
       if (Phaser.Geom.Rectangle.Overlaps(zoneBounds, boss.sprite.getBounds())) {
-        boss.takeDamage(damage, sx, this.scene.time.now);
+        boss.takeDamage(damage, sx, this.scene.time.now, powerId);
         healed = true;
       }
     }
@@ -185,7 +185,7 @@ export class BossPowerSystem {
   }
 
   /** Generic projectile for powers without specific implementations yet */
-  private genericProjectile(damage: number, power: BossPowerDef) {
+  private genericProjectile(damage: number, power: BossPowerDef, powerId: string) {
     const player = this.scene.player;
     const dir = player.facingRight ? 1 : -1;
 
@@ -203,14 +203,12 @@ export class BossPowerSystem {
     (proj as any).isPlayerPower = true;
     this.activeEffects.push(proj);
 
-    this.addPlayerProjectileHitDetection(proj, damage);
+    this.addPlayerProjectileHitDetection(proj, damage, powerId);
     this.scene.time.delayedCall(1500, () => { if (proj.active) proj.destroy(); });
   }
 
   /** Add hit detection for a player-fired projectile */
-  private addPlayerProjectileHitDetection(proj: Phaser.Physics.Arcade.Sprite, damage: number) {
-    // We'll check hits in the CombatSystem update — register this as a player projectile
-    // For now, do manual overlap check each frame
+  private addPlayerProjectileHitDetection(proj: Phaser.Physics.Arcade.Sprite, damage: number, powerId?: string) {
     const checkHits = () => {
       if (!proj.active) return;
       const projBounds = proj.getBounds();
@@ -230,11 +228,11 @@ export class BossPowerSystem {
         }
       }
 
-      // Boss
+      // Boss (pass powerId for weakness check)
       const boss = this.scene.getBoss();
       if (boss && boss.isActive && boss.state !== 'dead') {
         if (Phaser.Geom.Rectangle.Overlaps(projBounds, boss.sprite.getBounds())) {
-          boss.takeDamage(damage, proj.x, this.scene.time.now);
+          boss.takeDamage(damage, proj.x, this.scene.time.now, powerId);
           this.scene.player.onAttackHit(this.scene.time.now);
           proj.setActive(false).setVisible(false);
           if (proj.body) proj.body.enable = false;

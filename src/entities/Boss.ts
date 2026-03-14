@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { safeShake } from '../systems/AccessibilitySettings';
 import { COLORS, HITSTOP_DURATION_MS, GAME_WIDTH, GAME_HEIGHT } from '../../shared/constants';
 
 export type BossPhase = 1 | 2 | 3;
@@ -124,7 +125,7 @@ export class Boss {
     this.nameText.setText(this.name);
 
     // Dramatic entrance
-    this.scene.cameras.main.shake(300, 0.015);
+    safeShake(this.scene.cameras.main, 300, 0.015);
     this.scene.cameras.main.flash(200, 0, 100, 200);
   }
 
@@ -205,19 +206,42 @@ export class Boss {
     this.checkHazardHits(player, time);
   }
 
-  takeDamage(amount: number, _sourceX: number, time: number) {
+  /** Power this boss is weak to — takes 1.5x damage */
+  readonly weakTo = 'soul_drain';
+
+  takeDamage(amount: number, _sourceX: number, time: number, powerId?: string) {
     if (this.state === 'dead' || this.state === 'transition') return;
 
-    this.hp = Math.max(0, this.hp - amount);
+    // Weakness check: 1.5x damage from the countering power
+    let finalDmg = amount;
+    let isWeak = false;
+    if (powerId && powerId === this.weakTo) {
+      finalDmg = Math.round(amount * 1.5);
+      isWeak = true;
+    }
+
+    this.hp = Math.max(0, this.hp - finalDmg);
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
 
-    // Flash
-    this.sprite.setTint(0xffffff);
+    // Flash — yellow for weakness, white for normal
+    this.sprite.setTint(isWeak ? 0xffff00 : 0xffffff);
     this.scene.time.delayedCall(100, () => {
       if (this.state !== 'dead') this.sprite.clearTint();
     });
 
-    this.scene.cameras.main.shake(60, 0.008);
+    // Show "WEAK!" text on weakness hit
+    if (isWeak) {
+      const weakText = this.scene.add.text(this.sprite.x, this.sprite.y - 40, 'WEAK!', {
+        fontSize: '14px', fontFamily: 'Arial, sans-serif', color: '#ffff44',
+        fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
+      }).setOrigin(0.5).setDepth(50);
+      this.scene.tweens.add({
+        targets: weakText, y: weakText.y - 16, alpha: 0, duration: 700,
+        onComplete: () => weakText.destroy(),
+      });
+    }
+
+    safeShake(this.scene.cameras.main, isWeak ? 80 : 60, isWeak ? 0.012 : 0.008);
 
     if (this.hp <= 0) {
       this.die();
@@ -229,7 +253,7 @@ export class Boss {
     this.cleanupHazards();
 
     // Explosion sequence
-    this.scene.cameras.main.shake(500, 0.03);
+    safeShake(this.scene.cameras.main, 500, 0.03);
 
     // Multiple explosions
     for (let i = 0; i < 5; i++) {
@@ -277,7 +301,7 @@ export class Boss {
 
       // Add boss power to inventory
       if (gameScene.absorbBossPower) {
-        gameScene.absorbBossPower(this.powerId);
+        gameScene.absorbBossPower(this.powerId, 'voltrexx');
       }
 
       // Spawn loot
@@ -302,7 +326,7 @@ export class Boss {
     this.phaseText.setText(`PHASE ${this.phase}`);
 
     // Screen effects
-    this.scene.cameras.main.shake(200, 0.02);
+    safeShake(this.scene.cameras.main, 200, 0.02);
     this.scene.cameras.main.flash(150, 255, 200, 0);
   }
 
@@ -357,7 +381,7 @@ export class Boss {
 
   /** Ground slam — shockwave along the floor */
   private attackGroundSlam() {
-    this.scene.cameras.main.shake(150, 0.015);
+    safeShake(this.scene.cameras.main, 150, 0.015);
 
     // Two shockwaves going left and right
     for (const dir of [-1, 1]) {
@@ -457,7 +481,7 @@ export class Boss {
 
   /** Electric storm — rain of projectiles from above */
   private attackElectricStorm() {
-    this.scene.cameras.main.shake(300, 0.01);
+    safeShake(this.scene.cameras.main, 300, 0.01);
 
     for (let i = 0; i < 8; i++) {
       this.scene.time.delayedCall(i * 100, () => {

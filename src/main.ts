@@ -6,6 +6,8 @@ import { HUDScene } from './scenes/HUDScene';
 import { InventoryScene } from './scenes/InventoryScene';
 import { TitleScene } from './scenes/TitleScene';
 import { ClassSelectScene } from './scenes/ClassSelectScene';
+import { ShopScene } from './scenes/ShopScene';
+import { SettingsScene } from './scenes/SettingsScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.WEBGL,
@@ -21,7 +23,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false, // Toggle with F1 in-game
     },
   },
-  scene: [BootScene, TitleScene, ClassSelectScene, GameScene, HUDScene, InventoryScene],
+  scene: [BootScene, TitleScene, ClassSelectScene, GameScene, HUDScene, InventoryScene, ShopScene, SettingsScene],
   parent: document.body,
 };
 
