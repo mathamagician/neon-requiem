@@ -53,6 +53,10 @@ export class Enemy {
   private hitstopUntil = 0;
   private spawnX: number;
 
+  // Deferred knockback — applied when hitstop ends
+  private pendingKnockbackX = 0;
+  private pendingKnockbackY = 0;
+
   // HP bar
   private hpBarBg: Phaser.GameObjects.Graphics;
   private hpBar: Phaser.GameObjects.Graphics;
@@ -92,16 +96,26 @@ export class Enemy {
   update(_time: number, delta: number) {
     if (this.state === 'dead') return;
 
-    // Hitstop
+    // Hitstop — freeze in place
     if (_time < this.hitstopUntil) {
-      this.body.setVelocity(0, this.type === 'flyer' ? 0 : this.body.velocity.y);
+      this.body.setVelocity(0, 0);
       return;
     }
 
-    // Hurt recovery — apply friction so enemies decelerate after knockback
+    // Apply deferred knockback when hitstop just ended
+    if (this.pendingKnockbackX !== 0 || this.pendingKnockbackY !== 0) {
+      this.body.setVelocityX(this.pendingKnockbackX);
+      this.body.setVelocityY(this.pendingKnockbackY);
+      this.pendingKnockbackX = 0;
+      this.pendingKnockbackY = 0;
+    }
+
+    // Hurt recovery — decelerate after knockback
     if (this.state === 'hurt') {
       this.hurtTimer -= delta;
-      this.body.setVelocityX(this.body.velocity.x * 0.85);
+      // Strong friction to stop sliding quickly
+      this.body.setVelocityX(this.body.velocity.x * 0.8);
+      if (Math.abs(this.body.velocity.x) < 5) this.body.setVelocityX(0);
       if (this.hurtTimer <= 0) this.state = 'patrol';
       this.drawHpBar();
       return;
@@ -136,6 +150,11 @@ export class Enemy {
     // Face direction
     this.facingRight = this.body.velocity.x > 0;
     this.sprite.setFlipX(!this.facingRight);
+
+    // Walk bobbing — subtle vertical oscillation to show movement
+    if (this.type !== 'flyer' && this.type !== 'ghost' && Math.abs(this.body.velocity.x) > 10 && this.body.onFloor()) {
+      this.sprite.y += Math.sin(_time * 0.012) * 0.5;
+    }
 
     this.drawHpBar();
   }
@@ -213,12 +232,13 @@ export class Enemy {
     this.hp -= amount;
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
 
-    // Knockback
+    // Defer knockback until after hitstop ends
     const dir = this.sprite.x < sourceX ? -1 : 1;
-    this.body.setVelocityX(dir * KNOCKBACK_VELOCITY);
-    if (this.type !== 'flyer' && this.type !== 'ghost') {
-      this.body.setVelocityY(-80);
-    }
+    this.pendingKnockbackX = dir * KNOCKBACK_VELOCITY;
+    this.pendingKnockbackY = (this.type !== 'flyer' && this.type !== 'ghost') ? -80 : 0;
+
+    // Freeze immediately for hitstop
+    this.body.setVelocity(0, 0);
 
     // Flash white
     this.sprite.setTint(0xffffff);

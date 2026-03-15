@@ -59,7 +59,7 @@ export class Boss {
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
-    this.maxHp = 300;
+    this.maxHp = 500;
     this.hp = this.maxHp;
 
     // Arena bounds (boss fight area)
