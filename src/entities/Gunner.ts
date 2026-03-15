@@ -82,8 +82,8 @@ export class Gunner {
     this.sprite = scene.physics.add.sprite(x, y, 'player-gunner');
     this.sprite.setOrigin(0.5, 1);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    this.body.setSize(12, 16);
-    this.body.setOffset(2, 1);
+    this.body.setSize(14, 36);
+    this.body.setOffset(9, 5);
     this.body.setCollideWorldBounds(true);
     this.body.setMaxVelocityY(600);
     (this.sprite as any).owner = this;
@@ -272,7 +272,7 @@ export class Gunner {
 
     // Spawn position offset in aim direction
     const spawnOffX = aim.x * 12;
-    const spawnOffY = -8 + aim.y * 6;
+    const spawnOffY = -16 + aim.y * 8;
 
     const proj = this.projectiles.get(
       this.sprite.x + spawnOffX,
@@ -357,7 +357,7 @@ export class Gunner {
     const ratio = Math.min(1, this.chargeTime / this.CHARGE_THRESHOLD);
     const aim = this.getAimDirection();
     const x = this.sprite.x + aim.x * 10;
-    const y = this.sprite.y - 8 + aim.y * 6;
+    const y = this.sprite.y - 16 + aim.y * 6;
 
     if (ratio >= 1) {
       // Fully charged — glow

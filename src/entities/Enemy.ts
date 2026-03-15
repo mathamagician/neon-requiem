@@ -78,6 +78,15 @@ export class Enemy {
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setCollideWorldBounds(true);
 
+    // Set body size for upgraded sprites
+    if (type === 'ghost') {
+      this.body.setSize(12, 14);
+      this.body.setOffset(4, 2);
+    } else {
+      this.body.setSize(14, 18);
+      this.body.setOffset(3, 2);
+    }
+
     if (type === 'flyer' || type === 'ghost') {
       this.body.setAllowGravity(false);
     }

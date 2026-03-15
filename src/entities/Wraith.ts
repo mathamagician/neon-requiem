@@ -90,8 +90,8 @@ export class Wraith {
     this.sprite = scene.physics.add.sprite(x, y, 'player-wraith');
     this.sprite.setOrigin(0.5, 1);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    this.body.setSize(10, 16);
-    this.body.setOffset(3, 1);
+    this.body.setSize(12, 36);
+    this.body.setOffset(14, 5);
     this.body.setCollideWorldBounds(true);
     this.body.setMaxVelocityY(600);
     (this.sprite as any).owner = this;

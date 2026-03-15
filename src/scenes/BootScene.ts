@@ -1,17 +1,6 @@
 import Phaser from 'phaser';
 import { TILE_SIZE, COLORS } from '../../shared/constants';
-import {
-  renderPixelSprite,
-  VANGUARD_SPRITE,
-  GUNNER_SPRITE,
-  WRAITH_SPRITE,
-  WORKER_BOT_SPRITE,
-  SLAG_GOLEM_SPRITE,
-  PLANT_CREATURE_SPRITE,
-  SKELETON_SPRITE,
-  GHOST_SPRITE,
-  BONE_ARCHER_SPRITE,
-} from '../art/spriteData';
+import { generateUpgradedSprites } from '../art/spriteRenderer';
 
 /**
  * BootScene generates all placeholder textures using detailed pixel art
@@ -23,21 +12,11 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // -- Player characters (pixel art) --
-    renderPixelSprite(this, 'player', VANGUARD_SPRITE);
-    renderPixelSprite(this, 'player-gunner', GUNNER_SPRITE);
-    renderPixelSprite(this, 'player-wraith', WRAITH_SPRITE);
+    // -- Generate upgraded pixel art sprites (characters + enemies) --
+    generateUpgradedSprites(this);
 
     // -- Player sword swing (attack hitbox visual) --
     this.generateRect('slash', 20, 8, 0xaaddff, 0.7);
-
-    // -- Enemies (pixel art) --
-    renderPixelSprite(this, 'enemy-grunt', WORKER_BOT_SPRITE);
-    renderPixelSprite(this, 'enemy-ranged', SLAG_GOLEM_SPRITE);
-    renderPixelSprite(this, 'enemy-flyer', PLANT_CREATURE_SPRITE);
-    renderPixelSprite(this, 'enemy-skeleton', SKELETON_SPRITE);
-    renderPixelSprite(this, 'enemy-ghost', GHOST_SPRITE);
-    renderPixelSprite(this, 'enemy-bone-archer', BONE_ARCHER_SPRITE);
 
     // -- NPCs --
     this.generateRect('npc-shopkeeper', 14, 22, 0xccaa66);
