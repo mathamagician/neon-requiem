@@ -13,7 +13,7 @@ import {
   COLORS,
 } from '../../shared/constants';
 
-type PlayerState = 'idle' | 'run' | 'jump' | 'fall' | 'attack' | 'hurt' | 'dash';
+type PlayerState = 'idle' | 'run' | 'jump' | 'fall' | 'attack' | 'hurt' | 'dash' | 'shield';
 
 export class Player {
   scene: Phaser.Scene;
@@ -54,12 +54,21 @@ export class Player {
   private readonly DASH_SPEED = 300;
   private readonly DASH_COOLDOWN = 600;
 
+  // Shield system — Vanguard's signature mechanic
+  isShielding = false;
+  private shieldHp = 50;
+  private maxShieldHp = 50;
+  private shieldRegenDelay = 0; // ms until shield starts regenerating
+  private shieldGraphic: Phaser.GameObjects.Graphics;
+  private shieldFlashUntil = 0;
+
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: {
     attack: Phaser.Input.Keyboard.Key;
     dash: Phaser.Input.Keyboard.Key;
     up: Phaser.Input.Keyboard.Key;
+    shield: Phaser.Input.Keyboard.Key;
   };
 
   // Particles
@@ -91,7 +100,12 @@ export class Player {
       attack: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z),
       dash: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.X),
       up: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+      shield: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
     };
+
+    // Shield visual
+    this.shieldGraphic = scene.add.graphics();
+    this.shieldGraphic.setDepth(12);
 
     // Particles
     this.dustEmitter = scene.add.particles(0, 0, 'particle', {
@@ -181,6 +195,9 @@ export class Player {
     // Hurt state
     if (this.state === 'hurt') return;
 
+    // Shield
+    this.handleShield(delta);
+
     // Handle input
     this.handleMovement(onFloor);
     this.handleJump(onFloor);
@@ -194,6 +211,9 @@ export class Player {
     if (onFloor && !this.wasOnFloor) {
       this.emitDust(4);
     }
+
+    // Draw shield visual
+    this.drawShield(time);
   }
 
   private handleMovement(onFloor: boolean) {
@@ -203,15 +223,18 @@ export class Player {
       return;
     }
 
+    // Slow movement while shielding
+    const shieldMult = this.isShielding ? 0.4 : 1;
+
     const left = this.cursors.left.isDown;
     const right = this.cursors.right.isDown;
 
     if (left) {
-      this.body.setVelocityX(-PLAYER_SPEED);
+      this.body.setVelocityX(-PLAYER_SPEED * shieldMult);
       this.facingRight = false;
       this.sprite.setFlipX(true);
     } else if (right) {
-      this.body.setVelocityX(PLAYER_SPEED);
+      this.body.setVelocityX(PLAYER_SPEED * shieldMult);
       this.facingRight = true;
       this.sprite.setFlipX(false);
     } else {
@@ -336,6 +359,8 @@ export class Player {
   private updateState(onFloor: boolean) {
     if (this.isDashing) {
       this.state = 'dash';
+    } else if (this.isShielding) {
+      this.state = 'shield';
     } else if (this.isAttacking) {
       this.state = 'attack';
     } else if (!onFloor && this.body.velocity.y < 0) {
@@ -416,6 +441,89 @@ export class Player {
 
   gainEnergy(amount: number) {
     this.energy = Math.min(this.maxEnergy, this.energy + amount);
+  }
+
+  private handleShield(delta: number) {
+    this.isShielding = this.keys.shield.isDown && !this.isDashing && !this.isAttacking;
+
+    // Shield regen when not blocking
+    if (!this.isShielding) {
+      if (this.shieldRegenDelay > 0) {
+        this.shieldRegenDelay -= delta;
+      } else {
+        this.shieldHp = Math.min(this.maxShieldHp, this.shieldHp + delta * 0.02);
+      }
+    }
+  }
+
+  /** Called when shield absorbs a hit. Returns true if shield blocked, false if shield broke. */
+  shieldBlock(damage: number, time: number): boolean {
+    if (!this.isShielding || this.shieldHp <= 0) return false;
+
+    // Check facing: only blocks attacks from the front
+    // (caller must verify source direction)
+
+    const absorbed = Math.min(this.shieldHp, damage);
+    this.shieldHp -= absorbed;
+    this.shieldRegenDelay = 1500; // 1.5s before shield starts regenerating
+    this.shieldFlashUntil = time + 100;
+
+    // Convert absorbed damage to energy — this is the Vanguard's unique resource loop
+    this.gainEnergy(Math.ceil(absorbed * 0.4));
+
+    // Shield break
+    if (this.shieldHp <= 0) {
+      this.shieldHp = 0;
+      this.shieldRegenDelay = 3000; // Longer regen delay on break
+      // Stagger the player briefly
+      safeShake(this.scene.cameras.main, 80, 0.008);
+      return false; // Shield broke — remaining damage gets through
+    }
+
+    // Successful block — knockback is reduced
+    safeShake(this.scene.cameras.main, 40, 0.004);
+    return true;
+  }
+
+  private drawShield(time: number) {
+    this.shieldGraphic.clear();
+    if (!this.isShielding && this.shieldHp >= this.maxShieldHp) return;
+
+    const dir = this.facingRight ? 1 : -1;
+    const sx = this.sprite.x + dir * 10;
+    const sy = this.sprite.y - 20;
+
+    if (this.isShielding) {
+      // Shield arc
+      const flash = time < this.shieldFlashUntil;
+      const color = flash ? 0xffffff : COLORS.vanguard;
+      const alpha = 0.4 + (this.shieldHp / this.maxShieldHp) * 0.4;
+      this.shieldGraphic.lineStyle(2, color, alpha);
+      // Draw arc facing direction
+      const startAngle = this.facingRight ? -1.2 : Math.PI - 1.2 + 0.8;
+      this.shieldGraphic.beginPath();
+      this.shieldGraphic.arc(sx, sy, 12, startAngle, startAngle + 1.6, false);
+      this.shieldGraphic.strokePath();
+
+      // Inner glow
+      this.shieldGraphic.lineStyle(1, color, alpha * 0.5);
+      this.shieldGraphic.beginPath();
+      this.shieldGraphic.arc(sx, sy, 10, startAngle, startAngle + 1.6, false);
+      this.shieldGraphic.strokePath();
+    }
+
+    // Shield HP bar (shown when not full)
+    if (this.shieldHp < this.maxShieldHp) {
+      const barX = this.sprite.x - 10;
+      const barY = this.sprite.y - this.sprite.height - 10;
+      const barW = 20;
+      const barH = 2;
+      const ratio = this.shieldHp / this.maxShieldHp;
+      this.shieldGraphic.fillStyle(0x222244);
+      this.shieldGraphic.fillRect(barX, barY, barW, barH);
+      this.shieldGraphic.fillStyle(COLORS.vanguard);
+      this.shieldGraphic.fillRect(barX, barY, barW * ratio, barH);
+    }
   }
 
   private die() {

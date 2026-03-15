@@ -57,6 +57,10 @@ export class Enemy {
   private pendingKnockbackX = 0;
   private pendingKnockbackY = 0;
 
+  // Poison debuff — slows movement
+  private poisonTimer = 0;
+  private poisonSlowMult = 1; // multiplier applied to speed (< 1 = slowed)
+
   // HP bar
   private hpBarBg: Phaser.GameObjects.Graphics;
   private hpBar: Phaser.GameObjects.Graphics;
@@ -130,6 +134,15 @@ export class Enemy {
       return;
     }
 
+    // Poison tick-down
+    if (this.poisonTimer > 0) {
+      this.poisonTimer -= delta;
+      if (this.poisonTimer <= 0) {
+        this.poisonSlowMult = 1;
+        this.sprite.clearTint();
+      }
+    }
+
     // Attack cooldown
     if (this.attackCooldown > 0) this.attackCooldown -= delta;
 
@@ -181,7 +194,7 @@ export class Enemy {
       this.patrolDir = this.sprite.x > this.spawnX ? -1 : 1;
     }
 
-    this.body.setVelocityX(this.patrolDir * this.speed);
+    this.body.setVelocityX(this.patrolDir * this.speed * this.poisonSlowMult);
 
     if (this.type === 'flyer' || this.type === 'ghost') {
       this.body.setVelocityY(Math.sin(Date.now() * 0.003) * 20);
@@ -189,7 +202,7 @@ export class Enemy {
   }
 
   private chase(distX: number, distY: number, _dist: number) {
-    const chaseSpeed = ENEMY_CHASE_SPEED;
+    const chaseSpeed = ENEMY_CHASE_SPEED * this.poisonSlowMult;
     this.body.setVelocityX(distX > 0 ? chaseSpeed : -chaseSpeed);
 
     if (this.type === 'flyer' || this.type === 'ghost') {
@@ -233,6 +246,13 @@ export class Enemy {
     if (gameScene.combat) {
       gameScene.combat.addEnemyProjectile(proj);
     }
+  }
+
+  /** Apply poison debuff — slows enemy for duration */
+  applyPoison(duration: number, slowAmount: number) {
+    this.poisonTimer = duration;
+    this.poisonSlowMult = slowAmount; // e.g. 0.4 = 60% slow
+    this.sprite.setTint(0x88ff88); // Green tint while poisoned
   }
 
   takeDamage(amount: number, sourceX: number, time: number) {

@@ -59,6 +59,10 @@ export class HollowKing {
   // Summoned skulls (Phase 2+)
   private skulls: Phaser.Physics.Arcade.Sprite[] = [];
 
+  // Poison debuff
+  private poisonTimer = 0;
+  private poisonSlowMult = 1;
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
     this.maxHp = 450;
@@ -141,6 +145,15 @@ export class HollowKing {
     if (!this.isActive || this.state === 'dead') return;
     if (time < this.hitstopUntil) return;
 
+    // Poison tick-down
+    if (this.poisonTimer > 0) {
+      this.poisonTimer -= delta;
+      if (this.poisonTimer <= 0) {
+        this.poisonSlowMult = 1;
+        this.sprite.clearTint();
+      }
+    }
+
     const gameScene = this.scene as any;
     const player = gameScene.player;
     if (!player) return;
@@ -160,7 +173,7 @@ export class HollowKing {
 
     switch (this.state) {
       case 'idle':
-        this.actionCooldown -= delta;
+        this.actionCooldown -= delta * this.poisonSlowMult;
         if (this.actionCooldown <= 0) this.chooseAttack();
         // Hover
         this.sprite.y = this.arenaFloor + Math.sin(time * 0.002) * 4;
@@ -206,6 +219,13 @@ export class HollowKing {
     this.updateSkulls(player, time);
     this.drawHpBar();
     this.checkHazardHits(player, time);
+  }
+
+  /** Apply poison debuff — slows boss attack rate */
+  applyPoison(duration: number, slowAmount: number) {
+    this.poisonTimer = duration;
+    this.poisonSlowMult = slowAmount;
+    this.sprite.setTint(0x88ff88);
   }
 
   /** Power this boss is weak to — takes 1.5x damage */

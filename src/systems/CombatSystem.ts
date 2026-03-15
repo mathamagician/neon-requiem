@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { GameScene } from '../scenes/GameScene';
 import type { Enemy } from '../entities/Enemy';
+import type { Player } from '../entities/Player';
 
 /**
  * CombatSystem handles hit detection between:
@@ -67,6 +68,10 @@ export class CombatSystem {
       if (Phaser.Geom.Rectangle.Overlaps(hitbox, enemyBounds)) {
         // Hit!
         this.hitEnemiesThisSwing.add(enemySprite);
+
+        // Wraith backstab + poison check
+        this.applyWraithEffects(player, enemy);
+
         const damage = player.getAttackDamage();
         enemy.takeDamage(damage, player.sprite.x, time);
         player.onAttackHit(time);
@@ -83,6 +88,7 @@ export class CombatSystem {
     if (!enemy || enemy.state === 'dead' || enemy.state === 'hurt') return;
 
     const time = this.scene.time.now;
+    if (this.tryShieldBlock(player, enemy.damage, enemy.sprite.x, time)) return;
     player.takeDamage(enemy.damage, enemy.sprite.x, time);
   };
 
@@ -139,6 +145,10 @@ export class CombatSystem {
     const bossBounds = boss.sprite.getBounds();
     if (Phaser.Geom.Rectangle.Overlaps(hitbox, bossBounds)) {
       this.hitEnemiesThisSwing.add(boss.sprite);
+
+      // Wraith backstab + poison on boss
+      this.applyWraithEffects(player, boss);
+
       const damage = player.getAttackDamage();
       boss.takeDamage(damage, player.sprite.x, time);
       player.onAttackHit(time);
@@ -155,9 +165,41 @@ export class CombatSystem {
       const projBounds = proj.getBounds();
       if (Phaser.Geom.Rectangle.Overlaps(playerBounds, projBounds)) {
         const damage = (proj as any).damage ?? 8;
+        if (this.tryShieldBlock(player, damage, proj.x, time)) {
+          proj.destroy();
+          continue;
+        }
         player.takeDamage(damage, proj.x, time);
         proj.destroy();
       }
     }
+  }
+
+  /** Apply Wraith-specific effects: backstab check and poison on finisher */
+  private applyWraithEffects(player: any, target: any) {
+    if (!player.checkBackstab) return; // Only Wraith has checkBackstab
+
+    // Backstab check: is the Wraith behind the target?
+    const targetFacingRight = target.facingRight ?? false;
+    player.checkBackstab(target.sprite.x, targetFacingRight);
+
+    // Poison on 4th combo hit
+    if (player.shouldApplyPoison?.() && target.applyPoison) {
+      const { duration, slow } = player.getPoisonParams();
+      target.applyPoison(duration, slow);
+    }
+  }
+
+  /** Check if the Vanguard's shield blocks this hit. Returns true if fully blocked. */
+  private tryShieldBlock(player: any, damage: number, sourceX: number, time: number): boolean {
+    // Only Vanguard (Player class) has shieldBlock
+    if (!player.shieldBlock || !player.isShielding) return false;
+
+    // Only blocks from the front — check if source is on the facing side
+    const facingRight = player.facingRight;
+    const sourceIsRight = sourceX > player.sprite.x;
+    if (facingRight !== sourceIsRight) return false; // Attack from behind — no block
+
+    return (player as Player).shieldBlock(damage, time);
   }
 }

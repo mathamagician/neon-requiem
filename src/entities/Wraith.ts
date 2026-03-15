@@ -44,6 +44,14 @@ export class Wraith {
   private critMultiplier = 1.8;
   private lastHitWasCrit = false;
 
+  // Backstab system — extra damage when attacking from behind
+  private readonly BACKSTAB_MULTIPLIER = 1.6;
+  private lastHitWasBackstab = false;
+
+  // Poison — applied on 4th combo hit (finisher)
+  private readonly POISON_DURATION = 3000; // 3 seconds
+  private readonly POISON_SLOW = 0.4; // 60% slow
+
   // Movement — Wraith is fastest
   private readonly WRAITH_SPEED = PLAYER_SPEED * 1.25;
   private readonly WRAITH_JUMP = PLAYER_JUMP_VELOCITY * 1.1;
@@ -390,7 +398,13 @@ export class Wraith {
       safeShake(this.scene.cameras.main, 60, 0.008);
     }
 
-    this.gainEnergy(2);
+    // Backstab feedback — purple flash
+    if (this.lastHitWasBackstab) {
+      this.critEmitter.emitParticleAt(this.sprite.x + (this.facingRight ? 15 : -15), this.sprite.y - 14, 4);
+      this.lastHitWasBackstab = false;
+    }
+
+    this.gainEnergy(this.lastHitWasCrit ? 4 : 2); // Crits give more energy
   }
 
   gainXP(amount: number) {
@@ -433,6 +447,24 @@ export class Wraith {
     );
   }
 
+  /** Check if this attack is a backstab based on enemy position/facing */
+  checkBackstab(enemyX: number, enemyFacingRight: boolean): boolean {
+    // Backstab: the Wraith is behind the enemy (attacking from the side the enemy is NOT facing)
+    const wraithIsRight = this.sprite.x > enemyX;
+    // If enemy faces right and wraith is on their left (behind), or vice versa
+    this.lastHitWasBackstab = enemyFacingRight !== wraithIsRight;
+    return this.lastHitWasBackstab;
+  }
+
+  /** Should poison be applied on this attack? (4th combo hit = finisher) */
+  shouldApplyPoison(): boolean {
+    return this.attackCombo === 3;
+  }
+
+  getPoisonParams(): { duration: number; slow: number } {
+    return { duration: this.POISON_DURATION, slow: this.POISON_SLOW };
+  }
+
   getAttackDamage(): number {
     const baseDamages = [6, 7, 6, 14]; // Low per-hit but fast and 4th hit is big
     let dmg = baseDamages[this.attackCombo];
@@ -454,6 +486,11 @@ export class Wraith {
       }
     } else {
       if (this.lastHitWasCrit) dmg = Math.floor(dmg * this.critMultiplier);
+    }
+
+    // Backstab bonus
+    if (this.lastHitWasBackstab) {
+      dmg = Math.floor(dmg * this.BACKSTAB_MULTIPLIER);
     }
 
     return dmg;

@@ -52,6 +52,10 @@ export class Boss {
   // Attack projectiles/hazards
   private hazards: Phaser.GameObjects.GameObject[] = [];
 
+  // Poison debuff — slows boss attack rate
+  private poisonTimer = 0;
+  private poisonSlowMult = 1;
+
   // Arena bounds
   private arenaLeft: number;
   private arenaRight: number;
@@ -135,6 +139,15 @@ export class Boss {
     // Hitstop
     if (time < this.hitstopUntil) return;
 
+    // Poison tick-down
+    if (this.poisonTimer > 0) {
+      this.poisonTimer -= delta;
+      if (this.poisonTimer <= 0) {
+        this.poisonSlowMult = 1;
+        this.sprite.clearTint();
+      }
+    }
+
     const gameScene = this.scene as any;
     const player = gameScene.player;
     if (!player) return;
@@ -156,7 +169,7 @@ export class Boss {
     // State machine
     switch (this.state) {
       case 'idle':
-        this.actionCooldown -= delta;
+        this.actionCooldown -= delta * this.poisonSlowMult; // Poison slows attack rate
         if (this.actionCooldown <= 0) {
           this.chooseAttack();
         }
@@ -204,6 +217,13 @@ export class Boss {
 
     this.drawHpBar();
     this.checkHazardHits(player, time);
+  }
+
+  /** Apply poison debuff — slows boss attack rate */
+  applyPoison(duration: number, slowAmount: number) {
+    this.poisonTimer = duration;
+    this.poisonSlowMult = slowAmount;
+    this.sprite.setTint(0x88ff88);
   }
 
   /** Power this boss is weak to — takes 1.5x damage */

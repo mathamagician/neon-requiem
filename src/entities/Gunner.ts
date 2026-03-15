@@ -300,10 +300,20 @@ export class Gunner {
       rangedBonus = inv.getSkillEffect('rangedDamageBonus') || 0;
     }
 
+    // Shot speed scales with precision and level
+    // Base: 160 normal / 200 charged → up to ~250/310 at high levels
+    const speedBonus = 1 + (this.level - 1) * 0.03; // +3% per level
+    let shotSpeedMult = speedBonus;
+    if (inv) {
+      const precision = inv.getEffectiveStat('precision');
+      shotSpeedMult += (precision - 5) * 0.02; // +2% per precision above 5
+    }
+
     if (isCharged) {
       // Charge shot: bigger, faster, pierces
       proj.setDisplaySize(12, 6);
-      projBody.setVelocity(aim.x * 200, aim.y * 200);
+      const chargeSpeed = Math.round(200 * shotSpeedMult);
+      projBody.setVelocity(aim.x * chargeSpeed, aim.y * chargeSpeed);
       proj.setTint(0x00ffcc);
       let chargeDmg = Math.round(25 * precisionMult * (1 + rangedBonus));
       // Skill: overchargeDamageBonus — extra damage for charged shots
@@ -316,14 +326,17 @@ export class Gunner {
     } else {
       // Normal shot
       proj.setDisplaySize(8, 4);
-      projBody.setVelocity(aim.x * 160, aim.y * 160);
+      const normalSpeed = Math.round(160 * shotSpeedMult);
+      projBody.setVelocity(aim.x * normalSpeed, aim.y * normalSpeed);
       proj.clearTint();
       (proj as any).damage = Math.round(8 * precisionMult * (1 + rangedBonus));
       (proj as any).piercing = false;
     }
 
     (proj as any).isPlayerProjectile = true;
-    this.shootCooldown = isCharged ? 400 : 200;
+    // Fire rate improves with level — 2% faster per level, min 60% of base
+    const cdMult = Math.max(0.6, 1 - (this.level - 1) * 0.02);
+    this.shootCooldown = (isCharged ? 400 : 200) * cdMult;
 
     // Auto-destroy after 2 seconds
     this.scene.time.delayedCall(2000, () => {
