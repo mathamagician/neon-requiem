@@ -92,16 +92,21 @@ export class BootScene extends Phaser.Scene {
     });
   }
 
-  /** Shared tileset generator using Canvas 2D for true alpha transparency */
+  /**
+   * Shared tileset generator using Phaser's createCanvas for true alpha transparency.
+   * Uses createCanvas() instead of raw DOM canvas + addCanvas() so that Phaser's
+   * tileset frame extraction (addTilesetImage) works correctly.
+   */
   private generateCanvasTileset(
     key: string,
     ts: number,
     colors: { platformFill: string; platformBorder: string; platformAccent: string }
   ) {
-    const canvas = document.createElement('canvas');
-    canvas.width = ts * 3;
-    canvas.height = ts;
-    const ctx = canvas.getContext('2d')!;
+    const canvasTex = this.textures.createCanvas(key, ts * 3, ts)!;
+    const ctx = canvasTex.context;
+
+    // Clear to fully transparent
+    ctx.clearRect(0, 0, ts * 3, ts);
 
     // Tile 1 (0,0): ground — TRANSPARENT (invisible, collision only)
     // Tile 3 (ts*2,0): accent wall — TRANSPARENT (invisible, collision only)
@@ -121,6 +126,7 @@ export class BootScene extends Phaser.Scene {
     ctx.lineTo(ts * 2, 1);
     ctx.stroke();
 
-    this.textures.addCanvas(key, canvas);
+    // Commit the canvas drawing to the texture
+    canvasTex.refresh();
   }
 }
