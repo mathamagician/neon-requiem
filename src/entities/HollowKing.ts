@@ -65,7 +65,7 @@ export class HollowKing {
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
-    this.maxHp = 450;
+    this.maxHp = 700;
     this.hp = this.maxHp;
 
     this.arenaLeft = x - 100;

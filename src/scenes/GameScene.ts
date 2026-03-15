@@ -59,6 +59,7 @@ export class GameScene extends Phaser.Scene {
   // Boss power input
   private powerKey!: Phaser.Input.Keyboard.Key;
   private swapPowerKey!: Phaser.Input.Keyboard.Key;
+  private interactKey!: Phaser.Input.Keyboard.Key;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -112,6 +113,9 @@ export class GameScene extends Phaser.Scene {
     this.groundLayer.setCollision(2);
     this.groundLayer.forEachTile(tile => {
       if (tile.index === 2) tile.setCollision(false, false, true, false);
+      // Make ground and wall tiles invisible — only platforms are visible
+      // Collision still works, but the background shows through
+      if (tile.index === 1 || tile.index === 3) tile.setAlpha(0);
     });
 
     // -- Spawn player --
@@ -193,6 +197,7 @@ export class GameScene extends Phaser.Scene {
     // Boss power keys
     this.powerKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.C);
     this.swapPowerKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.S);
+    this.interactKey = this.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.E);
 
     const classColors: Record<ClassName, string> = { vanguard: '#4488ff', gunner: '#44ff88', wraith: '#aa44ff' };
     this.classLabel = this.add.text(GAME_WIDTH / 2, 6, `${this.zoneDef.name} — ${this.currentClass.toUpperCase()}  [1/2/3 | TAB | C | S]`, {
@@ -690,14 +695,14 @@ export class GameScene extends Phaser.Scene {
     if (nearNpc) {
       // Show interaction prompt
       if (!this.npcPrompt) {
-        this.npcPrompt = this.add.text(nearNpc.sprite.x, nearNpc.sprite.y - 40, 'Press Z to interact', {
+        this.npcPrompt = this.add.text(nearNpc.sprite.x, nearNpc.sprite.y - 40, 'Press E to interact', {
           fontSize: '10px', fontFamily: 'Consolas, monospace', color: '#ffffff',
           stroke: '#000000', strokeThickness: 1,
         }).setOrigin(0.5).setDepth(50);
       }
 
       // Check for interaction key
-      if (Phaser.Input.Keyboard.JustDown(this.input.keyboard!.addKey('Z'))) {
+      if (Phaser.Input.Keyboard.JustDown(this.interactKey)) {
         this.openNPCInteraction(nearNpc.type);
       }
     } else if (this.npcPrompt) {

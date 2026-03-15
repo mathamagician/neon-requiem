@@ -315,7 +315,7 @@ export class Gunner {
       const chargeSpeed = Math.round(200 * shotSpeedMult);
       projBody.setVelocity(aim.x * chargeSpeed, aim.y * chargeSpeed);
       proj.setTint(0x00ffcc);
-      let chargeDmg = Math.round(25 * precisionMult * (1 + rangedBonus));
+      let chargeDmg = Math.round(18 * precisionMult * (1 + rangedBonus));
       // Skill: overchargeDamageBonus — extra damage for charged shots
       if (inv) {
         const overcharge = inv.getSkillEffect('overchargeDamageBonus');
