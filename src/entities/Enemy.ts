@@ -98,9 +98,10 @@ export class Enemy {
       return;
     }
 
-    // Hurt recovery
+    // Hurt recovery — apply friction so enemies decelerate after knockback
     if (this.state === 'hurt') {
       this.hurtTimer -= delta;
+      this.body.setVelocityX(this.body.velocity.x * 0.85);
       if (this.hurtTimer <= 0) this.state = 'patrol';
       this.drawHpBar();
       return;

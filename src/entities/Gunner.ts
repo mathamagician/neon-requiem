@@ -82,8 +82,8 @@ export class Gunner {
     this.sprite = scene.physics.add.sprite(x, y, 'player-gunner');
     this.sprite.setOrigin(0.5, 1);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    this.body.setSize(12, 22);
-    this.body.setOffset(1, 2);
+    this.body.setSize(12, 16);
+    this.body.setOffset(2, 1);
     this.body.setCollideWorldBounds(true);
     this.body.setMaxVelocityY(600);
     (this.sprite as any).owner = this;
@@ -241,13 +241,42 @@ export class Gunner {
     }
   }
 
+  /** Get aim direction based on arrow keys — supports 8-directional aiming */
+  private getAimDirection(): { x: number; y: number } {
+    const up = this.cursors.up.isDown;
+    const down = this.cursors.down.isDown;
+    const dirX = this.facingRight ? 1 : -1;
+
+    if (up && !down) {
+      // Diagonal up or straight up if no horizontal input
+      const left = this.cursors.left.isDown;
+      const right = this.cursors.right.isDown;
+      if (!left && !right) return { x: 0, y: -1 }; // Straight up
+      return { x: dirX * 0.707, y: -0.707 }; // Diagonal up
+    }
+    if (down && !up) {
+      // Diagonal down (only in air) or straight down
+      const onFloor = this.body.onFloor();
+      const left = this.cursors.left.isDown;
+      const right = this.cursors.right.isDown;
+      if (!left && !right && !onFloor) return { x: 0, y: 1 }; // Straight down (airborne)
+      if (!onFloor) return { x: dirX * 0.707, y: 0.707 }; // Diagonal down
+      return { x: dirX * 0.707, y: 0.707 }; // Diagonal down even on floor
+    }
+    return { x: dirX, y: 0 }; // Horizontal (default)
+  }
+
   private fireProjectile(_time: number) {
     const isCharged = this.chargeTime >= this.CHARGE_THRESHOLD;
-    const dir = this.facingRight ? 1 : -1;
+    const aim = this.getAimDirection();
+
+    // Spawn position offset in aim direction
+    const spawnOffX = aim.x * 12;
+    const spawnOffY = -8 + aim.y * 6;
 
     const proj = this.projectiles.get(
-      this.sprite.x + dir * 12,
-      this.sprite.y - 12,
+      this.sprite.x + spawnOffX,
+      this.sprite.y + spawnOffY,
       'projectile-player'
     ) as Phaser.Physics.Arcade.Sprite;
 
@@ -257,6 +286,9 @@ export class Gunner {
 
     const projBody = proj.body as Phaser.Physics.Arcade.Body;
     projBody.setAllowGravity(false);
+
+    // Rotate projectile to match aim direction
+    proj.setRotation(Math.atan2(aim.y, aim.x));
 
     // Stat scaling: +4% ranged damage per precision above 5
     const inv = (this.scene as any).getInventory?.();
@@ -271,7 +303,7 @@ export class Gunner {
     if (isCharged) {
       // Charge shot: bigger, faster, pierces
       proj.setDisplaySize(12, 6);
-      projBody.setVelocity(dir * 200, 0);
+      projBody.setVelocity(aim.x * 200, aim.y * 200);
       proj.setTint(0x00ffcc);
       let chargeDmg = Math.round(25 * precisionMult * (1 + rangedBonus));
       // Skill: overchargeDamageBonus — extra damage for charged shots
@@ -284,7 +316,7 @@ export class Gunner {
     } else {
       // Normal shot
       proj.setDisplaySize(8, 4);
-      projBody.setVelocity(dir * 160, 0);
+      projBody.setVelocity(aim.x * 160, aim.y * 160);
       proj.clearTint();
       (proj as any).damage = Math.round(8 * precisionMult * (1 + rangedBonus));
       (proj as any).piercing = false;
@@ -301,8 +333,9 @@ export class Gunner {
       }
     });
 
-    // Recoil
-    this.body.setVelocityX(this.body.velocity.x - dir * 30);
+    // Recoil opposite to aim direction
+    const recoilX = aim.x !== 0 ? -aim.x * 30 : 0;
+    this.body.setVelocityX(this.body.velocity.x + recoilX);
 
     this.isAttacking = true;
     this.scene.time.delayedCall(150, () => { this.isAttacking = false; });
@@ -322,9 +355,9 @@ export class Gunner {
     if (!this.isCharging) return;
 
     const ratio = Math.min(1, this.chargeTime / this.CHARGE_THRESHOLD);
-    const dir = this.facingRight ? 1 : -1;
-    const x = this.sprite.x + dir * 10;
-    const y = this.sprite.y - 12;
+    const aim = this.getAimDirection();
+    const x = this.sprite.x + aim.x * 10;
+    const y = this.sprite.y - 8 + aim.y * 6;
 
     if (ratio >= 1) {
       // Fully charged — glow

@@ -77,8 +77,8 @@ export class Player {
     this.sprite = scene.physics.add.sprite(x, y, 'player');
     this.sprite.setOrigin(0.5, 1);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    this.body.setSize(12, 22);
-    this.body.setOffset(1, 2);
+    this.body.setSize(12, 16);
+    this.body.setOffset(2, 1);
     this.body.setCollideWorldBounds(true);
     this.body.setMaxVelocityY(600);
 
@@ -293,7 +293,7 @@ export class Player {
 
     const dir = this.facingRight ? 1 : -1;
     const offsetX = dir * 16;
-    const offsetY = -12;
+    const offsetY = -8;
 
     // Size varies by combo
     const widths = [20, 22, 28];

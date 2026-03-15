@@ -48,8 +48,8 @@ function renderFoundry(scene: Phaser.Scene, ww: number, wh: number): void {
   // --- Layer 1: sky gradient + distant factory silhouettes ---
   const bg1 = scene.add.graphics();
 
-  // Dark gradient sky
-  bg1.fillGradientStyle(0x0d0a15, 0x0d0a15, 0x2a1218, 0x2a1218, 1);
+  // Dark gradient sky — distinct from game background
+  bg1.fillGradientStyle(0x1a0e20, 0x1a0e20, 0x3a1a22, 0x3a1a22, 1);
   bg1.fillRect(0, 0, ww, wh);
 
   // Factory silhouettes
@@ -60,7 +60,7 @@ function renderFoundry(scene: Phaser.Scene, ww: number, wh: number): void {
     const fw = noiseRange(i, 30, 40, 80);
 
     // Main building shape
-    bg1.fillStyle(0x1a0f18, 1);
+    bg1.fillStyle(0x2a1828, 1);
     bg1.fillRect(fx, wh - fh, fw, fh);
 
     // Smokestack
@@ -75,7 +75,7 @@ function renderFoundry(scene: Phaser.Scene, ww: number, wh: number): void {
       const wx = fx + 4 + noise(w, i, 70) * (fw - 10);
       const wy = wh - fh + 8 + noise(w, i, 80) * (fh - 20);
       const winColor = noise(w, i, 90) > 0.5 ? 0xff4400 : 0x00ccff;
-      const winAlpha = 0.12 + noise(w, i, 91) * 0.1;
+      const winAlpha = 0.25 + noise(w, i, 91) * 0.2;
       bg1.fillStyle(winColor, winAlpha);
       bg1.fillRect(wx, wy, 3, 3);
     }
@@ -92,7 +92,7 @@ function renderFoundry(scene: Phaser.Scene, ww: number, wh: number): void {
     const sx = noiseRange(i, 110, i * 80, i * 80 + 50);
     const sh = noiseRange(i, 120, 40, 90);
     const sw = noiseRange(i, 130, 25, 55);
-    bg2.fillStyle(0x2a1a10, 1);
+    bg2.fillStyle(0x3a2a1a, 1);
     bg2.fillRect(sx, wh - sh, sw, sh);
   }
 
@@ -127,7 +127,7 @@ function renderFoundry(scene: Phaser.Scene, ww: number, wh: number): void {
     const g = Math.floor(0x22 + (0xcc - 0x22) * t);
     const b = Math.floor(0x00 + (0x44 - 0x00) * t);
     const color = (r << 16) | (g << 8) | b;
-    bg3.fillStyle(color, 0.6 + t * 0.3);
+    bg3.fillStyle(color, 0.7 + t * 0.25);
     bg3.fillRect(0, lavaTop + row, ww, 2);
   }
 
@@ -139,12 +139,12 @@ function renderFoundry(scene: Phaser.Scene, ww: number, wh: number): void {
     const neonColor = noise(i, 0, 220) > 0.5 ? 0x00ccff : 0xff4400;
 
     // Glow halo (large semi-transparent)
-    bg3.fillStyle(neonColor, 0.06);
-    bg3.fillCircle(nx, ny, 18);
     bg3.fillStyle(neonColor, 0.12);
+    bg3.fillCircle(nx, ny, 18);
+    bg3.fillStyle(neonColor, 0.25);
     bg3.fillCircle(nx, ny, 8);
     // Bright center
-    bg3.fillStyle(neonColor, 0.35);
+    bg3.fillStyle(neonColor, 0.6);
     bg3.fillRect(nx - 1, ny - 1, 3, 3);
   }
 
@@ -154,7 +154,7 @@ function renderFoundry(scene: Phaser.Scene, ww: number, wh: number): void {
     const ex = noiseRange(i, 230, 0, ww);
     const ey = noiseRange(i, 240, wh * 0.4, wh - 30);
     const emberColor = noise(i, 0, 250) > 0.5 ? 0xff6600 : 0xffaa00;
-    const alpha = 0.3 + noise(i, 0, 260) * 0.5;
+    const alpha = 0.5 + noise(i, 0, 260) * 0.4;
     bg3.fillStyle(emberColor, alpha);
     bg3.fillRect(ex, ey, 2, 2);
   }
@@ -170,8 +170,8 @@ function renderCryptvault(scene: Phaser.Scene, ww: number, wh: number): void {
   // --- Layer 1: deep gradient + distant gothic arches ---
   const bg1 = scene.add.graphics();
 
-  // Deep blue-purple gradient
-  bg1.fillGradientStyle(0x06061a, 0x06061a, 0x0e0e28, 0x0e0e28, 1);
+  // Deep blue-purple gradient — visible against game bg
+  bg1.fillGradientStyle(0x0c0c24, 0x0c0c24, 0x1a1a38, 0x1a1a38, 1);
   bg1.fillRect(0, 0, ww, wh);
 
   // Gothic arches
@@ -182,7 +182,7 @@ function renderCryptvault(scene: Phaser.Scene, ww: number, wh: number): void {
     const pillarW = 8;
     const archSpan = noiseRange(i, 320, 30, 60);
 
-    bg1.fillStyle(0x1a1a2e, 1);
+    bg1.fillStyle(0x2a2a44, 1);
 
     // Left pillar
     bg1.fillRect(ax, wh - pillarH, pillarW, pillarH);
@@ -213,7 +213,7 @@ function renderCryptvault(scene: Phaser.Scene, ww: number, wh: number): void {
     const shelfW = noiseRange(i, 350, 50, 90);
 
     // Stone shelf
-    bg2.fillStyle(0x22224a, 1);
+    bg2.fillStyle(0x33335a, 1);
     bg2.fillRect(sx, sy, shelfW, 4);
 
     // Coffin shapes on shelf
@@ -256,7 +256,7 @@ function renderCryptvault(scene: Phaser.Scene, ww: number, wh: number): void {
     const beamH = noiseRange(i, 420, wh * 0.4, wh * 0.8);
 
     // Draw beam as stacked horizontal lines getting wider
-    bg3.fillStyle(0x4488ee, 0.08);
+    bg3.fillStyle(0x4488ee, 0.15);
     const steps = Math.floor(beamH / 4);
     for (let s = 0; s < steps; s++) {
       const t = s / steps;
@@ -271,7 +271,7 @@ function renderCryptvault(scene: Phaser.Scene, ww: number, wh: number): void {
   for (let i = 0; i < particleCount; i++) {
     const px = noiseRange(i, 440, 0, ww);
     const py = noiseRange(i, 450, 10, wh - 20);
-    const alpha = 0.15 + noise(i, 0, 460) * 0.25;
+    const alpha = 0.3 + noise(i, 0, 460) * 0.35;
     bg3.fillStyle(0x66aaff, alpha);
     const size = noise(i, 0, 465) > 0.7 ? 3 : 2;
     bg3.fillRect(px, py, size, size);
@@ -306,8 +306,8 @@ function renderHub(scene: Phaser.Scene, ww: number, wh: number): void {
   // --- Layer 1: twilight gradient + stars + glitched moon ---
   const bg1 = scene.add.graphics();
 
-  // Twilight gradient
-  bg1.fillGradientStyle(0x141028, 0x141028, 0x2a1838, 0x2a1838, 1);
+  // Twilight gradient — visible against game bg
+  bg1.fillGradientStyle(0x1a1430, 0x1a1430, 0x3a2248, 0x3a2248, 1);
   bg1.fillRect(0, 0, ww, wh);
 
   // Stars
@@ -316,7 +316,7 @@ function renderHub(scene: Phaser.Scene, ww: number, wh: number): void {
     const sx = noiseRange(i, 510, 0, ww);
     const sy = noiseRange(i, 520, 0, wh * 0.6);
     const starColor = noise(i, 0, 530) > 0.6 ? 0xffffff : 0xaaaacc;
-    const alpha = 0.3 + noise(i, 0, 540) * 0.6;
+    const alpha = 0.5 + noise(i, 0, 540) * 0.5;
     bg1.fillStyle(starColor, alpha);
     bg1.fillRect(sx, sy, 1, 1);
     // Some stars are 2px for a twinkle effect
@@ -377,7 +377,7 @@ function renderHub(scene: Phaser.Scene, ww: number, wh: number): void {
       for (let c = 0; c < winCols; c++) {
         if (noise(r, c + i * 100, 590) > 0.5) {
           const winColor = noise(r, c, 595) > 0.5 ? 0xffaa44 : 0xffcc66;
-          bg2.fillStyle(winColor, 0.35);
+          bg2.fillStyle(winColor, 0.5);
           bg2.fillRect(bx + 3 + c * 10, wh - bh + 5 + r * 12, 5, 4);
         }
       }
@@ -389,10 +389,10 @@ function renderHub(scene: Phaser.Scene, ww: number, wh: number): void {
       const signColor = signColors[Math.floor(noise(i, 0, 610) * signColors.length)];
       const signW = noiseRange(i, 620, 8, 16);
       const signY = wh - bh + noiseRange(i, 630, 5, bh * 0.4);
-      bg2.fillStyle(signColor, 0.5);
+      bg2.fillStyle(signColor, 0.7);
       bg2.fillRect(bx + 2, signY, signW, 4);
       // Glow around sign
-      bg2.fillStyle(signColor, 0.08);
+      bg2.fillStyle(signColor, 0.15);
       bg2.fillRect(bx - 2, signY - 4, signW + 8, 12);
     }
   }
