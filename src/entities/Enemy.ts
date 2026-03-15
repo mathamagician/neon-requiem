@@ -317,10 +317,11 @@ export class Enemy {
     emitter.explode(10);
     this.scene.time.delayedCall(400, () => emitter.destroy());
 
-    // Cleanup
-    this.hpBar.destroy();
-    this.hpBarBg.destroy();
-    this.sprite.destroy();
+    // Hide sprite instead of destroying — avoids group/physics desync
+    this.sprite.setActive(false).setVisible(false);
+    this.body.enable = false;
+    this.hpBar.clear();
+    this.hpBarBg.clear();
 
     // Respawn after delay (for testing — remove later)
     this.scene.time.delayedCall(5000, () => {
@@ -331,12 +332,15 @@ export class Enemy {
   private respawn() {
     this.hp = this.maxHp;
     this.state = 'patrol';
-    const config = ENEMY_CONFIGS[this.type];
+    this.poisonTimer = 0;
+    this.poisonSlowMult = 1;
 
-    this.sprite = this.scene.physics.add.sprite(this.spawnX, this.spawnY, config.textureKey);
-    this.sprite.setOrigin(0.5, 1);
-    this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
-    this.body.setCollideWorldBounds(true);
+    // Re-enable the existing sprite at spawn position
+    this.sprite.setPosition(this.spawnX, this.spawnY);
+    this.sprite.setActive(true).setVisible(true);
+    this.sprite.clearTint();
+    this.body.enable = true;
+    this.body.setVelocity(0, 0);
 
     // Restore type-specific physics settings
     if (this.type === 'ghost') {
@@ -347,20 +351,6 @@ export class Enemy {
       this.body.setOffset(3, 2);
     }
     if (this.type === 'flyer' || this.type === 'ghost') this.body.setAllowGravity(false);
-    (this.sprite as any).owner = this;
-    (this.sprite as any).isEnemy = true;
-
-    this.hpBarBg = this.scene.add.graphics();
-    this.hpBar = this.scene.add.graphics();
-    this.hpBarBg.setDepth(20);
-    this.hpBar.setDepth(21);
-
-    // Re-add to collision groups
-    const gameScene = this.scene as any;
-    if (gameScene.enemies) gameScene.enemies.add(this.sprite);
-    if (gameScene.groundLayer) {
-      this.scene.physics.add.collider(this.sprite, gameScene.groundLayer);
-    }
   }
 
   private drawHpBar() {

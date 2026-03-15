@@ -151,7 +151,6 @@ export class Wraith {
     // Coyote time
     if (onFloor) this.coyoteTimeLeft = COYOTE_TIME_MS;
     if (!onFloor) this.coyoteTimeLeft = Math.max(0, this.coyoteTimeLeft - delta);
-    this.wasOnFloor = onFloor;
 
     // Jump buffer
     if (this.jumpBuffered) {
@@ -164,6 +163,7 @@ export class Wraith {
     if (this.isAttacking) {
       this.attackTimer -= delta;
       if (this.attackTimer <= 0) this.endAttack();
+      else this.updateSlashPosition();
     }
 
     // Dash
@@ -193,6 +193,12 @@ export class Wraith {
     this.handleAttack(time);
     this.handleDash(time);
     this.updateState(onFloor);
+
+    // Landing dust
+    if (onFloor && !this.wasOnFloor) {
+      this.dustEmitter.emitParticleAt(this.sprite.x, this.sprite.y, 4);
+    }
+    this.wasOnFloor = onFloor;
 
     // Afterimage cleanup
     this.afterimages = this.afterimages.filter(img => {
@@ -314,6 +320,15 @@ export class Wraith {
 
     // Small forward lunge on each hit
     this.body.setVelocityX(dir * 40);
+  }
+
+  private updateSlashPosition() {
+    if (!this.slashSprite) return;
+    const dir = this.facingRight ? 1 : -1;
+    this.slashSprite.setPosition(
+      this.sprite.x + dir * 12,
+      this.sprite.y - 10 + (this.attackCombo % 2 === 0 ? -2 : 2)
+    );
   }
 
   private endAttack() {
@@ -438,7 +453,10 @@ export class Wraith {
   }
 
   private die() {
-    this.sprite.setPosition(48, 100);
+    const gs = this.scene as any;
+    const spawnX = gs.zoneDef?.exits?.[0] ? (gs.zoneDef.exits[0].tileX + 1) * 16 : 48;
+    const spawnY = (gs.zoneDef?.height ?? 22) * 16 - 80;
+    this.sprite.setPosition(spawnX, spawnY);
     this.hp = this.maxHp;
     this.energy = this.maxEnergy;
     this.scene.cameras.main.flash(300, 255, 50, 50);

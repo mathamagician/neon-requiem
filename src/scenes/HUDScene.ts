@@ -109,7 +109,7 @@ export class HUDScene extends Phaser.Scene {
 
     // Combo
     if (p.isAttacking && p.attackCombo > 0) {
-      const comboNames = ['', 'x2', 'x3!'];
+      const comboNames = ['', 'x2', 'x3!', 'x4!!'];
       this.comboText.setText(comboNames[p.attackCombo]);
       this.comboText.setAlpha(1);
       this.comboText.setScale(1 + p.attackCombo * 0.2);

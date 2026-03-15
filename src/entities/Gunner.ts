@@ -450,7 +450,10 @@ export class Gunner {
   }
 
   private die() {
-    this.sprite.setPosition(48, 100);
+    const gs = this.scene as any;
+    const spawnX = gs.zoneDef?.exits?.[0] ? (gs.zoneDef.exits[0].tileX + 1) * 16 : 48;
+    const spawnY = (gs.zoneDef?.height ?? 22) * 16 - 80;
+    this.sprite.setPosition(spawnX, spawnY);
     this.hp = this.maxHp;
     this.energy = this.maxEnergy;
     this.scene.cameras.main.flash(300, 255, 50, 50);

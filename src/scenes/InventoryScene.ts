@@ -360,6 +360,7 @@ export class InventoryScene extends Phaser.Scene {
   }
 
   private closeInventory() {
+    this.input.keyboard!.removeAllListeners();
     this.scene.stop('InventoryScene');
     this.gameScene.scene.resume('GameScene');
   }

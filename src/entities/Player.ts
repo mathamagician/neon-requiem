@@ -155,7 +155,7 @@ export class Player {
     if (!onFloor) {
       this.coyoteTimeLeft = Math.max(0, this.coyoteTimeLeft - dt);
     }
-    this.wasOnFloor = onFloor;
+    // wasOnFloor updated after landing dust check (below)
 
     // Jump buffer
     if (this.jumpBuffered) {
@@ -169,6 +169,8 @@ export class Player {
       this.attackTimer -= dt;
       if (this.attackTimer <= 0) {
         this.endAttack();
+      } else {
+        this.updateSlashPosition();
       }
     }
 
@@ -207,10 +209,11 @@ export class Player {
     // Update state
     this.updateState(onFloor);
 
-    // Landing dust
+    // Landing dust (check before updating wasOnFloor)
     if (onFloor && !this.wasOnFloor) {
       this.emitDust(4);
     }
+    this.wasOnFloor = onFloor;
 
     // Draw shield visual
     this.drawShield(time);
@@ -342,6 +345,12 @@ export class Player {
     if (this.attackCombo === 2) {
       this.body.setVelocityX(dir * 80);
     }
+  }
+
+  private updateSlashPosition() {
+    if (!this.slashSprite) return;
+    const dir = this.facingRight ? 1 : -1;
+    this.slashSprite.setPosition(this.sprite.x + dir * 16, this.sprite.y - 16);
   }
 
   private endAttack() {
@@ -535,8 +544,11 @@ export class Player {
   }
 
   private die() {
-    // For now: respawn at start
-    this.sprite.setPosition(48, 100);
+    // Respawn at zone spawn point
+    const gs = this.scene as any;
+    const spawnX = gs.zoneDef?.exits?.[0] ? (gs.zoneDef.exits[0].tileX + 1) * 16 : 48;
+    const spawnY = (gs.zoneDef?.height ?? 22) * 16 - 80;
+    this.sprite.setPosition(spawnX, spawnY);
     this.hp = this.maxHp;
     this.energy = this.maxEnergy;
     this.shieldHp = this.maxShieldHp;

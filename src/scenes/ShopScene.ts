@@ -272,6 +272,7 @@ export class ShopScene extends Phaser.Scene {
   }
 
   private closeShop() {
+    this.input.keyboard!.removeAllListeners();
     this.scene.stop('ShopScene');
     this.scene.resume('GameScene');
   }

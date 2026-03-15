@@ -80,6 +80,7 @@ export class GameScene extends Phaser.Scene {
     this.bossPowerSystem = new BossPowerSystem(this);
     this.bossesDefeated = [];
     this.bossPowers = [];
+    this.gold = 0;
     this.boss = null;
     this.boss2 = null;
     this.bossTriggered = false;
@@ -314,16 +315,19 @@ export class GameScene extends Phaser.Scene {
       common: 0xaaaaaa, uncommon: 0x44cc44, rare: 0x4488ff, epic: 0xaa44ff, legendary: 0xffaa00,
     };
 
-    const g = this.add.graphics();
     const color = rarityColors[item.rarity] ?? 0xffffff;
-    g.fillStyle(color, 0.9);
-    g.fillRect(0, 0, 6, 6);
-    g.lineStyle(1, 0xffffff, 0.5);
-    g.strokeRect(0, 0, 6, 6);
-    g.generateTexture(`loot-${item.id}`, 6, 6);
-    g.destroy();
+    const textureKey = `loot-${item.rarity}`;
+    if (!this.textures.exists(textureKey)) {
+      const g = this.add.graphics();
+      g.fillStyle(color, 0.9);
+      g.fillRect(0, 0, 6, 6);
+      g.lineStyle(1, 0xffffff, 0.5);
+      g.strokeRect(0, 0, 6, 6);
+      g.generateTexture(textureKey, 6, 6);
+      g.destroy();
+    }
 
-    const sprite = this.physics.add.sprite(x, y - 10, `loot-${item.id}`);
+    const sprite = this.physics.add.sprite(x, y - 10, textureKey);
     sprite.setOrigin(0.5, 1);
     const body = sprite.body as Phaser.Physics.Arcade.Body;
     body.setVelocityY(-80);
@@ -429,6 +433,11 @@ export class GameScene extends Phaser.Scene {
     const y = this.player.sprite.y;
     const oldLevel = this.player.level;
     const oldXp = this.player.xp;
+    const oldXpToNext = this.player.xpToNext;
+    const oldMaxHp = this.player.maxHp;
+    const oldHp = this.player.hp;
+    const oldMaxEnergy = this.player.maxEnergy;
+    const oldEnergy = this.player.energy;
 
     // Clean up old player's game objects and combat overlap listener
     this.player.destroy();
@@ -438,6 +447,11 @@ export class GameScene extends Phaser.Scene {
     this.player = this.createPlayer(cls, x, y);
     this.player.level = oldLevel;
     this.player.xp = oldXp;
+    this.player.xpToNext = oldXpToNext;
+    this.player.maxHp = oldMaxHp;
+    this.player.hp = oldHp;
+    this.player.maxEnergy = oldMaxEnergy;
+    this.player.energy = oldEnergy;
     this.physics.add.collider(this.player.sprite, this.groundLayer);
     this.combat = new CombatSystem(this);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
