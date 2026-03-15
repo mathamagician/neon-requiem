@@ -113,9 +113,6 @@ export class GameScene extends Phaser.Scene {
     this.groundLayer.setCollision(2);
     this.groundLayer.forEachTile(tile => {
       if (tile.index === 2) tile.setCollision(false, false, true, false);
-      // Make ground and wall tiles invisible — only platforms are visible
-      // Collision still works, but the background shows through
-      if (tile.index === 1 || tile.index === 3) tile.setAlpha(0);
     });
 
     // -- Spawn player --

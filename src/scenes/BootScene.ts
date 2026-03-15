@@ -59,92 +59,68 @@ export class BootScene extends Phaser.Scene {
     g.destroy();
   }
 
-  /** Generate a tileset texture with multiple tile types for the tilemap */
+  /**
+   * Generate tileset textures using Canvas 2D so tiles 1 and 3 can be
+   * fully transparent (invisible ground/walls) while tile 2 (platform) is visible.
+   * Phaser Graphics.generateTexture always produces an opaque background,
+   * so we use raw Canvas for true transparency.
+   */
   private generateTileset() {
-    const g = this.add.graphics();
     const ts = TILE_SIZE;
-
-    // Tile 0: empty (transparent) — skip, tilemap treats 0 as empty
-    // Tile 1: ground (solid)
-    g.fillStyle(COLORS.ground);
-    g.fillRect(0, 0, ts, ts);
-    g.lineStyle(1, 0x556677);
-    g.strokeRect(0, 0, ts, ts);
-
-    // Tile 2: platform (one-way)
-    g.fillStyle(COLORS.platform);
-    g.fillRect(ts, 0, ts, ts);
-    g.lineStyle(1, 0x667788);
-    g.strokeRect(ts, 0, ts, ts);
-    // Top line brighter to show it's a platform
-    g.lineStyle(2, COLORS.neon, 0.5);
-    g.lineBetween(ts, 0, ts * 2, 0);
-
-    // Tile 3: neon accent wall
-    g.fillStyle(0x1a1a2e);
-    g.fillRect(ts * 2, 0, ts, ts);
-    g.lineStyle(1, COLORS.neon, 0.6);
-    g.strokeRect(ts * 2, 0, ts, ts);
-
-    g.generateTexture('tileset', ts * 3, ts);
-    g.destroy();
+    this.generateCanvasTileset('tileset', ts, {
+      platformFill: '#445566',
+      platformBorder: '#667788',
+      platformAccent: 'rgba(0,255,204,0.5)', // neon
+    });
   }
 
-  /** Cryptvault tileset — gothic stone, spectral blue accents */
   private generateCryptvaultTileset() {
-    const g = this.add.graphics();
     const ts = TILE_SIZE;
-
-    // Tile 1: dark stone ground
-    g.fillStyle(0x2a2535);
-    g.fillRect(0, 0, ts, ts);
-    g.lineStyle(1, 0x3a3050);
-    g.strokeRect(0, 0, ts, ts);
-
-    // Tile 2: stone shelf platform
-    g.fillStyle(0x3a3050);
-    g.fillRect(ts, 0, ts, ts);
-    g.lineStyle(1, 0x4a4070);
-    g.strokeRect(ts, 0, ts, ts);
-    g.lineStyle(2, 0x6644aa, 0.5);
-    g.lineBetween(ts, 0, ts * 2, 0);
-
-    // Tile 3: accent wall (purple glow)
-    g.fillStyle(0x1a1528);
-    g.fillRect(ts * 2, 0, ts, ts);
-    g.lineStyle(1, 0x6644aa, 0.6);
-    g.strokeRect(ts * 2, 0, ts, ts);
-
-    g.generateTexture('tileset-cryptvault', ts * 3, ts);
-    g.destroy();
+    this.generateCanvasTileset('tileset-cryptvault', ts, {
+      platformFill: '#3a3050',
+      platformBorder: '#4a4070',
+      platformAccent: 'rgba(102,68,170,0.5)',
+    });
   }
 
-  /** Hub tileset — warm safe tones */
   private generateHubTileset() {
-    const g = this.add.graphics();
     const ts = TILE_SIZE;
+    this.generateCanvasTileset('tileset-hub', ts, {
+      platformFill: '#4a3a2a',
+      platformBorder: '#5a4a3a',
+      platformAccent: 'rgba(204,170,102,0.5)',
+    });
+  }
 
-    // Tile 1: warm stone ground
-    g.fillStyle(0x3a3a3a);
-    g.fillRect(0, 0, ts, ts);
-    g.lineStyle(1, 0x4a4a4a);
-    g.strokeRect(0, 0, ts, ts);
+  /** Shared tileset generator using Canvas 2D for true alpha transparency */
+  private generateCanvasTileset(
+    key: string,
+    ts: number,
+    colors: { platformFill: string; platformBorder: string; platformAccent: string }
+  ) {
+    const canvas = document.createElement('canvas');
+    canvas.width = ts * 3;
+    canvas.height = ts;
+    const ctx = canvas.getContext('2d')!;
 
-    // Tile 2: wooden platform
-    g.fillStyle(0x4a3a2a);
-    g.fillRect(ts, 0, ts, ts);
-    g.lineStyle(1, 0x5a4a3a);
-    g.strokeRect(ts, 0, ts, ts);
-    g.lineStyle(2, 0xccaa66, 0.5);
-    g.lineBetween(ts, 0, ts * 2, 0);
+    // Tile 1 (0,0): ground — TRANSPARENT (invisible, collision only)
+    // Tile 3 (ts*2,0): accent wall — TRANSPARENT (invisible, collision only)
+    // (Canvas starts fully transparent, so we just skip drawing on these tiles)
 
-    // Tile 3: warm accent wall
-    g.fillStyle(0x2a2520);
-    g.fillRect(ts * 2, 0, ts, ts);
-    g.lineStyle(1, 0xccaa66, 0.4);
-    g.strokeRect(ts * 2, 0, ts, ts);
+    // Tile 2 (ts,0): platform — VISIBLE
+    ctx.fillStyle = colors.platformFill;
+    ctx.fillRect(ts, 0, ts, ts);
+    ctx.strokeStyle = colors.platformBorder;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(ts + 0.5, 0.5, ts - 1, ts - 1);
+    // Bright top line to show it's a one-way platform
+    ctx.strokeStyle = colors.platformAccent;
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ts, 1);
+    ctx.lineTo(ts * 2, 1);
+    ctx.stroke();
 
-    g.generateTexture('tileset-hub', ts * 3, ts);
-    g.destroy();
+    this.textures.addCanvas(key, canvas);
   }
 }

@@ -151,7 +151,8 @@ export class TitleScene extends Phaser.Scene {
           return;
         }
       }
-      // New game — go to class select
+      // New game — delete any existing save and go to class select
+      deleteSave();
       this.scene.start('ClassSelectScene');
     });
   }
