@@ -428,6 +428,15 @@ export class Wraith {
     this.energy = Math.min(this.maxEnergy, this.energy + amount);
   }
 
+  /** Clean up all owned game objects */
+  destroy() {
+    this.dustEmitter.destroy();
+    this.critEmitter.destroy();
+    this.slashSprite?.destroy();
+    for (const img of this.afterimages) img.destroy();
+    this.afterimages = [];
+  }
+
   private die() {
     this.sprite.setPosition(48, 100);
     this.hp = this.maxHp;
@@ -480,7 +489,7 @@ export class Wraith {
       if (meleeBonus) dmg = Math.round(dmg * (1 + meleeBonus));
 
       // Skill: critDamageBonus — adds to crit multiplier
-      const critDmgBonus = inv.getSkillEffect('critDamageBonus');
+      const critDmgBonus = inv.getSkillEffect('critDamageBonus') || 0;
       if (this.lastHitWasCrit) {
         dmg = Math.floor(dmg * (this.critMultiplier + critDmgBonus));
       }

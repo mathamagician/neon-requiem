@@ -526,11 +526,22 @@ export class Player {
     }
   }
 
+  /** Clean up all owned game objects (call before destroying this player) */
+  destroy() {
+    this.shieldGraphic.destroy();
+    this.dustEmitter.destroy();
+    this.hitEmitter.destroy();
+    this.slashSprite?.destroy();
+  }
+
   private die() {
     // For now: respawn at start
     this.sprite.setPosition(48, 100);
     this.hp = this.maxHp;
     this.energy = this.maxEnergy;
+    this.shieldHp = this.maxShieldHp;
+    this.shieldRegenDelay = 0;
+    this.shieldGraphic.clear();
     this.scene.cameras.main.flash(300, 255, 50, 50);
   }
 

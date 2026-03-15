@@ -432,7 +432,12 @@ export class GameScene extends Phaser.Scene {
     const y = this.player.sprite.y;
     const oldLevel = this.player.level;
     const oldXp = this.player.xp;
+
+    // Clean up old player's game objects and combat overlap listener
+    this.player.destroy();
     this.player.sprite.destroy();
+    this.combat.destroy();
+
     this.player = this.createPlayer(cls, x, y);
     this.player.level = oldLevel;
     this.player.xp = oldXp;

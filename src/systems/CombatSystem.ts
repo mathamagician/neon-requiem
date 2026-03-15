@@ -14,18 +14,24 @@ export class CombatSystem {
   private enemyProjectiles: Phaser.Physics.Arcade.Sprite[] = [];
   private hitEnemiesThisSwing: Set<Phaser.Physics.Arcade.Sprite> = new Set();
   private lastAttackCombo = -1;
+  private overlapCollider: Phaser.Physics.Arcade.Collider;
 
   constructor(scene: GameScene) {
     this.scene = scene;
 
     // Enemy body contact → player damage
-    scene.physics.add.overlap(
+    this.overlapCollider = scene.physics.add.overlap(
       scene.player.sprite,
       scene.enemies,
       this.onPlayerEnemyContact,
       undefined,
       this
     );
+  }
+
+  /** Remove physics listeners to prevent leaks on class switch */
+  destroy() {
+    this.overlapCollider.destroy();
   }
 
   update(time: number, _delta: number) {

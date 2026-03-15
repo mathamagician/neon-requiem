@@ -52,6 +52,7 @@ export class Enemy {
   private hurtTimer = 0;
   private hitstopUntil = 0;
   private spawnX: number;
+  private spawnY: number;
 
   // Deferred knockback — applied when hitstop ends
   private pendingKnockbackX = 0;
@@ -69,6 +70,7 @@ export class Enemy {
     this.scene = scene;
     this.type = type;
     this.spawnX = x;
+    this.spawnY = y;
 
     const config = ENEMY_CONFIGS[type];
     this.hp = config.hp;
@@ -274,7 +276,11 @@ export class Enemy {
     this.scene.time.delayedCall(80, () => {
       if (this.state !== 'dead') this.sprite.setTint(0xffaaaa);
       this.scene.time.delayedCall(80, () => {
-        if (this.state !== 'dead') this.sprite.clearTint();
+        if (this.state !== 'dead') {
+          // Re-apply poison tint if still poisoned, otherwise clear
+          this.sprite.setTint(this.poisonTimer > 0 ? 0x88ff88 : 0xffffff);
+          if (this.poisonTimer <= 0) this.sprite.clearTint();
+        }
       });
     });
 
@@ -327,11 +333,20 @@ export class Enemy {
     this.state = 'patrol';
     const config = ENEMY_CONFIGS[this.type];
 
-    this.sprite = this.scene.physics.add.sprite(this.spawnX, this.spawnX, config.textureKey);
+    this.sprite = this.scene.physics.add.sprite(this.spawnX, this.spawnY, config.textureKey);
     this.sprite.setOrigin(0.5, 1);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;
     this.body.setCollideWorldBounds(true);
-    if (this.type === 'flyer') this.body.setAllowGravity(false);
+
+    // Restore type-specific physics settings
+    if (this.type === 'ghost') {
+      this.body.setSize(12, 14);
+      this.body.setOffset(4, 2);
+    } else {
+      this.body.setSize(14, 18);
+      this.body.setOffset(3, 2);
+    }
+    if (this.type === 'flyer' || this.type === 'ghost') this.body.setAllowGravity(false);
     (this.sprite as any).owner = this;
     (this.sprite as any).isEnemy = true;
 

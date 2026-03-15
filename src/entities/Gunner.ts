@@ -442,6 +442,13 @@ export class Gunner {
     this.energy = Math.min(this.maxEnergy, this.energy + amount);
   }
 
+  /** Clean up all owned game objects */
+  destroy() {
+    this.chargeIndicator.destroy();
+    this.dustEmitter.destroy();
+    this.projectiles.destroy(true);
+  }
+
   private die() {
     this.sprite.setPosition(48, 100);
     this.hp = this.maxHp;
