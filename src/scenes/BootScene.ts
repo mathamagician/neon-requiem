@@ -1,10 +1,21 @@
 import Phaser from 'phaser';
 import { TILE_SIZE, COLORS } from '../../shared/constants';
+import {
+  renderPixelSprite,
+  VANGUARD_SPRITE,
+  GUNNER_SPRITE,
+  WRAITH_SPRITE,
+  WORKER_BOT_SPRITE,
+  SLAG_GOLEM_SPRITE,
+  PLANT_CREATURE_SPRITE,
+  SKELETON_SPRITE,
+  GHOST_SPRITE,
+  BONE_ARCHER_SPRITE,
+} from '../art/spriteData';
 
 /**
- * BootScene generates all placeholder textures (colored rectangles)
- * so we can prototype without any external art assets.
- * These will be replaced with real sprite sheets later.
+ * BootScene generates all placeholder textures using detailed pixel art
+ * sprite data so we can prototype without any external art assets.
  */
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -12,20 +23,21 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
-    // -- Player placeholder (Vanguard) --
-    this.generateRect('player', 14, 24, COLORS.vanguard);
+    // -- Player characters (pixel art) --
+    renderPixelSprite(this, 'player', VANGUARD_SPRITE);
+    renderPixelSprite(this, 'player-gunner', GUNNER_SPRITE);
+    renderPixelSprite(this, 'player-wraith', WRAITH_SPRITE);
 
     // -- Player sword swing (attack hitbox visual) --
     this.generateRect('slash', 20, 8, 0xaaddff, 0.7);
 
-    // -- Foundry Enemies --
-    this.generateRect('enemy-grunt', 14, 16, COLORS.enemy);
-    this.generateRect('enemy-ranged', 12, 16, 0xff8844);
-    this.generateRect('enemy-flyer', 14, 12, 0xff66aa);
-    // -- Cryptvault Enemies --
-    this.generateRect('enemy-skeleton', 14, 18, 0xccccaa);  // bone-white
-    this.generateRect('enemy-ghost', 14, 14, 0x6644cc);     // spectral purple
-    this.generateRect('enemy-bone-archer', 12, 16, 0xaaaa88); // pale bone
+    // -- Enemies (pixel art) --
+    renderPixelSprite(this, 'enemy-grunt', WORKER_BOT_SPRITE);
+    renderPixelSprite(this, 'enemy-ranged', SLAG_GOLEM_SPRITE);
+    renderPixelSprite(this, 'enemy-flyer', PLANT_CREATURE_SPRITE);
+    renderPixelSprite(this, 'enemy-skeleton', SKELETON_SPRITE);
+    renderPixelSprite(this, 'enemy-ghost', GHOST_SPRITE);
+    renderPixelSprite(this, 'enemy-bone-archer', BONE_ARCHER_SPRITE);
 
     // -- NPCs --
     this.generateRect('npc-shopkeeper', 14, 22, 0xccaa66);

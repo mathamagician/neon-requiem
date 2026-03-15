@@ -13,6 +13,7 @@ import { createTestLevel, LEVEL_WIDTH_TILES, LEVEL_HEIGHT_TILES } from '../level
 import { createCryptvaultLevel } from '../levels/cryptvaultLevel';
 import { createHubLevel } from '../levels/hubLevel';
 import { getZone, type ZoneDef } from '../levels/zones';
+import { renderZoneBackground } from '../art/backgroundRenderer';
 import { Boss } from '../entities/Boss';
 import { HollowKing } from '../entities/HollowKing';
 import type { AnyPlayer } from '../entities/PlayerTypes';
@@ -554,29 +555,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createBackground(worldWidth: number, worldHeight: number) {
-    const pal = this.zoneDef.palette;
-    const bg1 = this.add.graphics();
-    bg1.fillGradientStyle(pal.bg1, pal.bg1, pal.bg2, pal.bg2, 1);
-    bg1.fillRect(0, 0, worldWidth, worldHeight);
-    bg1.setScrollFactor(0.1).setDepth(-100);
-
-    const bg2 = this.add.graphics();
-    bg2.fillStyle(pal.bg2, 0.8);
-    for (let i = 0; i < Math.floor(worldWidth / 40); i++) {
-      const bw = 15 + Math.random() * 25;
-      const bh = 30 + Math.random() * 60;
-      bg2.fillRect(i * 40 + Math.random() * 10, worldHeight - bh - 20, bw, bh);
-    }
-    bg2.setScrollFactor(0.3).setDepth(-90);
-
-    const bg3 = this.add.graphics();
-    bg3.lineStyle(1, pal.accent, 0.15);
-    for (let i = 0; i < 8; i++) {
-      const y = worldHeight * 0.3 + Math.random() * worldHeight * 0.4;
-      const sx = Math.random() * worldWidth * 0.5;
-      bg3.lineBetween(sx, y, sx + 50 + Math.random() * 100, y);
-    }
-    bg3.setScrollFactor(0.5).setDepth(-80);
+    renderZoneBackground(this, this.currentZone, worldWidth, worldHeight);
   }
 
   // -- Save System --
