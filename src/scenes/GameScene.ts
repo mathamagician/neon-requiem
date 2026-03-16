@@ -504,43 +504,64 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Draw platform visuals as a separate graphics layer, completely decoupled
+   * Draw ALL tile visuals as a separate graphics layer, completely decoupled
    * from the collision tilemap. This follows the Hollow Knight pattern:
    * collision geometry is invisible, visuals are their own layer.
    *
-   * Tile 1 (ground) and 3 (wall) = invisible collision only.
-   * Tile 2 (platform) = visible one-way platform with neon accent line.
+   * Tile 0 = empty (no visual)
+   * Tile 1 = ground (solid, dark, with edge highlights on exposed faces)
+   * Tile 2 = platform (one-way, neon accent line on top)
+   * Tile 3 = wall (same as ground visually)
    */
   private drawPlatformVisuals(levelData: number[][], levelW: number, levelH: number) {
     const ts = TILE_SIZE;
     const palette = this.zoneDef.palette;
+    const groundColor = palette.ground;
     const platformColor = palette.platform;
     const accentColor = palette.accent;
 
-    // Brighten the platform color slightly for the border
-    const borderColor = Phaser.Display.Color.IntegerToColor(platformColor).brighten(30).color;
+    const groundBorder = Phaser.Display.Color.IntegerToColor(groundColor).brighten(20).color;
+    const platformBorder = Phaser.Display.Color.IntegerToColor(platformColor).brighten(30).color;
+
+    // Helper: is the tile at (tx,ty) empty/air?
+    const isEmpty = (tx: number, ty: number) =>
+      tx < 0 || tx >= levelW || ty < 0 || ty >= levelH || levelData[ty][tx] === 0;
 
     const gfx = this.add.graphics();
     gfx.setDepth(1); // Above background, below entities
 
     for (let y = 0; y < levelH; y++) {
       for (let x = 0; x < levelW; x++) {
-        if (levelData[y][x] !== 2) continue;
+        const tile = levelData[y][x];
+        if (tile === 0) continue;
 
         const px = x * ts;
         const py = y * ts;
 
-        // Platform fill
-        gfx.fillStyle(platformColor);
-        gfx.fillRect(px, py, ts, ts);
+        if (tile === 1 || tile === 3) {
+          // Ground / wall fill
+          gfx.fillStyle(groundColor);
+          gfx.fillRect(px, py, ts, ts);
 
-        // Border
-        gfx.lineStyle(1, borderColor, 0.8);
-        gfx.strokeRect(px + 0.5, py + 0.5, ts - 1, ts - 1);
+          // Draw edge highlights only on faces exposed to air (shows pits/gaps)
+          gfx.lineStyle(1, groundBorder, 0.6);
+          if (isEmpty(x, y - 1)) gfx.lineBetween(px, py, px + ts, py);           // top edge
+          if (isEmpty(x, y + 1)) gfx.lineBetween(px, py + ts, px + ts, py + ts); // bottom edge
+          if (isEmpty(x - 1, y)) gfx.lineBetween(px, py, px, py + ts);           // left edge
+          if (isEmpty(x + 1, y)) gfx.lineBetween(px + ts, py, px + ts, py + ts); // right edge
+        } else if (tile === 2) {
+          // Platform fill
+          gfx.fillStyle(platformColor);
+          gfx.fillRect(px, py, ts, ts);
 
-        // Neon accent top line (shows it's a one-way platform)
-        gfx.lineStyle(2, accentColor, 0.6);
-        gfx.lineBetween(px, py + 1, px + ts, py + 1);
+          // Border
+          gfx.lineStyle(1, platformBorder, 0.8);
+          gfx.strokeRect(px + 0.5, py + 0.5, ts - 1, ts - 1);
+
+          // Neon accent top line (shows it's a one-way platform)
+          gfx.lineStyle(2, accentColor, 0.6);
+          gfx.lineBetween(px, py + 1, px + ts, py + 1);
+        }
       }
     }
   }
