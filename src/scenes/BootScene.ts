@@ -18,9 +18,6 @@ export class BootScene extends Phaser.Scene {
     // -- Player sword swing (attack hitbox visual) --
     this.generateRect('slash', 20, 8, 0xaaddff, 0.7);
 
-    // -- NPCs --
-    this.generateRect('npc-shopkeeper', 14, 22, 0xccaa66);
-
     // -- Projectiles --
     this.generateRect('projectile-enemy', 6, 4, 0xff6644);
     this.generateRect('projectile-player', 8, 4, COLORS.neon);

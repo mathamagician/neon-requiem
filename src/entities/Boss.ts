@@ -73,27 +73,7 @@ export class Boss {
     this.arenaRight = x + 100;
     this.arenaFloor = y;
 
-    // Generate boss texture (large, imposing)
-    const g = scene.add.graphics();
-    // Core body
-    g.fillStyle(0x2244aa);
-    g.fillRect(0, 0, 32, 40);
-    // Neon core
-    g.fillStyle(COLORS.neon, 0.8);
-    g.fillCircle(16, 16, 6);
-    // Electric arcs (decorative lines)
-    g.lineStyle(1, 0x00ffcc, 0.6);
-    g.lineBetween(4, 8, 12, 16);
-    g.lineBetween(28, 8, 20, 16);
-    g.lineBetween(8, 32, 16, 24);
-    g.lineBetween(24, 32, 16, 24);
-    // Border
-    g.lineStyle(2, 0x4488ff);
-    g.strokeRect(0, 0, 32, 40);
-    g.generateTexture('boss-voltrexx', 32, 40);
-    g.destroy();
-
-    // Sprite
+    // Sprite (texture generated in spriteRenderer.ts via BootScene)
     this.sprite = scene.physics.add.sprite(x, y, 'boss-voltrexx');
     this.sprite.setOrigin(0.5, 1);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;

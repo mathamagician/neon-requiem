@@ -3,6 +3,7 @@ import { GAME_WIDTH, GAME_HEIGHT } from '../../shared/constants';
 import { generateDrop, type EquipmentItem, RARITY_COLORS, type Rarity } from '../../shared/data/equipment';
 import type { InventorySystem } from '../systems/InventorySystem';
 import { playSound } from '../systems/SoundManager';
+import { drawPanel, drawDivider, drawSectionHeader, drawItemSlot, RARITY_INT } from '../systems/UIHelper';
 
 const MONO = 'Consolas, "Courier New", monospace';
 const FONT = 'Arial, Helvetica, sans-serif';
@@ -24,11 +25,9 @@ interface ConsumableItem {
 
 type ShopEntry = ShopItem | ConsumableItem;
 
-/** Generates a shop stock based on player level */
 function generateShopStock(playerLevel: number): ShopEntry[] {
   const stock: ShopEntry[] = [];
 
-  // Consumables (always available)
   stock.push({
     type: 'consumable', id: 'potion_hp', name: 'Repair Kit',
     description: 'Restore 40% HP', price: 50, color: 0xff4444,
@@ -42,7 +41,6 @@ function generateShopStock(playerLevel: number): ShopEntry[] {
     description: 'Full HP + Energy restore', price: 120, color: 0x44ffaa,
   });
 
-  // Equipment (3 random pieces, biased uncommon+)
   for (let i = 0; i < 3; i++) {
     const item = generateDrop(playerLevel);
     const rarityMultiplier: Record<Rarity, number> = {
@@ -60,9 +58,9 @@ export class ShopScene extends Phaser.Scene {
   private inventory!: InventorySystem;
   private stock: ShopEntry[] = [];
   private selectedIndex = 0;
-  private itemTexts: Phaser.GameObjects.Text[] = [];
-  private infoText!: Phaser.GameObjects.Text;
-  private goldText!: Phaser.GameObjects.Text;
+  private texts: Phaser.GameObjects.Text[] = [];
+  private panelGfx!: Phaser.GameObjects.Graphics;
+  private contentGfx!: Phaser.GameObjects.Graphics;
   private gold = 0;
 
   constructor() {
@@ -74,79 +72,22 @@ export class ShopScene extends Phaser.Scene {
     this.inventory = this.gameScene.getInventory();
     this.gold = this.gameScene.gold ?? 0;
     this.stock = generateShopStock(this.gameScene.player?.level ?? 1);
+    this.selectedIndex = 0;
   }
 
   create() {
-    // Dim overlay
-    const overlay = this.add.graphics();
-    overlay.fillStyle(0x000000, 0.85);
-    overlay.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    this.panelGfx = this.add.graphics();
+    this.contentGfx = this.add.graphics();
 
-    // Title
-    this.add.text(GAME_WIDTH / 2, 16, 'THRESHOLD SHOP', {
-      fontSize: '16px', fontFamily: MONO, color: '#ccaa66',
-      stroke: '#000000', strokeThickness: 2,
-    }).setOrigin(0.5);
-
-    // Gold display
-    this.goldText = this.add.text(GAME_WIDTH - 20, 16, `Gold: ${this.gold}`, {
-      fontSize: '12px', fontFamily: MONO, color: '#ffcc44',
-      stroke: '#000000', strokeThickness: 1,
-    }).setOrigin(1, 0.5);
-
-    // Item list
-    this.itemTexts = [];
-    const startY = 42;
-    const lineH = 28;
-
-    for (let i = 0; i < this.stock.length; i++) {
-      const entry = this.stock[i];
-      const y = startY + i * lineH;
-
-      let name: string;
-      let color: string;
-      let priceStr: string;
-
-      if (entry.type === 'consumable') {
-        name = entry.name;
-        color = '#' + entry.color.toString(16).padStart(6, '0');
-        priceStr = `${entry.price}g`;
-      } else {
-        name = entry.item.name;
-        const rarityHex = RARITY_COLORS[entry.item.rarity];
-        color = '#' + rarityHex.toString(16).padStart(6, '0');
-        priceStr = `${entry.price}g`;
-      }
-
-      const text = this.add.text(30, y, `${name}  [${priceStr}]`, {
-        fontSize: '12px', fontFamily: MONO, color,
-        stroke: '#000000', strokeThickness: 1,
-      });
-      this.itemTexts.push(text);
-    }
-
-    // Info panel
-    this.infoText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 70, '', {
-      fontSize: '11px', fontFamily: FONT, color: '#aabbcc',
-      stroke: '#000000', strokeThickness: 1, wordWrap: { width: GAME_WIDTH - 40 },
-    }).setOrigin(0.5, 0);
-
-    // Controls hint
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, 'UP/DOWN: Browse | Z/ENTER: Buy | ESC/TAB: Leave', {
-      fontSize: '10px', fontFamily: MONO, color: '#556677',
-      stroke: '#000000', strokeThickness: 1,
-    }).setOrigin(0.5);
-
-    this.updateSelection();
-
-    // Input
     this.input.keyboard!.on('keydown-UP', () => {
       this.selectedIndex = (this.selectedIndex - 1 + this.stock.length) % this.stock.length;
-      this.updateSelection();
+      playSound('menuSelect');
+      this.refresh();
     });
     this.input.keyboard!.on('keydown-DOWN', () => {
       this.selectedIndex = (this.selectedIndex + 1) % this.stock.length;
-      this.updateSelection();
+      playSound('menuSelect');
+      this.refresh();
     });
     this.input.keyboard!.on('keydown-Z', () => this.buySelected());
     this.input.keyboard!.on('keydown-ENTER', () => this.buySelected());
@@ -155,32 +96,131 @@ export class ShopScene extends Phaser.Scene {
       e.preventDefault();
       this.closeShop();
     });
+
+    this.refresh();
   }
 
-  private updateSelection() {
-    for (let i = 0; i < this.itemTexts.length; i++) {
-      this.itemTexts[i].setAlpha(i === this.selectedIndex ? 1 : 0.5);
-      this.itemTexts[i].setText(
-        (i === this.selectedIndex ? '> ' : '  ') + this.getEntryLabel(this.stock[i])
-      );
+  private refresh() {
+    this.texts.forEach(t => t.destroy());
+    this.texts = [];
+    this.panelGfx.clear();
+    this.contentGfx.clear();
+
+    const g = this.panelGfx;
+    const cg = this.contentGfx;
+
+    // Dim background
+    g.fillStyle(0x050510, 0.92);
+    g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+
+    // Main panel
+    drawPanel(g, 20, 8, GAME_WIDTH - 40, GAME_HEIGHT - 16, { borderColor: 0xccaa66 });
+
+    // Title bar
+    drawSectionHeader(g, 24, 12, GAME_WIDTH - 48, 0xccaa66);
+    this.txt('THRESHOLD SHOP', GAME_WIDTH / 2, 16, {
+      fontSize: '15px', color: '#ccaa66', fontStyle: 'bold',
+    }).setOrigin(0.5, 0);
+
+    // Gold display
+    cg.fillStyle(0xffcc44, 0.8);
+    cg.fillRect(GAME_WIDTH - 70, 15, 8, 8);
+    cg.lineStyle(1, 0xffee88, 0.6);
+    cg.strokeRect(GAME_WIDTH - 70, 15, 8, 8);
+    this.txt(`${this.gold}`, GAME_WIDTH - 56, 14, {
+      fontSize: '14px', color: '#ffcc44', fontFamily: MONO, fontStyle: 'bold',
+    });
+
+    // Item list
+    const listX = 28;
+    let listY = 38;
+
+    // Consumables header
+    drawDivider(cg, listX, listY, GAME_WIDTH - 56);
+    this.txt('CONSUMABLES', listX + 4, listY + 2, {
+      fontSize: '9px', color: '#667788', fontFamily: MONO,
+    });
+    listY += 16;
+
+    let equipHeaderDrawn = false;
+
+    for (let i = 0; i < this.stock.length; i++) {
+      const entry = this.stock[i];
+      const isSel = this.selectedIndex === i;
+
+      // Equipment header
+      if (entry.type === 'equipment' && !equipHeaderDrawn) {
+        equipHeaderDrawn = true;
+        listY += 4;
+        drawDivider(cg, listX, listY, GAME_WIDTH - 56);
+        this.txt('EQUIPMENT', listX + 4, listY + 2, {
+          fontSize: '9px', color: '#667788', fontFamily: MONO,
+        });
+        listY += 16;
+      }
+
+      let name: string;
+      let rColor: number;
+      let price: number;
+
+      if (entry.type === 'consumable') {
+        name = entry.name;
+        rColor = entry.color;
+        price = entry.price;
+      } else {
+        name = entry.item.name;
+        rColor = RARITY_INT[entry.item.rarity] ?? 0xaaaaaa;
+        price = entry.price;
+      }
+
+      // Selection highlight
+      if (isSel) {
+        cg.fillStyle(rColor, 0.08);
+        cg.fillRect(listX, listY - 2, GAME_WIDTH - 56, 42);
+      }
+
+      // Item icon
+      drawItemSlot(cg, listX + 4, listY, 16, rColor, true);
+
+      // Name
+      const cHex = '#' + rColor.toString(16).padStart(6, '0');
+      this.txt(`${isSel ? '▸ ' : '  '}${name}`, listX + 26, listY, {
+        fontSize: '12px', color: isSel ? '#ffffff' : cHex,
+        fontStyle: isSel ? 'bold' : 'normal',
+      });
+
+      // Price
+      const canAfford = this.gold >= price;
+      this.txt(`${price}g`, GAME_WIDTH - 70, listY, {
+        fontSize: '11px', color: canAfford ? '#ffcc44' : '#ff4444',
+        fontFamily: MONO,
+      });
+
+      if (isSel) {
+        if (entry.type === 'consumable') {
+          this.txt(entry.description, listX + 28, listY + 16, {
+            fontSize: '10px', color: '#889999',
+          });
+        } else {
+          const item = entry.item;
+          const mods = item.modifiers.map(m => `+${m.value} ${m.stat}`).join(', ');
+          this.txt(`${item.rarity.toUpperCase()} ${item.slot}  |  Base: +${item.baseStat}`, listX + 28, listY + 16, {
+            fontSize: '10px', color: cHex,
+          });
+          if (mods) {
+            this.txt(mods, listX + 28, listY + 28, { fontSize: '10px', color: '#889999' });
+          }
+        }
+        listY += 42;
+      } else {
+        listY += 22;
+      }
     }
 
-    // Update info text
-    const entry = this.stock[this.selectedIndex];
-    if (entry.type === 'consumable') {
-      this.infoText.setText(entry.description);
-    } else {
-      const item = entry.item;
-      const mods = item.modifiers.map(m => `+${m.value} ${m.stat}`).join(', ');
-      this.infoText.setText(`${item.rarity.toUpperCase()} ${item.slot} | Base: ${item.baseStat}\n${mods || 'No bonuses'}`);
-    }
-  }
-
-  private getEntryLabel(entry: ShopEntry): string {
-    if (entry.type === 'consumable') {
-      return `${entry.name}  [${entry.price}g]`;
-    }
-    return `${entry.item.name}  [${entry.price}g]`;
+    // Footer
+    this.txt('↑/↓: Browse  |  Z/Enter: Buy  |  ESC/TAB: Leave', GAME_WIDTH / 2, GAME_HEIGHT - 18, {
+      fontSize: '10px', color: '#445566', fontFamily: MONO,
+    }).setOrigin(0.5);
   }
 
   private buySelected() {
@@ -195,24 +235,23 @@ export class ShopScene extends Phaser.Scene {
       playSound('shopBuy');
       this.gold -= entry.price;
       this.gameScene.gold = this.gold;
-      this.goldText.setText(`Gold: ${this.gold}`);
       this.applyConsumable(entry);
       this.showMessage(`Used ${entry.name}`, '#44ffaa');
+      this.refresh();
     } else {
       if (this.inventory.backpack.length >= this.inventory.MAX_BACKPACK) {
+        playSound('menuSelect');
         this.showMessage('Backpack full!', '#ff4444');
         return;
       }
       playSound('shopBuy');
       this.gold -= entry.price;
       this.gameScene.gold = this.gold;
-      this.goldText.setText(`Gold: ${this.gold}`);
       this.inventory.addItem(entry.item);
-      // Remove from shop stock
       this.stock.splice(this.selectedIndex, 1);
       this.selectedIndex = Math.min(this.selectedIndex, this.stock.length - 1);
-      this.rebuildList();
       this.showMessage(`Purchased ${entry.item.name}`, '#44ffaa');
+      this.refresh();
     }
   }
 
@@ -234,40 +273,12 @@ export class ShopScene extends Phaser.Scene {
     }
   }
 
-  private rebuildList() {
-    for (const t of this.itemTexts) t.destroy();
-    this.itemTexts = [];
-
-    const startY = 42;
-    const lineH = 28;
-
-    for (let i = 0; i < this.stock.length; i++) {
-      const entry = this.stock[i];
-      const y = startY + i * lineH;
-      let color: string;
-
-      if (entry.type === 'consumable') {
-        color = '#' + entry.color.toString(16).padStart(6, '0');
-      } else {
-        const rarityHex = RARITY_COLORS[entry.item.rarity];
-        color = '#' + rarityHex.toString(16).padStart(6, '0');
-      }
-
-      const text = this.add.text(30, y, '', {
-        fontSize: '12px', fontFamily: MONO, color,
-        stroke: '#000000', strokeThickness: 1,
-      });
-      this.itemTexts.push(text);
-    }
-
-    this.updateSelection();
-  }
-
   private showMessage(msg: string, color: string) {
-    const text = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 45, msg, {
+    const text = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 40, msg, {
       fontSize: '12px', fontFamily: FONT, color,
       stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5);
+    this.texts.push(text);
 
     this.tweens.add({
       targets: text, alpha: 0, y: text.y - 10,
@@ -279,5 +290,15 @@ export class ShopScene extends Phaser.Scene {
     this.input.keyboard!.removeAllListeners();
     this.scene.stop('ShopScene');
     this.scene.resume('GameScene');
+  }
+
+  private txt(text: string, x: number, y: number, opts: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}): Phaser.GameObjects.Text {
+    const obj = this.add.text(x, y, text, {
+      fontSize: '12px', fontFamily: FONT, color: '#cccccc',
+      stroke: '#000000', strokeThickness: 1,
+      ...opts,
+    });
+    this.texts.push(obj);
+    return obj;
   }
 }

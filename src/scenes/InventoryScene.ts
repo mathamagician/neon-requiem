@@ -5,16 +5,20 @@ import type { EquipSlot } from '../../shared/data/equipment';
 import { SKILL_BRANCHES } from '../../shared/data/skillTrees';
 import type { InventorySystem } from '../systems/InventorySystem';
 import type { GameScene } from './GameScene';
+import { playSound } from '../systems/SoundManager';
+import { drawPanel, drawDivider, drawTabs, drawStatBar, drawSectionHeader, drawItemSlot, RARITY_INT } from '../systems/UIHelper';
 
 const FONT = 'Arial, Helvetica, sans-serif';
 const MONO = 'Consolas, "Courier New", monospace';
 
 type TabMode = 'stats' | 'backpack' | 'skills';
 const TABS: TabMode[] = ['stats', 'backpack', 'skills'];
+const TAB_NAMES = ['STATS', 'BACKPACK', 'SKILLS'];
 
 export class InventoryScene extends Phaser.Scene {
   private gameScene!: GameScene;
-  private bg!: Phaser.GameObjects.Graphics;
+  private panelGfx!: Phaser.GameObjects.Graphics;
+  private contentGfx!: Phaser.GameObjects.Graphics;
   private texts: Phaser.GameObjects.Text[] = [];
   private selectedIndex = 0;
   private mode: TabMode = 'stats';
@@ -31,12 +35,9 @@ export class InventoryScene extends Phaser.Scene {
   }
 
   create() {
-    this.bg = this.add.graphics();
-    this.bg.fillStyle(0x0a0a18, 0.92);
-    this.bg.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-
-    this.bg.lineStyle(2, 0x00ffcc, 0.4);
-    this.bg.strokeRect(10, 10, GAME_WIDTH - 20, GAME_HEIGHT - 20);
+    // Panel graphics (drawn once per refresh)
+    this.panelGfx = this.add.graphics();
+    this.contentGfx = this.add.graphics();
 
     this.input.keyboard!.on('keydown-TAB', (e: KeyboardEvent) => { e.preventDefault(); this.closeInventory(); });
     this.input.keyboard!.on('keydown-ESC', () => this.closeInventory());
@@ -44,16 +45,26 @@ export class InventoryScene extends Phaser.Scene {
       const idx = TABS.indexOf(this.mode);
       this.mode = TABS[(idx - 1 + TABS.length) % TABS.length];
       this.selectedIndex = 0;
+      playSound('menuSelect');
       this.refresh();
     });
     this.input.keyboard!.on('keydown-RIGHT', () => {
       const idx = TABS.indexOf(this.mode);
       this.mode = TABS[(idx + 1) % TABS.length];
       this.selectedIndex = 0;
+      playSound('menuSelect');
       this.refresh();
     });
-    this.input.keyboard!.on('keydown-UP', () => { this.selectedIndex = Math.max(0, this.selectedIndex - 1); this.refresh(); });
-    this.input.keyboard!.on('keydown-DOWN', () => { this.selectedIndex++; this.refresh(); });
+    this.input.keyboard!.on('keydown-UP', () => {
+      this.selectedIndex = Math.max(0, this.selectedIndex - 1);
+      playSound('menuSelect');
+      this.refresh();
+    });
+    this.input.keyboard!.on('keydown-DOWN', () => {
+      this.selectedIndex++;
+      playSound('menuSelect');
+      this.refresh();
+    });
     this.input.keyboard!.on('keydown-Z', () => this.handleAction());
 
     this.refresh();
@@ -62,189 +73,251 @@ export class InventoryScene extends Phaser.Scene {
   private refresh() {
     this.texts.forEach(t => t.destroy());
     this.texts = [];
+    this.panelGfx.clear();
+    this.contentGfx.clear();
 
     const inv = this.gameScene.getInventory();
     const player = this.gameScene.player;
+    const g = this.panelGfx;
 
-    const t = (text: string, x: number, y: number, opts: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}) => {
-      const obj = this.add.text(x, y, text, {
-        fontSize: '13px', fontFamily: FONT, color: '#cccccc',
-        stroke: '#000000', strokeThickness: 1,
-        ...opts,
-      });
-      this.texts.push(obj);
-      return obj;
-    };
+    // Full-screen dimmed background
+    g.fillStyle(0x050510, 0.92);
+    g.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
 
-    // Title
-    t('INVENTORY', GAME_WIDTH / 2, 20, {
-      fontSize: '20px', color: '#00ffcc', fontStyle: 'bold', strokeThickness: 2,
-    }).setOrigin(0.5);
+    // Main panel
+    drawPanel(g, 8, 8, GAME_WIDTH - 16, GAME_HEIGHT - 16);
 
-    // Tab switcher
-    const tabY = 46;
-    const tabNames = ['STATS', 'BACKPACK', 'SKILLS'];
-    const tabWidth = 100;
-    const tabStart = GAME_WIDTH / 2 - (tabNames.length * tabWidth) / 2;
-    for (let i = 0; i < tabNames.length; i++) {
-      const isActive = this.mode === TABS[i];
-      t(isActive ? `[ ${tabNames[i]} ]` : `  ${tabNames[i]}  `, tabStart + i * tabWidth, tabY, {
-        fontSize: '14px', color: isActive ? '#ffffff' : '#555555', fontFamily: MONO,
-      });
+    // Title bar
+    drawSectionHeader(g, 12, 12, GAME_WIDTH - 24, 0x00ffcc);
+    this.txt('INVENTORY', GAME_WIDTH / 2, 16, { fontSize: '16px', color: '#00ffcc', fontStyle: 'bold' }).setOrigin(0.5, 0);
+
+    // Gold display
+    this.txt(`${this.gameScene.gold}g`, GAME_WIDTH - 24, 16, {
+      fontSize: '13px', color: '#ffcc44', fontFamily: MONO,
+    }).setOrigin(1, 0);
+
+    // Tab bar
+    const tabY = 36;
+    const tabW = Math.floor((GAME_WIDTH - 28) / 3);
+    const activeIdx = TABS.indexOf(this.mode);
+    drawTabs(g, TAB_NAMES, activeIdx, 14, tabY, tabW, 20);
+    for (let i = 0; i < TAB_NAMES.length; i++) {
+      this.txt(TAB_NAMES[i], 14 + i * tabW + tabW / 2, tabY + 4, {
+        fontSize: '12px', fontFamily: MONO,
+        color: i === activeIdx ? '#00ffcc' : '#556677',
+        fontStyle: i === activeIdx ? 'bold' : 'normal',
+      }).setOrigin(0.5, 0);
     }
 
     // Footer
-    t('TAB/ESC: Close  |  LEFT/RIGHT: Tab  |  UP/DOWN: Select  |  Z: Use', GAME_WIDTH / 2, GAME_HEIGHT - 22, {
-      fontSize: '11px', color: '#555566', fontFamily: MONO,
+    this.txt('TAB/ESC: Close  |  ←/→: Tab  |  ↑/↓: Select  |  Z: Use', GAME_WIDTH / 2, GAME_HEIGHT - 20, {
+      fontSize: '10px', color: '#445566', fontFamily: MONO,
     }).setOrigin(0.5);
 
+    // Content area starts at y=60
     if (this.mode === 'stats') {
-      this.renderStats(inv, player, t);
+      this.renderStats(inv, player);
     } else if (this.mode === 'backpack') {
-      this.renderBackpack(inv, t);
+      this.renderBackpack(inv);
     } else {
-      this.renderSkills(inv, player, t);
+      this.renderSkills(inv, player);
     }
   }
 
-  private renderStats(
-    inv: InventorySystem,
-    player: any,
-    t: (text: string, x: number, y: number, opts?: Partial<Phaser.Types.GameObjects.Text.TextStyle>) => Phaser.GameObjects.Text
-  ) {
-    const lx = 30;
-    const rx = GAME_WIDTH / 2 + 20;
-    let ly = 70;
-    let ry = 70;
+  private renderStats(inv: InventorySystem, player: any) {
+    const g = this.contentGfx;
+    const lx = 20;
+    const rx = GAME_WIDTH / 2 + 10;
+    let ly = 62;
+    let ry = 62;
 
-    t(`Level ${player.level}`, lx, ly, { fontSize: '16px', color: '#ffcc44', fontStyle: 'bold' });
-    t(`XP: ${player.xp} / ${player.xpToNext}`, lx + 100, ly + 2, { fontSize: '12px', color: '#aa8833' });
-    ly += 24;
+    // -- Left column: Character stats --
+    drawSectionHeader(g, lx, ly, GAME_WIDTH / 2 - 24, 0x4488ff);
+    this.txt(`${this.gameScene.currentClass.toUpperCase()}  Lv.${player.level}`, lx + 4, ly + 3, {
+      fontSize: '13px', color: '#ffffff', fontStyle: 'bold',
+    });
+    ly += 26;
 
-    t(`HP: ${player.hp} / ${player.maxHp}`, lx, ly, { fontSize: '13px', color: '#44ff44' });
-    t(`Energy: ${player.energy} / ${player.maxEnergy}`, lx + 140, ly, { fontSize: '13px', color: '#4488ff' });
-    ly += 28;
+    // XP bar
+    this.txt('XP', lx + 4, ly, { fontSize: '10px', color: '#aa8833', fontFamily: MONO });
+    drawStatBar(g, lx + 24, ly + 1, 120, 8, player.xp / player.xpToNext, 0xffcc44);
+    this.txt(`${player.xp}/${player.xpToNext}`, lx + 150, ly, { fontSize: '10px', color: '#887744', fontFamily: MONO });
+    ly += 16;
 
-    t('STATS', lx, ly, { fontSize: '14px', color: '#00ffcc', fontStyle: 'bold' });
-    if (inv.stats.unspent > 0) {
-      t(`(${inv.stats.unspent} points — Z to allocate)`, lx + 60, ly + 1, { fontSize: '12px', color: '#ffcc44' });
-    }
+    // HP bar
+    this.txt('HP', lx + 4, ly, { fontSize: '10px', color: '#44ff44', fontFamily: MONO });
+    drawStatBar(g, lx + 24, ly + 1, 120, 8, player.hp / player.maxHp, 0x44ff44);
+    this.txt(`${player.hp}/${player.maxHp}`, lx + 150, ly, { fontSize: '10px', color: '#44aa44', fontFamily: MONO });
+    ly += 16;
+
+    // Energy bar
+    this.txt('EN', lx + 4, ly, { fontSize: '10px', color: '#4488ff', fontFamily: MONO });
+    drawStatBar(g, lx + 24, ly + 1, 120, 8, player.energy / player.maxEnergy, 0x4488ff);
+    this.txt(`${player.energy}/${player.maxEnergy}`, lx + 150, ly, { fontSize: '10px', color: '#4488aa', fontFamily: MONO });
     ly += 22;
 
+    // Stats
+    drawDivider(g, lx, ly, GAME_WIDTH / 2 - 24);
+    ly += 6;
+
+    if (inv.stats.unspent > 0) {
+      this.txt(`${inv.stats.unspent} point${inv.stats.unspent > 1 ? 's' : ''} to allocate`, lx + 4, ly, {
+        fontSize: '11px', color: '#ffcc44', fontStyle: 'bold',
+      });
+      ly += 16;
+    }
+
     const statNames = ['might', 'precision', 'arcana', 'vitality'] as const;
-    const statColors = ['#ff8844', '#44ff88', '#8844ff', '#ff4488'];
-    const statDescs = ['Melee damage, HP bonus', 'Ranged damage, crit chance', 'Boss power damage, energy', 'Max HP, defense, regen'];
+    const statColors = [0xff8844, 0x44ff88, 0x8844ff, 0xff4488];
+    const statHex = ['#ff8844', '#44ff88', '#8844ff', '#ff4488'];
+    const statDescs = ['Melee dmg, HP', 'Ranged dmg, crit', 'Power dmg, energy', 'Max HP, defense'];
 
     for (let i = 0; i < statNames.length; i++) {
       const name = statNames[i];
       const base = inv.stats[name];
       const bonus = inv.getEquipBonuses()[name] ?? 0;
-      const isSelected = this.selectedIndex === i;
-      const arrow = isSelected ? '>' : ' ';
-      const bonusTxt = bonus > 0 ? `  (+${bonus})` : '';
+      const isSel = this.selectedIndex === i;
 
-      t(`${arrow} ${name.toUpperCase()}: ${base}${bonusTxt}`, lx, ly, {
-        fontSize: '14px', color: isSelected ? '#ffffff' : statColors[i],
-        fontFamily: MONO, fontStyle: isSelected ? 'bold' : 'normal',
-      });
-      if (isSelected) {
-        t(`  ${statDescs[i]}`, lx + 10, ly + 18, { fontSize: '11px', color: '#777777' });
+      // Selection highlight
+      if (isSel) {
+        g.fillStyle(statColors[i], 0.1);
+        g.fillRect(lx, ly - 1, GAME_WIDTH / 2 - 24, 18);
       }
-      ly += isSelected ? 38 : 22;
+
+      const arrow = isSel ? '▸ ' : '  ';
+      const bonusTxt = bonus > 0 ? ` (+${bonus})` : '';
+      this.txt(`${arrow}${name.toUpperCase()}`, lx + 4, ly + 1, {
+        fontSize: '12px', color: isSel ? '#ffffff' : statHex[i],
+        fontFamily: MONO, fontStyle: isSel ? 'bold' : 'normal',
+      });
+      this.txt(`${base}${bonusTxt}`, lx + 110, ly + 1, {
+        fontSize: '12px', color: isSel ? '#ffffff' : statHex[i], fontFamily: MONO,
+      });
+      this.txt(statDescs[i], lx + 150, ly + 2, {
+        fontSize: '9px', color: '#556677', fontFamily: MONO,
+      });
+      ly += 20;
     }
 
-    // Equipped items
-    t('EQUIPPED', rx, ry, { fontSize: '14px', color: '#00ffcc', fontStyle: 'bold' });
-    ry += 24;
+    // -- Right column: Equipment --
+    drawSectionHeader(g, rx, ry, GAME_WIDTH / 2 - 24, 0x00ffcc);
+    this.txt('EQUIPPED', rx + 4, ry + 3, { fontSize: '13px', color: '#00ffcc', fontStyle: 'bold' });
+    ry += 26;
 
     const slots: EquipSlot[] = ['weapon', 'armor', 'accessory1', 'accessory2'];
-    const slotLabels = ['Weapon', 'Armor', 'Accessory 1', 'Accessory 2'];
+    const slotLabels = ['Weapon', 'Armor', 'Acc. 1', 'Acc. 2'];
+    const slotSize = 22;
 
     for (let i = 0; i < slots.length; i++) {
       const item = inv.equipped[slots[i]];
-      t(`${slotLabels[i]}:`, rx, ry, { fontSize: '12px', color: '#888888' });
-      ry += 16;
+      const rColor = item ? (RARITY_INT[item.rarity] ?? 0xaaaaaa) : 0x333344;
+
+      // Item slot icon
+      drawItemSlot(g, rx + 4, ry, slotSize, rColor, !!item);
+
+      // Slot label and item name
+      this.txt(slotLabels[i], rx + slotSize + 10, ry, { fontSize: '10px', color: '#667788', fontFamily: MONO });
       if (item) {
         const c = '#' + RARITY_COLORS[item.rarity].toString(16).padStart(6, '0');
-        t(`  ${item.name}`, rx, ry, { fontSize: '13px', color: c, fontStyle: 'bold' });
-        ry += 16;
-        t(`  ${RARITY_NAMES[item.rarity]} — ${item.description || 'No mods'}`, rx, ry, {
-          fontSize: '11px', color: '#777777',
-        });
+        this.txt(item.name, rx + slotSize + 10, ry + 12, { fontSize: '11px', color: c, fontStyle: 'bold' });
       } else {
-        t('  (empty)', rx, ry, { fontSize: '13px', color: '#444444' });
+        this.txt('(empty)', rx + slotSize + 10, ry + 12, { fontSize: '11px', color: '#333344' });
       }
-      ry += 22;
+      ry += slotSize + 6;
     }
 
-    // Boss powers section
+    // Boss Powers
+    ry += 4;
+    drawDivider(g, rx, ry, GAME_WIDTH / 2 - 24);
     ry += 8;
-    t('BOSS POWERS', rx, ry, { fontSize: '14px', color: '#00ffcc', fontStyle: 'bold' });
-    ry += 20;
+    this.txt('BOSS POWERS', rx + 4, ry, { fontSize: '11px', color: '#00ffcc', fontStyle: 'bold' });
+    ry += 18;
+
     for (let s = 0; s < 2; s++) {
       const power = inv.getSlotPower(s as 0 | 1);
       const isActive = inv.activePowerSlot === s;
-      const label = isActive ? `[C] Slot ${s + 1}:` : `    Slot ${s + 1}:`;
-      t(label, rx, ry, { fontSize: '12px', color: isActive ? '#ffffff' : '#888888' });
+      const prefix = isActive ? '[C]' : '   ';
+      this.txt(`${prefix} Slot ${s + 1}:`, rx + 4, ry, {
+        fontSize: '11px', color: isActive ? '#ffffff' : '#667788', fontFamily: MONO,
+      });
       if (power) {
         const c = '#' + power.color.toString(16).padStart(6, '0');
-        t(` ${power.name}`, rx + 80, ry, { fontSize: '12px', color: c, fontStyle: 'bold' });
+        this.txt(power.name, rx + 80, ry, { fontSize: '11px', color: c, fontStyle: 'bold' });
       } else {
-        t(' (empty)', rx + 80, ry, { fontSize: '12px', color: '#444444' });
+        this.txt('(empty)', rx + 80, ry, { fontSize: '11px', color: '#333344' });
       }
-      ry += 18;
+      ry += 16;
     }
   }
 
-  private renderBackpack(
-    inv: InventorySystem,
-    t: (text: string, x: number, y: number, opts?: Partial<Phaser.Types.GameObjects.Text.TextStyle>) => Phaser.GameObjects.Text
-  ) {
-    const x = 30;
-    let y = 70;
+  private renderBackpack(inv: InventorySystem) {
+    const g = this.contentGfx;
+    const x = 20;
+    let y = 62;
 
-    t(`BACKPACK  (${inv.backpack.length} / ${inv.MAX_BACKPACK})`, x, y, {
-      fontSize: '14px', color: '#00ffcc', fontStyle: 'bold',
+    drawSectionHeader(g, x, y, GAME_WIDTH - 40, 0x00ffcc);
+    this.txt(`BACKPACK  ${inv.backpack.length}/${inv.MAX_BACKPACK}`, x + 4, y + 3, {
+      fontSize: '13px', color: '#00ffcc', fontStyle: 'bold',
     });
     y += 26;
 
     if (inv.backpack.length === 0) {
-      t('No items yet — defeat enemies to find loot!', x, y, { fontSize: '13px', color: '#555555' });
+      this.txt('No items yet — defeat enemies to find loot!', x + 4, y, { fontSize: '12px', color: '#445566' });
       return;
     }
 
     this.selectedIndex = Math.min(this.selectedIndex, inv.backpack.length - 1);
 
-    const maxVisible = 10;
+    const maxVisible = 8;
     const startIdx = Math.max(0, this.selectedIndex - Math.floor(maxVisible / 2));
     const endIdx = Math.min(inv.backpack.length, startIdx + maxVisible);
+
+    // Scroll indicator
+    if (startIdx > 0) {
+      this.txt('▲ more', x + 4, y - 2, { fontSize: '9px', color: '#445566', fontFamily: MONO });
+    }
 
     for (let i = startIdx; i < endIdx; i++) {
       const item = inv.backpack[i];
       const isSel = this.selectedIndex === i;
-      const arrow = isSel ? '>' : ' ';
-      const c = '#' + RARITY_COLORS[item.rarity].toString(16).padStart(6, '0');
+      const rColor = RARITY_INT[item.rarity] ?? 0xaaaaaa;
+      const cHex = '#' + RARITY_COLORS[item.rarity].toString(16).padStart(6, '0');
 
-      t(`${arrow} ${item.name}`, x, y, {
-        fontSize: '14px', color: isSel ? '#ffffff' : c,
-        fontFamily: MONO, fontStyle: isSel ? 'bold' : 'normal',
+      // Selection highlight
+      if (isSel) {
+        g.fillStyle(rColor, 0.08);
+        g.fillRect(x, y - 1, GAME_WIDTH - 40, isSel ? 52 : 22);
+      }
+
+      // Item icon
+      drawItemSlot(g, x + 4, y, 18, rColor, true);
+
+      // Item name and slot
+      this.txt(item.name, x + 28, y, {
+        fontSize: '12px', color: isSel ? '#ffffff' : cHex,
+        fontStyle: isSel ? 'bold' : 'normal',
       });
-      t(`[${item.slot}]`, x + 250, y + 1, { fontSize: '11px', color: '#666666' });
+      this.txt(`[${item.slot}]`, x + 28 + 200, y + 1, { fontSize: '10px', color: '#556677', fontFamily: MONO });
 
       if (isSel) {
-        y += 20;
-        t(`${RARITY_NAMES[item.rarity]}  |  Base: +${item.baseStat}`, x + 16, y, {
-          fontSize: '12px', color: c,
+        // Detail row
+        this.txt(`${RARITY_NAMES[item.rarity]}  |  Base: +${item.baseStat}`, x + 28, y + 16, {
+          fontSize: '11px', color: cHex,
         });
-        y += 16;
         if (item.description) {
-          t(item.description, x + 16, y, { fontSize: '12px', color: '#aaaaaa' });
-          y += 16;
+          this.txt(item.description, x + 28, y + 30, { fontSize: '10px', color: '#889999' });
         }
-        t('Z: Equip   X: Discard', x + 16, y, { fontSize: '12px', color: '#ffcc44', fontStyle: 'bold' });
-        y += 6;
+        this.txt('Z: Equip   X: Discard', x + 28, y + (item.description ? 42 : 30), {
+          fontSize: '10px', color: '#ffcc44', fontFamily: MONO, fontStyle: 'bold',
+        });
+        y += item.description ? 56 : 46;
+      } else {
+        y += 22;
       }
-      y += 22;
+    }
+
+    if (endIdx < inv.backpack.length) {
+      this.txt('▼ more', x + 4, y + 2, { fontSize: '9px', color: '#445566', fontFamily: MONO });
     }
 
     if (!this._discardBound) {
@@ -252,36 +325,38 @@ export class InventoryScene extends Phaser.Scene {
       this.input.keyboard!.on('keydown-X', () => {
         if (this.mode === 'backpack' && inv.backpack[this.selectedIndex]) {
           inv.discard(inv.backpack[this.selectedIndex].id);
+          playSound('menuSelect');
           this.refresh();
         }
       });
     }
   }
 
-  private renderSkills(
-    inv: InventorySystem,
-    player: any,
-    t: (text: string, x: number, y: number, opts?: Partial<Phaser.Types.GameObjects.Text.TextStyle>) => Phaser.GameObjects.Text
-  ) {
-    const x = 30;
-    let y = 70;
+  private renderSkills(inv: InventorySystem, player: any) {
+    const g = this.contentGfx;
+    const x = 20;
+    let y = 62;
 
     const branchId = inv.activeBranch;
     if (!branchId || !SKILL_BRANCHES[branchId]) {
-      t('No skill branch selected', x, y, { fontSize: '13px', color: '#555555' });
+      this.txt('No skill branch selected', x, y, { fontSize: '12px', color: '#445566' });
       return;
     }
 
     const branch = SKILL_BRANCHES[branchId];
 
-    t(`${branch.name.toUpperCase()} — ${branch.description}`, x, y, {
-      fontSize: '14px', color: '#00ffcc', fontStyle: 'bold',
-    });
-    y += 20;
-    t(`Skill Points: ${inv.skillPoints}`, x, y, {
-      fontSize: '13px', color: inv.skillPoints > 0 ? '#ffcc44' : '#666666',
-    });
+    drawSectionHeader(g, x, y, GAME_WIDTH - 40, 0x8844ff);
+    this.txt(branch.name.toUpperCase(), x + 4, y + 3, { fontSize: '13px', color: '#aa66ff', fontStyle: 'bold' });
+    this.txt(branch.description, x + 140, y + 4, { fontSize: '10px', color: '#667788' });
     y += 26;
+
+    // Skill points
+    const spColor = inv.skillPoints > 0 ? '#ffcc44' : '#445566';
+    this.txt(`Skill Points: ${inv.skillPoints}`, x + 4, y, { fontSize: '12px', color: spColor, fontFamily: MONO });
+    y += 20;
+
+    drawDivider(g, x, y, GAME_WIDTH - 40);
+    y += 8;
 
     const skills = branch.skills;
     this.selectedIndex = Math.min(this.selectedIndex, skills.length - 1);
@@ -293,41 +368,63 @@ export class InventoryScene extends Phaser.Scene {
       const levelMet = player.level >= skill.levelReq;
       const canAfford = inv.skillPoints >= skill.cost;
       const canUnlock = !isUnlocked && prereqMet && levelMet && canAfford;
-
       const isSel = this.selectedIndex === i;
-      const arrow = isSel ? '>' : ' ';
 
-      let color = '#444444'; // locked
+      // Determine color and status
+      let nodeColor = 0x333344;
+      let textColor = '#444455';
       let status = '';
       if (isUnlocked) {
-        color = '#44ff44';
-        status = ' [UNLOCKED]';
+        nodeColor = 0x44ff44;
+        textColor = '#44ff44';
+        status = ' ✓';
       } else if (canUnlock) {
-        color = '#ffffff';
-        status = ` [${skill.cost} pts]`;
+        nodeColor = 0xffffff;
+        textColor = '#ffffff';
+        status = ` [${skill.cost}pt]`;
       } else if (!prereqMet) {
-        status = ' [locked]';
+        status = ' 🔒';
       } else if (!levelMet) {
-        status = ` [Lv ${skill.levelReq}]`;
+        status = ` [Lv${skill.levelReq}]`;
       } else {
-        status = ` [${skill.cost} pts]`;
+        status = ` [${skill.cost}pt]`;
       }
 
-      t(`${arrow} ${skill.name}${status}`, x, y, {
-        fontSize: '13px', color: isSel ? (isUnlocked ? '#88ff88' : '#ffffff') : color,
+      // Selection highlight
+      if (isSel) {
+        g.fillStyle(nodeColor, 0.1);
+        g.fillRect(x, y - 2, GAME_WIDTH - 40, isSel ? 38 : 20);
+      }
+
+      // Skill node indicator
+      g.fillStyle(nodeColor, isUnlocked ? 0.9 : 0.4);
+      g.fillCircle(x + 10, y + 6, 5);
+      if (isUnlocked) {
+        g.lineStyle(1, 0xffffff, 0.5);
+        g.strokeCircle(x + 10, y + 6, 5);
+      }
+
+      // Connect to next skill
+      if (i < skills.length - 1) {
+        const nextUnlocked = inv.hasSkill(skills[i + 1].id);
+        g.lineStyle(1, isUnlocked && nextUnlocked ? 0x44ff44 : 0x333344, 0.4);
+        g.lineBetween(x + 10, y + 12, x + 10, y + 20);
+      }
+
+      this.txt(`${isSel ? '▸ ' : '  '}${skill.name}${status}`, x + 20, y, {
+        fontSize: '12px', color: isSel ? (isUnlocked ? '#88ff88' : '#ffffff') : textColor,
         fontFamily: MONO, fontStyle: isSel ? 'bold' : 'normal',
       });
 
       if (isSel) {
-        y += 18;
-        t(`  ${skill.description}`, x + 10, y, { fontSize: '12px', color: '#aaaaaa' });
+        this.txt(skill.description, x + 22, y + 16, { fontSize: '10px', color: '#889999' });
         if (canUnlock) {
-          y += 16;
-          t('  Z: Unlock', x + 10, y, { fontSize: '12px', color: '#ffcc44', fontStyle: 'bold' });
+          this.txt('Z: Unlock', x + 22, y + 28, { fontSize: '10px', color: '#ffcc44', fontFamily: MONO, fontStyle: 'bold' });
         }
-        y += 6;
+        y += 40;
+      } else {
+        y += 22;
       }
-      y += 20;
     }
   }
 
@@ -337,14 +434,16 @@ export class InventoryScene extends Phaser.Scene {
 
     if (this.mode === 'stats') {
       const statNames = ['might', 'precision', 'arcana', 'vitality'] as const;
-      if (this.selectedIndex < statNames.length) {
+      if (this.selectedIndex < statNames.length && inv.stats.unspent > 0) {
         inv.allocateStat(statNames[this.selectedIndex]);
+        playSound('menuConfirm');
         this.refresh();
       }
     } else if (this.mode === 'backpack') {
       const item = inv.backpack[this.selectedIndex];
       if (item) {
         inv.equip(item);
+        playSound('menuConfirm');
         this.refresh();
       }
     } else if (this.mode === 'skills') {
@@ -352,7 +451,8 @@ export class InventoryScene extends Phaser.Scene {
       if (branchId && SKILL_BRANCHES[branchId]) {
         const skill = SKILL_BRANCHES[branchId].skills[this.selectedIndex];
         if (skill) {
-          inv.unlockSkill(skill.id, player.level);
+          const ok = inv.unlockSkill(skill.id, player.level);
+          if (ok) playSound('levelUp');
           this.refresh();
         }
       }
@@ -363,5 +463,16 @@ export class InventoryScene extends Phaser.Scene {
     this.input.keyboard!.removeAllListeners();
     this.scene.stop('InventoryScene');
     this.gameScene.scene.resume('GameScene');
+  }
+
+  /** Helper to create text and track for cleanup */
+  private txt(text: string, x: number, y: number, opts: Partial<Phaser.Types.GameObjects.Text.TextStyle> = {}): Phaser.GameObjects.Text {
+    const obj = this.add.text(x, y, text, {
+      fontSize: '12px', fontFamily: FONT, color: '#cccccc',
+      stroke: '#000000', strokeThickness: 1,
+      ...opts,
+    });
+    this.texts.push(obj);
+    return obj;
   }
 }

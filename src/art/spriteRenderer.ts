@@ -439,6 +439,213 @@ function drawPlantCreature(ctx: CanvasRenderingContext2D, ox: number, oy: number
 }
 
 // ---------------------------------------------------------------------------
+// Boss drawing functions
+// ---------------------------------------------------------------------------
+
+function drawVoltrexx(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // VOLTREXX — massive power-core construct, crackling with electricity
+  // HEAD — angular armored helm with lightning visor
+  fillRect(ctx, x + 10, y + 0, 12, 2, '#1a3388');
+  fillRect(ctx, x + 8, y + 2, 16, 3, '#2244aa');
+  fillRect(ctx, x + 7, y + 5, 18, 3, '#2850bb');
+  fillRect(ctx, x + 9, y + 3, 14, 2, '#3366cc');
+  // Visor — electric blue slit
+  fillRect(ctx, x + 8, y + 7, 16, 3, '#001122');
+  fillRect(ctx, x + 9, y + 8, 14, 1, '#00ccff');
+  fillRect(ctx, x + 10, y + 8, 5, 1, '#66eeff');
+  fillRect(ctx, x + 18, y + 8, 4, 1, '#44ddff');
+  px(ctx, x + 9, y + 8, '#00eeff');
+  px(ctx, x + 22, y + 8, '#00eeff');
+  fillRect(ctx, x + 8, y + 10, 16, 2, '#2244aa');
+  // Crown spikes
+  px(ctx, x + 10, y + 0, '#00ccff');
+  px(ctx, x + 15, y + 0, '#44eeff');
+  px(ctx, x + 21, y + 0, '#00ccff');
+
+  // BODY — massive armored torso with glowing core
+  fillRect(ctx, x + 5, y + 12, 22, 14, '#1a2860');
+  fillRect(ctx, x + 6, y + 13, 20, 12, '#223878');
+  fillRect(ctx, x + 7, y + 14, 18, 10, '#2a4590');
+  // Neon power core — center of chest
+  fillRect(ctx, x + 12, y + 16, 8, 6, '#003344');
+  fillRect(ctx, x + 13, y + 17, 6, 4, '#005566');
+  fillRect(ctx, x + 14, y + 18, 4, 2, '#00ccff');
+  px(ctx, x + 15, y + 18, '#ffffff');
+  px(ctx, x + 16, y + 19, '#ffffff');
+  // Electric arcs from core
+  px(ctx, x + 11, y + 17, '#00aadd');
+  px(ctx, x + 10, y + 16, '#0088bb');
+  px(ctx, x + 21, y + 17, '#00aadd');
+  px(ctx, x + 22, y + 16, '#0088bb');
+  px(ctx, x + 15, y + 14, '#00aadd');
+  px(ctx, x + 16, y + 22, '#00aadd');
+
+  // SHOULDER ARMOR — massive pauldrons
+  fillRect(ctx, x + 1, y + 12, 6, 6, '#2244aa');
+  fillRect(ctx, x + 2, y + 13, 4, 4, '#3366cc');
+  fillRect(ctx, x + 2, y + 13, 2, 1, '#4488ee');
+  px(ctx, x + 3, y + 16, '#00ccff');
+  fillRect(ctx, x + 25, y + 12, 6, 6, '#2244aa');
+  fillRect(ctx, x + 26, y + 13, 4, 4, '#3366cc');
+  fillRect(ctx, x + 28, y + 13, 2, 1, '#4488ee');
+  px(ctx, x + 28, y + 16, '#00ccff');
+
+  // ARMS — thick armored
+  fillRect(ctx, x + 1, y + 18, 5, 10, '#1a2860');
+  fillRect(ctx, x + 2, y + 19, 3, 8, '#223878');
+  fillRect(ctx, x + 26, y + 18, 5, 10, '#1a2860');
+  fillRect(ctx, x + 27, y + 19, 3, 8, '#223878');
+  // Fists glow
+  fillRect(ctx, x + 1, y + 28, 4, 3, '#2244aa');
+  px(ctx, x + 2, y + 29, '#00ccff');
+  fillRect(ctx, x + 27, y + 28, 4, 3, '#2244aa');
+  px(ctx, x + 29, y + 29, '#00ccff');
+
+  // LEGS
+  fillRect(ctx, x + 8, y + 26, 6, 10, '#1a2050');
+  fillRect(ctx, x + 9, y + 27, 4, 8, '#1a2860');
+  fillRect(ctx, x + 18, y + 26, 6, 10, '#1a2050');
+  fillRect(ctx, x + 19, y + 27, 4, 8, '#1a2860');
+  // Boots
+  fillRect(ctx, x + 7, y + 36, 7, 3, '#111840');
+  fillRect(ctx, x + 18, y + 36, 7, 3, '#111840');
+  // Neon trim on boots
+  px(ctx, x + 8, y + 37, '#0066aa');
+  px(ctx, x + 23, y + 37, '#0066aa');
+}
+
+function drawHollowKing(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // HOLLOW KING — spectral skeletal monarch in tattered robes
+  const bDark = '#2a1828', bMid = '#3a2540', bLight = '#4a3060', bBright = '#6040a0';
+
+  // CROWN — ornate with purple gems
+  fillRect(ctx, x + 7, y + 0, 14, 2, '#886644');
+  fillRect(ctx, x + 8, y + 0, 1, 1, '#cc88ff');
+  fillRect(ctx, x + 13, y + 0, 1, 1, '#cc88ff');
+  fillRect(ctx, x + 18, y + 0, 1, 1, '#cc88ff');
+  px(ctx, x + 10, y + 0, '#ffcc44');
+  px(ctx, x + 16, y + 0, '#ffcc44');
+
+  // HEAD — skeletal with glowing eye sockets
+  fillRect(ctx, x + 8, y + 2, 12, 4, '#ccbbaa');
+  fillRect(ctx, x + 9, y + 3, 10, 2, '#ddccbb');
+  // Eye sockets
+  fillRect(ctx, x + 9, y + 3, 3, 2, '#110022');
+  fillRect(ctx, x + 16, y + 3, 3, 2, '#110022');
+  px(ctx, x + 10, y + 3, '#cc44ff');
+  px(ctx, x + 17, y + 3, '#cc44ff');
+  px(ctx, x + 10, y + 4, '#8822cc');
+  px(ctx, x + 17, y + 4, '#8822cc');
+  // Jaw
+  fillRect(ctx, x + 10, y + 6, 8, 1, '#bbaa99');
+  fillRect(ctx, x + 11, y + 7, 6, 1, '#aa9988');
+
+  // ROBES — flowing dark purple, tattered
+  fillRect(ctx, x + 5, y + 8, 18, 4, bMid);
+  fillRect(ctx, x + 6, y + 9, 16, 3, bLight);
+  fillRect(ctx, x + 4, y + 12, 20, 10, bMid);
+  fillRect(ctx, x + 5, y + 13, 18, 8, bLight);
+  fillRect(ctx, x + 6, y + 14, 16, 6, bBright);
+  // Robe trim — gold thread
+  px(ctx, x + 5, y + 12, '#886644');
+  px(ctx, x + 23, y + 12, '#886644');
+  fillRect(ctx, x + 11, y + 10, 6, 1, '#886644');
+  // Chest sigil — glowing purple diamond
+  fillRect(ctx, x + 12, y + 13, 4, 4, '#220044');
+  px(ctx, x + 13, y + 14, '#cc44ff');
+  px(ctx, x + 14, y + 15, '#cc44ff');
+  px(ctx, x + 13, y + 15, '#8822cc');
+  px(ctx, x + 14, y + 14, '#8822cc');
+  // Tattered bottom edges
+  for (let i = 0; i < 8; i++) {
+    const tx = x + 5 + i * 2.2;
+    const tlen = 2 + (noise(i, 0, 42) * 3) | 0;
+    fillRect(ctx, tx, y + 22, 2, tlen, bDark);
+    if (noise(i, 1, 42) > 0.4) fillRect(ctx, tx, y + 22 + tlen, 1, 2, '#1a0828');
+  }
+
+  // ARMS — skeletal with robe sleeves
+  fillRect(ctx, x + 2, y + 10, 4, 8, bMid);
+  fillRect(ctx, x + 3, y + 11, 2, 6, bLight);
+  fillRect(ctx, x + 22, y + 10, 4, 8, bMid);
+  fillRect(ctx, x + 23, y + 11, 2, 6, bLight);
+  // Bony hands
+  fillRect(ctx, x + 1, y + 18, 3, 2, '#bbaa99');
+  fillRect(ctx, x + 24, y + 18, 3, 2, '#bbaa99');
+
+  // SCEPTER — held in right hand
+  fillRect(ctx, x + 25, y + 8, 2, 12, '#886644');
+  fillRect(ctx, x + 24, y + 7, 4, 3, '#996655');
+  px(ctx, x + 25, y + 7, '#cc44ff');
+  px(ctx, x + 26, y + 8, '#ff66ff');
+
+  // LEGS — skeletal, visible below robes
+  fillRect(ctx, x + 9, y + 26, 3, 6, '#bbaa99');
+  fillRect(ctx, x + 16, y + 26, 3, 6, '#bbaa99');
+  fillRect(ctx, x + 8, y + 31, 4, 2, '#aa9988');
+  fillRect(ctx, x + 16, y + 31, 4, 2, '#aa9988');
+}
+
+// ---------------------------------------------------------------------------
+// NPC & Object drawing functions
+// ---------------------------------------------------------------------------
+
+function drawShopkeeper(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Hooded merchant with golden accents
+  // Hood
+  fillRect(ctx, x + 3, y + 0, 8, 3, '#554422');
+  fillRect(ctx, x + 2, y + 3, 10, 3, '#665533');
+  fillRect(ctx, x + 3, y + 4, 8, 2, '#776644');
+  // Face shadow
+  fillRect(ctx, x + 4, y + 4, 6, 2, '#221100');
+  px(ctx, x + 5, y + 4, '#ffcc44'); // left eye glow
+  px(ctx, x + 8, y + 4, '#ffcc44'); // right eye glow
+  // Robe body
+  fillRect(ctx, x + 2, y + 6, 10, 10, '#554422');
+  fillRect(ctx, x + 3, y + 7, 8, 8, '#665533');
+  // Gold trim
+  px(ctx, x + 2, y + 6, '#ccaa44');
+  px(ctx, x + 11, y + 6, '#ccaa44');
+  fillRect(ctx, x + 5, y + 8, 4, 1, '#ccaa44');
+  // Pack/wares
+  fillRect(ctx, x + 10, y + 5, 3, 6, '#443322');
+  fillRect(ctx, x + 11, y + 6, 2, 4, '#554433');
+  px(ctx, x + 11, y + 7, '#ffcc44');
+  // Feet
+  fillRect(ctx, x + 3, y + 16, 3, 2, '#443322');
+  fillRect(ctx, x + 8, y + 16, 3, 2, '#443322');
+}
+
+function drawSaveCrystal(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Glowing cyan crystal formation
+  // Base
+  fillRect(ctx, x + 3, y + 10, 6, 2, '#224455');
+  fillRect(ctx, x + 2, y + 11, 8, 1, '#1a3344');
+  // Main crystal
+  fillRect(ctx, x + 4, y + 2, 4, 8, '#00aacc');
+  fillRect(ctx, x + 5, y + 1, 2, 9, '#00ccee');
+  fillRect(ctx, x + 5, y + 3, 2, 4, '#66eeff');
+  px(ctx, x + 5, y + 0, '#88ffff');
+  px(ctx, x + 6, y + 2, '#ffffff');
+  // Left shard
+  fillRect(ctx, x + 2, y + 5, 2, 5, '#0088aa');
+  px(ctx, x + 2, y + 4, '#00aacc');
+  px(ctx, x + 3, y + 6, '#44ddee');
+  // Right shard
+  fillRect(ctx, x + 8, y + 4, 2, 6, '#0088aa');
+  px(ctx, x + 9, y + 3, '#00aacc');
+  px(ctx, x + 8, y + 5, '#44ddee');
+  // Glow pixels
+  px(ctx, x + 1, y + 7, '#004455');
+  px(ctx, x + 10, y + 6, '#004455');
+  px(ctx, x + 6, y + 0, '#aaffff');
+}
+
+// ---------------------------------------------------------------------------
 // Canvas creation helper
 // ---------------------------------------------------------------------------
 
@@ -522,5 +729,37 @@ export function generateUpgradedSprites(scene: Phaser.Scene): void {
     const [canvas, ctx] = createCanvas(20, 22);
     drawBoneArcher(ctx, 0, 0);
     scene.textures.addCanvas('enemy-bone-archer', canvas);
+  }
+
+  // --- Bosses ---
+
+  // Voltrexx: 32x40
+  {
+    const [canvas, ctx] = createCanvas(32, 40);
+    drawVoltrexx(ctx, 0, 0);
+    scene.textures.addCanvas('boss-voltrexx', canvas);
+  }
+
+  // Hollow King: 28x34
+  {
+    const [canvas, ctx] = createCanvas(28, 34);
+    drawHollowKing(ctx, 0, 0);
+    scene.textures.addCanvas('boss-hollowking', canvas);
+  }
+
+  // --- NPCs & Objects ---
+
+  // Shopkeeper: 14x18
+  {
+    const [canvas, ctx] = createCanvas(14, 18);
+    drawShopkeeper(ctx, 0, 0);
+    scene.textures.addCanvas('npc-shopkeeper', canvas);
+  }
+
+  // Save Crystal: 12x12
+  {
+    const [canvas, ctx] = createCanvas(12, 12);
+    drawSaveCrystal(ctx, 0, 0);
+    scene.textures.addCanvas('save-crystal', canvas);
   }
 }

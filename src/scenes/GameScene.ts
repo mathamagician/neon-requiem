@@ -702,20 +702,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     for (const pos of crystalPositions) {
-      // Generate crystal texture
-      const key = `save-crystal-${pos.x}`;
-      const g = this.add.graphics();
-      // Diamond shape — cyan crystal
-      g.fillStyle(0x00ffcc, 0.8);
-      g.fillRect(3, 0, 6, 12);
-      g.fillStyle(0x00ddaa, 0.6);
-      g.fillRect(1, 2, 10, 8);
-      g.fillStyle(0xffffff, 0.4);
-      g.fillRect(4, 1, 2, 3);
-      g.generateTexture(key, 12, 12);
-      g.destroy();
-
-      const sprite = this.add.sprite(pos.x, pos.y, key).setDepth(5);
+      const sprite = this.add.sprite(pos.x, pos.y, 'save-crystal').setDepth(5);
 
       // Glow/bob animation
       this.tweens.add({

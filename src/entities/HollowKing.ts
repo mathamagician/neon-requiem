@@ -74,36 +74,7 @@ export class HollowKing {
     this.arenaRight = x + 100;
     this.arenaFloor = y;
 
-    // Generate boss texture (skeletal king)
-    const g = scene.add.graphics();
-    // Body — dark bone/purple
-    g.fillStyle(0x442266);
-    g.fillRect(0, 0, 28, 36);
-    // Crown
-    g.fillStyle(0xffcc44);
-    g.fillRect(4, 0, 20, 4);
-    g.fillRect(6, -3, 4, 4);
-    g.fillRect(14, -3, 4, 4);
-    g.fillRect(18, -3, 4, 4);
-    // Skull face
-    g.fillStyle(0xddddcc);
-    g.fillRect(6, 6, 16, 12);
-    // Eye sockets
-    g.fillStyle(0x4488ff);
-    g.fillRect(8, 8, 4, 4);
-    g.fillRect(16, 8, 4, 4);
-    // Ribcage lines
-    g.lineStyle(1, 0xddddcc, 0.6);
-    g.lineBetween(6, 22, 22, 22);
-    g.lineBetween(6, 26, 22, 26);
-    g.lineBetween(6, 30, 22, 30);
-    // Border
-    g.lineStyle(2, 0x4488ff);
-    g.strokeRect(0, 0, 28, 36);
-    g.generateTexture('boss-hollowking', 28, 36);
-    g.destroy();
-
-    // Sprite
+    // Sprite (texture generated in spriteRenderer.ts via BootScene)
     this.sprite = scene.physics.add.sprite(x, y, 'boss-hollowking');
     this.sprite.setOrigin(0.5, 1);
     this.body = this.sprite.body as Phaser.Physics.Arcade.Body;

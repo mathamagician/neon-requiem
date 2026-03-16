@@ -1,5 +1,7 @@
 /**
- * Test level for prototyping.
+ * Neon Foundry — industrial cyber-forge.
+ * Zone 1 of the game. Features varied terrain, vertical sections,
+ * secret alcoves, multi-level platforming, and a sealed boss arena.
  * Tile indices:
  *   0 = empty (air)
  *   1 = solid ground
@@ -8,7 +10,7 @@
  */
 
 export const LEVEL_WIDTH_TILES = 120;
-export const LEVEL_HEIGHT_TILES = 22; // taller for more vertical room
+export const LEVEL_HEIGHT_TILES = 22;
 
 export function createTestLevel(): number[][] {
   const W = LEVEL_WIDTH_TILES;
@@ -25,85 +27,216 @@ export function createTestLevel(): number[][] {
     level[H - 2][x] = 1;
   }
 
-  // -- Pits (gaps in ground) --
-  const pits = [
-    { start: 22, width: 3 },
-    { start: 50, width: 3 },
-    { start: 78, width: 3 },
-  ];
-  for (const pit of pits) {
-    for (let px = pit.start; px < pit.start + pit.width; px++) {
-      level[H - 1][px] = 0;
-      level[H - 2][px] = 0;
-    }
-  }
-
-  // -- Platforms --
-  const platforms: { x: number; y: number; w: number }[] = [
-    // Zone 1: Tutorial area (tiles 2-20)
-    { x: 5, y: H - 5, w: 4 },
-    { x: 11, y: H - 7, w: 3 },
-    { x: 16, y: H - 5, w: 4 },
-
-    // Zone 2: Combat area (tiles 25-48)
-    { x: 25, y: H - 5, w: 5 },
-    { x: 32, y: H - 7, w: 4 },
-    { x: 38, y: H - 5, w: 5 },
-    { x: 44, y: H - 8, w: 3 },
-
-    // Zone 3: Platforming challenge (tiles 53-75)
-    { x: 53, y: H - 5, w: 3 },
-    { x: 58, y: H - 7, w: 3 },
-    { x: 63, y: H - 5, w: 3 },
-    { x: 58, y: H - 10, w: 4 },
-    { x: 64, y: H - 12, w: 3 },
-    { x: 69, y: H - 9, w: 4 },
-    { x: 74, y: H - 6, w: 3 },
-
-    // Zone 4: Pre-boss gauntlet (tiles 80-95)
-    { x: 81, y: H - 5, w: 4 },
-    { x: 86, y: H - 8, w: 3 },
-    { x: 91, y: H - 5, w: 4 },
-
-    // Boss arena platforms (tiles 100-118)
-    { x: 104, y: H - 6, w: 4 },
-    { x: 112, y: H - 6, w: 4 },
-    { x: 108, y: H - 10, w: 3 },
-  ];
-
-  for (const plat of platforms) {
-    for (let px = plat.x; px < plat.x + plat.w; px++) {
-      if (px < W) level[plat.y][px] = 2;
-    }
-  }
-
-  // -- Low walls (jumpable — only 2 tiles tall, below jump height) --
-  const walls: { x: number; y: number; h: number }[] = [
-    { x: 47, y: H - 4, h: 2 },
-    { x: 48, y: H - 4, h: 2 },
-  ];
-  for (const wall of walls) {
-    for (let wy = wall.y; wy < wall.y + wall.h && wy < H - 2; wy++) {
-      if (wy >= 0) level[wy][wall.x] = 1;
-    }
-  }
-
-  // -- Boundary walls (left and right edges) --
+  // -- Boundary walls --
   for (let y = 0; y < H - 2; y++) {
     level[y][0] = 3;
     level[y][W - 1] = 3;
   }
 
-  // -- Boss arena entrance wall (neon gate) --
-  // Only covers lower portion — player can walk through a gap at ground level
+  // ===== SECTION 1: Entry corridor (tiles 2-20) =====
+  // Gentle introduction — low platforms, no pits
+  const s1Platforms: { x: number; y: number; w: number }[] = [
+    { x: 4, y: H - 5, w: 4 },
+    { x: 10, y: H - 7, w: 3 },
+    { x: 15, y: H - 5, w: 5 },
+    // High secret ledge near ceiling with accent frame
+    { x: 6, y: H - 12, w: 3 },
+  ];
+  // Entry archway accent
+  for (let y = 3; y < H - 5; y++) level[y][2] = 3;
+  level[3][3] = 3;
+  // Ceiling overhang — gives a tunnel feel to the entry
+  for (let x = 2; x < 8; x++) level[2][x] = 1;
+  // Small pipe structures on ceiling
+  for (let x = 12; x < 16; x++) level[1][x] = 1;
+
+  // ===== SECTION 2: First pit + combat arena (tiles 20-35) =====
+  // Pit 1 — narrow, forgiving
+  for (let px = 21; px < 24; px++) {
+    level[H - 1][px] = 0;
+    level[H - 2][px] = 0;
+  }
+  const s2Platforms: { x: number; y: number; w: number }[] = [
+    { x: 24, y: H - 5, w: 5 },
+    { x: 26, y: H - 8, w: 3 },
+    { x: 30, y: H - 5, w: 4 },
+    { x: 32, y: H - 9, w: 3 },
+  ];
+  // Low wall barrier between sections — jumpable
+  for (let wy = H - 4; wy < H - 2; wy++) {
+    level[wy][20] = 1;
+  }
+  // Overhead machinery (solid blocks)
+  level[3][26] = 1;
+  level[3][27] = 1;
+  level[4][26] = 1;
+  level[4][27] = 1;
+
+  // ===== SECTION 3: Vertical shaft + multi-level (tiles 35-52) =====
+  // This is the signature section — a vertical shaft with platforms
+  // going both up and across, rewarding exploration
+
+  // Ground rises into a raised plateau (tiles 38-48)
+  for (let x = 38; x < 48; x++) {
+    level[H - 3][x] = 1;
+    level[H - 4][x] = 1;
+  }
+  // Accent trim on plateau edges
+  level[H - 5][38] = 3;
+  level[H - 5][47] = 3;
+
+  // Vertical shaft pit (deep, tiles 35-37)
+  for (let px = 35; px < 38; px++) {
+    level[H - 1][px] = 0;
+    level[H - 2][px] = 0;
+  }
+  // Platform bridge over shaft
+  const s3Platforms: { x: number; y: number; w: number }[] = [
+    { x: 35, y: H - 5, w: 3 },   // over the pit
+    { x: 40, y: H - 7, w: 3 },   // on the plateau
+    { x: 44, y: H - 9, w: 3 },   // climbing higher
+    { x: 40, y: H - 11, w: 4 },  // upper route
+    { x: 46, y: H - 13, w: 3 },  // near ceiling secret area
+    // Upper corridor platforms
+    { x: 36, y: H - 13, w: 3 },  // connects to high route
+    { x: 49, y: H - 5, w: 3 },   // descent from plateau
+  ];
+  // Accent pillars on the plateau
+  level[H - 5][41] = 3;
+  level[H - 6][41] = 3;
+  level[H - 5][45] = 3;
+  level[H - 6][45] = 3;
+
+  // Ceiling structures over vertical section
+  for (let x = 38; x < 48; x++) level[1][x] = 1;
+  for (let x = 38; x < 42; x++) level[2][x] = 1;
+
+  // Secret alcove — hidden nook in the ceiling structure
+  // Player must platform to the very top to find it
+  level[3][39] = 3;
+  level[3][46] = 3;
+
+  // ===== SECTION 4: Pipe run (tiles 52-65) =====
+  // Fast-paced horizontal section with hazard pits
+  // Pit 3
+  for (let px = 54; px < 57; px++) {
+    level[H - 1][px] = 0;
+    level[H - 2][px] = 0;
+  }
+  // Pit 4
+  for (let px = 62; px < 64; px++) {
+    level[H - 1][px] = 0;
+    level[H - 2][px] = 0;
+  }
+  const s4Platforms: { x: number; y: number; w: number }[] = [
+    { x: 52, y: H - 5, w: 3 },
+    { x: 56, y: H - 4, w: 2 },   // low rescue platform over pit
+    { x: 58, y: H - 6, w: 3 },
+    { x: 62, y: H - 5, w: 2 },   // over pit 4
+    { x: 65, y: H - 7, w: 3 },
+  ];
+  // Overhead pipes (solid ceiling detail)
+  for (let x = 53; x < 65; x++) level[2][x] = 1;
+  // Hanging pipes — accent
+  level[3][55] = 3;
+  level[4][55] = 3;
+  level[3][60] = 3;
+  level[4][60] = 3;
+
+  // ===== SECTION 5: Forge chamber (tiles 65-80) =====
+  // Large open chamber with multi-level platforms
+  // Raised floor sections
+  for (let x = 70; x < 75; x++) {
+    level[H - 3][x] = 1;
+  }
+  // Pit 5 — wider, more dangerous
+  for (let px = 77; px < 81; px++) {
+    level[H - 1][px] = 0;
+    level[H - 2][px] = 0;
+  }
+  const s5Platforms: { x: number; y: number; w: number }[] = [
+    { x: 67, y: H - 5, w: 4 },
+    { x: 72, y: H - 7, w: 3 },
+    { x: 67, y: H - 9, w: 3 },
+    { x: 73, y: H - 10, w: 4 },
+    { x: 78, y: H - 5, w: 3 },   // rescue platform in pit
+    { x: 76, y: H - 8, w: 3 },
+    // Upper secret area — reward for climbing
+    { x: 69, y: H - 14, w: 5 },
+  ];
+  // Forge pillars
+  const forgePillars = [68, 74];
+  for (const px of forgePillars) {
+    for (let y = H - 5; y >= H - 8; y--) level[y][px] = 3;
+  }
+  // Ceiling detail — forge hood
+  for (let x = 68; x < 76; x++) level[1][x] = 1;
+  for (let x = 70; x < 74; x++) level[2][x] = 1;
+
+  // ===== SECTION 6: Pre-boss gauntlet (tiles 80-98) =====
+  // Intense run with tight platforms and multiple hazards
+  // Pit 6
+  for (let px = 85; px < 88; px++) {
+    level[H - 1][px] = 0;
+    level[H - 2][px] = 0;
+  }
+  // Pit 7
+  for (let px = 93; px < 96; px++) {
+    level[H - 1][px] = 0;
+    level[H - 2][px] = 0;
+  }
+  const s6Platforms: { x: number; y: number; w: number }[] = [
+    { x: 81, y: H - 5, w: 4 },
+    { x: 84, y: H - 8, w: 3 },
+    { x: 88, y: H - 5, w: 4 },
+    { x: 86, y: H - 10, w: 3 },  // high route over gauntlet
+    { x: 91, y: H - 7, w: 3 },
+    { x: 95, y: H - 5, w: 4 },
+    { x: 93, y: H - 9, w: 3 },
+  ];
+  // Gauntlet walls — creates tight corridors
+  for (let y = 2; y < H - 8; y++) level[y][83] = 1;
+  for (let y = 2; y < H - 6; y++) level[y][90] = 1;
+
+  // ===== BOSS ARENA (tiles 99-118) =====
+  // Boss arena entrance wall (neon gate)
   for (let y = 0; y < H - 5; y++) {
     level[y][99] = 3;
   }
-  // Gap at tiles H-5 to H-3 lets the player walk into the arena
 
-  // -- Boss arena ceiling --
+  // Boss arena ceiling
   for (let x = 100; x < W - 1; x++) {
     level[1][x] = 1;
+  }
+
+  // Boss arena platforms — staggered for dodging
+  const bossPlats: { x: number; y: number; w: number }[] = [
+    { x: 103, y: H - 6, w: 4 },
+    { x: 111, y: H - 6, w: 4 },
+    { x: 107, y: H - 10, w: 4 },
+    // Small escape platforms on edges
+    { x: 101, y: H - 9, w: 2 },
+    { x: 116, y: H - 9, w: 2 },
+  ];
+
+  // Boss arena pillars
+  level[H - 3][102] = 3;
+  level[H - 4][102] = 3;
+  level[H - 3][117] = 3;
+  level[H - 4][117] = 3;
+
+  // ==== Place all platforms ====
+  const allPlatforms = [
+    ...s1Platforms, ...s2Platforms, ...s3Platforms, ...s4Platforms,
+    ...s5Platforms, ...s6Platforms, ...bossPlats,
+  ];
+
+  for (const plat of allPlatforms) {
+    for (let px = plat.x; px < plat.x + plat.w; px++) {
+      if (px >= 0 && px < W && plat.y >= 0 && plat.y < H) {
+        level[plat.y][px] = 2;
+      }
+    }
   }
 
   return level;
