@@ -7,13 +7,15 @@
  *
  * NOTE: preFX/postFX require WebGL renderer. If running in Canvas mode,
  * effects silently degrade (no crash).
+ *
+ * Phaser vignette radius: 1.0 = fully clear (no vignette), 0.0 = full black.
+ * We store a "strength" (0 = off, higher = darker) and convert to radius.
  */
 import Phaser from 'phaser';
 
 let bloomFX: any = null;
 let vignetteFX: any = null;
-let vignetteTarget = 0; // 0 = off, 0.3-0.6 = active
-let vignetteActive = false;
+let vignetteStrength = 0; // 0 = off, 0.3-0.6 = visible darkening
 
 /** Initialise camera-level FX. Call once in GameScene.create(). */
 export function initCameraFX(camera: Phaser.Cameras.Scene2D.Camera) {
@@ -21,10 +23,10 @@ export function initCameraFX(camera: Phaser.Cameras.Scene2D.Camera) {
   if (!camera.postFX) return;
 
   // Subtle bloom — makes bright neon colors glow
-  bloomFX = camera.postFX.addBloom(0xffffff, 0.8, 0.8, 1.2, 1.5);
+  bloomFX = camera.postFX.addBloom(0xffffff, 0.8, 0.8, 1.0, 1.2);
 
-  // Vignette — starts invisible, fades in during boss fights / low HP
-  vignetteFX = camera.postFX.addVignette(0.5, 0.5, 0.0);
+  // Vignette — starts fully clear (radius=1), fades in during boss fights / low HP
+  vignetteFX = camera.postFX.addVignette(0.5, 0.5, 1.0);
 }
 
 /** Update FX each frame (call from GameScene.update). */
@@ -33,19 +35,20 @@ export function updateFX(
   bossActive: boolean,
   hpRatio: number,
 ) {
-  // Determine target vignette strength
-  let target = 0;
-  if (bossActive) target = 0.3;
-  if (hpRatio < 0.25) target = Math.max(target, 0.5);
-  else if (hpRatio < 0.5) target = Math.max(target, 0.2);
-  vignetteTarget = target;
+  // Determine target vignette strength (0 = off, higher = darker edges)
+  let targetStrength = 0;
+  if (bossActive) targetStrength = 0.3;
+  if (hpRatio < 0.25) targetStrength = Math.max(targetStrength, 0.5);
+  else if (hpRatio < 0.5) targetStrength = Math.max(targetStrength, 0.2);
 
-  // Smoothly lerp vignette
+  // Smoothly lerp strength
+  const speed = 0.003 * delta; // ~0.18/s at 60fps
+  vignetteStrength += (targetStrength - vignetteStrength) * Math.min(speed, 1);
+
+  // Convert strength to Phaser radius: radius = 1 - strength
+  // strength 0 → radius 1.0 (clear), strength 0.5 → radius 0.5 (dark edges)
   if (vignetteFX) {
-    const current = vignetteFX.radius ?? 0;
-    const speed = 0.003 * delta; // ~0.18/s at 60fps
-    const next = current + (vignetteTarget - current) * Math.min(speed, 1);
-    vignetteFX.radius = next;
+    vignetteFX.radius = 1.0 - vignetteStrength;
   }
 }
 
@@ -63,6 +66,5 @@ export function flashBloom(scene: Phaser.Scene, intensity = 2.5, duration = 150)
 export function destroyFX() {
   bloomFX = null;
   vignetteFX = null;
-  vignetteTarget = 0;
-  vignetteActive = false;
+  vignetteStrength = 0;
 }
