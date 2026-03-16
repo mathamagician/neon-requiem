@@ -4,10 +4,12 @@ import {
   getSettings, saveSettings,
   type KeyBindings, type GameSettings,
 } from '../systems/AccessibilitySettings';
+import { setSoundVolume } from '../systems/SoundManager';
+import { setMusicVolume } from '../systems/MusicManager';
 
 const MONO = 'Consolas, "Courier New", monospace';
 
-type SettingsSection = 'controls' | 'accessibility';
+type SettingsSection = 'controls' | 'accessibility' | 'audio';
 
 const KEY_ACTIONS: { action: keyof KeyBindings; label: string }[] = [
   { action: 'left', label: 'Move Left' },
@@ -64,15 +66,19 @@ export class SettingsScene extends Phaser.Scene {
     // Section tabs
     this.sectionTabs = [];
     const tabY = 34;
-    const controlsTab = this.add.text(GAME_WIDTH * 0.3, tabY, 'CONTROLS', {
-      fontSize: '12px', fontFamily: MONO, color: '#ffffff',
+    const controlsTab = this.add.text(GAME_WIDTH * 0.2, tabY, 'CONTROLS', {
+      fontSize: '11px', fontFamily: MONO, color: '#ffffff',
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
-    const accessTab = this.add.text(GAME_WIDTH * 0.7, tabY, 'ACCESSIBILITY', {
-      fontSize: '12px', fontFamily: MONO, color: '#888888',
+    const accessTab = this.add.text(GAME_WIDTH * 0.5, tabY, 'ACCESSIBILITY', {
+      fontSize: '11px', fontFamily: MONO, color: '#888888',
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
-    this.sectionTabs = [controlsTab, accessTab];
+    const audioTab = this.add.text(GAME_WIDTH * 0.8, tabY, 'AUDIO', {
+      fontSize: '11px', fontFamily: MONO, color: '#888888',
+      stroke: '#000000', strokeThickness: 1,
+    }).setOrigin(0.5);
+    this.sectionTabs = [controlsTab, accessTab, audioTab];
 
     // Instructions
     this.instructionText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 18, 'UP/DOWN: Select | Z/ENTER: Change | LEFT/RIGHT: Tab | ESC: Back', {
@@ -99,10 +105,18 @@ export class SettingsScene extends Phaser.Scene {
           this.updateHighlight();
           break;
         case 'ArrowLeft':
-          this.switchSection(-1);
+          if (this.section === 'audio') {
+            this.adjustVolume(-5);
+          } else {
+            this.switchSection(-1);
+          }
           break;
         case 'ArrowRight':
-          this.switchSection(1);
+          if (this.section === 'audio') {
+            this.adjustVolume(5);
+          } else {
+            this.switchSection(1);
+          }
           break;
         case 'z':
         case 'Z':
@@ -134,7 +148,7 @@ export class SettingsScene extends Phaser.Scene {
         });
         this.rows.push(text);
       }
-    } else {
+    } else if (this.section === 'accessibility') {
       // Accessibility options
       const items = [
         `Screen Shake: ${this.settings.accessibility.screenShake ? 'ON' : 'OFF'}`,
@@ -149,9 +163,35 @@ export class SettingsScene extends Phaser.Scene {
         });
         this.rows.push(text);
       }
+    } else {
+      // Audio section
+      const sfx = this.settings.accessibility.sfxVolume ?? 30;
+      const music = this.settings.accessibility.musicVolume ?? 6;
+      const bar = (val: number) => {
+        const filled = Math.round(val / 5);
+        return '|'.repeat(filled) + '·'.repeat(20 - filled);
+      };
+      const items = [
+        `SFX Volume:   [${bar(sfx)}] ${sfx}%`,
+        `Music Volume: [${bar(music)}] ${music}%`,
+      ];
+      for (let i = 0; i < items.length; i++) {
+        const text = this.add.text(20, startY + i * lineH, items[i], {
+          fontSize: '11px', fontFamily: MONO, color: '#cccccc',
+          stroke: '#000000', strokeThickness: 1,
+        });
+        this.rows.push(text);
+      }
     }
 
     this.updateHighlight();
+
+    // Update instructions per section
+    if (this.section === 'audio') {
+      this.instructionText.setText('UP/DOWN: Select | LEFT/RIGHT: Adjust | Z/ENTER: Tab | ESC: Back');
+    } else {
+      this.instructionText.setText('UP/DOWN: Select | Z/ENTER: Change | LEFT/RIGHT: Tab | ESC: Back');
+    }
   }
 
   private updateHighlight() {
@@ -161,19 +201,25 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   private switchSection(dir: number) {
-    const sections: SettingsSection[] = ['controls', 'accessibility'];
+    const sections: SettingsSection[] = ['controls', 'accessibility', 'audio'];
     const idx = sections.indexOf(this.section);
     const newIdx = (idx + dir + sections.length) % sections.length;
     this.section = sections[newIdx];
 
     // Update tab colors
-    this.sectionTabs[0].setColor(this.section === 'controls' ? '#ffffff' : '#888888');
-    this.sectionTabs[1].setColor(this.section === 'accessibility' ? '#ffffff' : '#888888');
+    for (let i = 0; i < this.sectionTabs.length; i++) {
+      this.sectionTabs[i].setColor(i === newIdx ? '#ffffff' : '#888888');
+    }
 
     this.buildRows();
   }
 
   private activateRow() {
+    if (this.section === 'audio') {
+      // In audio tab, Z/Enter cycles to next tab (since Left/Right adjust volume)
+      this.switchSection(1);
+      return;
+    }
     if (this.section === 'controls') {
       // Enter rebind mode
       this.waitingForKey = true;
@@ -245,6 +291,20 @@ export class SettingsScene extends Phaser.Scene {
     }
 
     return null;
+  }
+
+  private adjustVolume(delta: number) {
+    if (this.selectedIndex === 0) {
+      this.settings.accessibility.sfxVolume = Math.max(0, Math.min(100,
+        (this.settings.accessibility.sfxVolume ?? 30) + delta));
+      setSoundVolume(this.settings.accessibility.sfxVolume / 100);
+    } else if (this.selectedIndex === 1) {
+      this.settings.accessibility.musicVolume = Math.max(0, Math.min(100,
+        (this.settings.accessibility.musicVolume ?? 6) + delta));
+      setMusicVolume(this.settings.accessibility.musicVolume / 100);
+    }
+    saveSettings(this.settings);
+    this.buildRows();
   }
 
   private closeSettings() {

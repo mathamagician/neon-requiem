@@ -12,10 +12,12 @@ import { generateDrop } from '../../shared/data/equipment';
 import { createTestLevel, LEVEL_WIDTH_TILES, LEVEL_HEIGHT_TILES } from '../levels/testLevel';
 import { createCryptvaultLevel } from '../levels/cryptvaultLevel';
 import { createHubLevel } from '../levels/hubLevel';
+import { getBlightedGardenTiles } from '../levels/blightedGardenLevel';
 import { getZone, type ZoneDef } from '../levels/zones';
 import { renderZoneBackground } from '../art/backgroundRenderer';
 import { Boss } from '../entities/Boss';
 import { HollowKing } from '../entities/HollowKing';
+import { LadyHemlock } from '../entities/LadyHemlock';
 import type { AnyPlayer } from '../entities/PlayerTypes';
 import { getDefaultBranch } from '../../shared/data/skillTrees';
 import { buildSaveData, writeSave, restoreInventory, type SaveData } from '../systems/SaveSystem';
@@ -43,6 +45,8 @@ export class GameScene extends Phaser.Scene {
   private bossTriggered = false;
   private boss2: HollowKing | null = null;
   private boss2Triggered = false;
+  private boss3: LadyHemlock | null = null;
+  private boss3Triggered = false;
   bossesDefeated: string[] = [];
   gold = 0;
 
@@ -91,8 +95,10 @@ export class GameScene extends Phaser.Scene {
     this.gold = 0;
     this.boss = null;
     this.boss2 = null;
+    this.boss3 = null;
     this.bossTriggered = false;
     this.boss2Triggered = false;
+    this.boss3Triggered = false;
     this.zoneExits = [];
 
     // -- Restore from save if present --
@@ -178,6 +184,11 @@ export class GameScene extends Phaser.Scene {
       const bossX = (this.zoneDef.bossSpawnTileX ?? 90) * TILE_SIZE;
       this.boss2 = new HollowKing(this, bossX, bossFloorY);
       this.physics.add.collider(this.boss2.sprite, this.groundLayer);
+    }
+    if (this.zoneDef.bossId === 'hemlock' && !this.bossesDefeated.includes('hemlock')) {
+      const bossX = (this.zoneDef.bossSpawnTileX ?? 100) * TILE_SIZE;
+      this.boss3 = new LadyHemlock(this, bossX, bossFloorY);
+      this.physics.add.collider(this.boss3.sprite, this.groundLayer);
     }
 
     // -- Zone exits --
@@ -291,9 +302,18 @@ export class GameScene extends Phaser.Scene {
       this.boss2.update(time, delta);
     }
 
+    if (this.boss3 && !this.boss3Triggered && this.player.sprite.x > bossTriggerX) {
+      this.boss3Triggered = true;
+      this.boss3.activate();
+    }
+    if (this.boss3?.isActive) {
+      this.boss3.update(time, delta);
+    }
+
     // Post-processing FX
     const anyBossActive = (this.boss?.isActive && this.boss.state !== 'dead')
-      || (this.boss2?.isActive && this.boss2.state !== 'dead');
+      || (this.boss2?.isActive && this.boss2.state !== 'dead')
+      || (this.boss3?.isActive && this.boss3.state !== 'dead');
     updateFX(delta, !!anyBossActive, this.player.hp / this.player.maxHp);
 
     // Pit hazard check
@@ -325,17 +345,19 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Returns the first active boss (for combat system hit detection) */
-  getBoss(): Boss | HollowKing | null {
+  getBoss(): Boss | HollowKing | LadyHemlock | null {
+    if (this.boss3?.isActive && this.boss3.state !== 'dead') return this.boss3;
     if (this.boss2?.isActive && this.boss2.state !== 'dead') return this.boss2;
     if (this.boss?.isActive && this.boss.state !== 'dead') return this.boss;
     return null;
   }
 
   /** Returns all active bosses for systems that need to check both */
-  getAllActiveBosses(): (Boss | HollowKing)[] {
-    const bosses: (Boss | HollowKing)[] = [];
+  getAllActiveBosses(): (Boss | HollowKing | LadyHemlock)[] {
+    const bosses: (Boss | HollowKing | LadyHemlock)[] = [];
     if (this.boss?.isActive && this.boss.state !== 'dead') bosses.push(this.boss);
     if (this.boss2?.isActive && this.boss2.state !== 'dead') bosses.push(this.boss2);
+    if (this.boss3?.isActive && this.boss3.state !== 'dead') bosses.push(this.boss3);
     return bosses;
   }
 
@@ -354,18 +376,22 @@ export class GameScene extends Phaser.Scene {
     this.showNotification('Boss defeated — game saved!');
   }
 
-  /** Called by Enemy on death — spawns a loot drop and gold */
-  spawnLootDrop(x: number, y: number) {
-    // Always drop some gold
-    const goldAmount = 5 + Math.floor(Math.random() * 10) + this.player.level * 2;
+  /** Called by Enemy on death — spawns a loot drop and gold.
+   *  qualityBoost (0-1) increases drop chance and rarity — used by tougher enemies. */
+  spawnLootDrop(x: number, y: number, qualityBoost = 0) {
+    // Always drop some gold — tougher enemies drop more
+    const goldMult = 1 + qualityBoost * 3;
+    const goldAmount = Math.floor((5 + Math.floor(Math.random() * 10) + this.player.level * 2) * goldMult);
     this.gold += goldAmount;
     playSound('goldPickup');
     this.showLootText(x, y - 16, `+${goldAmount}g`, 'legendary');
 
-    // 40% chance to drop equipment
-    if (Math.random() > 0.4) return;
+    // Drop chance: 40% base + qualityBoost (e.g. charger/shade = 55%)
+    if (Math.random() > 0.4 + qualityBoost) return;
 
-    const item = generateDrop(this.player.level);
+    // Quality boost translates to effective level boost for rarity calc
+    const effectiveLevel = this.player.level + Math.floor(qualityBoost * 10);
+    const item = generateDrop(effectiveLevel);
     const rarityColors: Record<string, number> = {
       common: 0xaaaaaa, uncommon: 0x44cc44, rare: 0x4488ff, epic: 0xaa44ff, legendary: 0xffaa00,
     };
@@ -522,6 +548,7 @@ export class GameScene extends Phaser.Scene {
     switch (this.currentZone) {
       case 'cryptvault': return createCryptvaultLevel();
       case 'hub': return createHubLevel();
+      case 'garden': return getBlightedGardenTiles();
       default: return createTestLevel();
     }
   }
@@ -530,6 +557,7 @@ export class GameScene extends Phaser.Scene {
     switch (this.currentZone) {
       case 'cryptvault': return 'tileset-cryptvault';
       case 'hub': return 'tileset-hub';
+      case 'garden': return 'tileset-garden';
       default: return 'tileset';
     }
   }

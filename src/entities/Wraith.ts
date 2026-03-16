@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { safeShake } from '../systems/AccessibilitySettings';
 import { playSound } from '../systems/SoundManager';
+import { readGamepad, type GamepadState } from '../systems/GamepadInput';
 import {
   PLAYER_SPEED,
   PLAYER_JUMP_VELOCITY,
@@ -91,6 +92,9 @@ export class Wraith {
   private dustEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
   private critEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
 
+  // Gamepad
+  private gp: GamepadState | null = null;
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
     this.hp = Math.floor(PLAYER_MAX_HP * 0.7); // Lowest HP
@@ -135,6 +139,7 @@ export class Wraith {
   }
 
   update(time: number, delta: number) {
+    this.gp = readGamepad(this.scene);
     const onFloor = this.body.onFloor();
 
     // Hitstop
@@ -231,8 +236,8 @@ export class Wraith {
       return;
     }
 
-    const left = this.cursors.left.isDown;
-    const right = this.cursors.right.isDown;
+    const left = this.cursors.left.isDown || !!this.gp?.left;
+    const right = this.cursors.right.isDown || !!this.gp?.right;
 
     if (left) {
       this.body.setVelocityX(-this.WRAITH_SPEED);
@@ -254,7 +259,8 @@ export class Wraith {
 
   private handleJump(onFloor: boolean) {
     const jumpPressed = Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
-                        Phaser.Input.Keyboard.JustDown(this.keys.up);
+                        Phaser.Input.Keyboard.JustDown(this.keys.up) ||
+                        !!this.gp?.jumpJust;
     if (jumpPressed) {
       this.jumpBuffered = true;
       this.jumpBufferTimer = JUMP_BUFFER_MS;
@@ -295,13 +301,13 @@ export class Wraith {
     }
 
     // Variable jump height
-    if ((this.cursors.up.isUp && this.keys.up.isUp) && this.body.velocity.y < this.WRAITH_JUMP * 0.4) {
+    if ((this.cursors.up.isUp && this.keys.up.isUp && !this.gp?.jump) && this.body.velocity.y < this.WRAITH_JUMP * 0.4) {
       this.body.setVelocityY(this.body.velocity.y * 0.5);
     }
   }
 
   private handleAttack(time: number) {
-    if (!Phaser.Input.Keyboard.JustDown(this.keys.attack)) return;
+    if (!Phaser.Input.Keyboard.JustDown(this.keys.attack) && !this.gp?.attackJust) return;
     if (this.attackCooldown > 0 || this.isDashing) return;
     this.startAttack(time);
   }
@@ -415,7 +421,7 @@ export class Wraith {
   }
 
   private handleDash(time: number) {
-    if (!Phaser.Input.Keyboard.JustDown(this.keys.dash)) return;
+    if (!Phaser.Input.Keyboard.JustDown(this.keys.dash) && !this.gp?.dashJust) return;
     if (this.dashCooldown > 0 || this.isDashing) return;
     this.isDashing = true;
     this.dashTimer = this.DASH_DURATION;

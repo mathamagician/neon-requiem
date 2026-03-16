@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import type { GameScene } from '../scenes/GameScene';
 import type { Enemy } from '../entities/Enemy';
 import type { Player } from '../entities/Player';
+import { playSound } from '../systems/SoundManager';
 
 /**
  * CombatSystem handles hit detection between:
@@ -132,8 +133,10 @@ export class CombatSystem {
         if (!enemySprite.active) continue;
         const enemy = (enemySprite as any).owner as any;
         if (!enemy || enemy.state === 'dead') continue;
-        if (Phaser.Geom.Rectangle.Overlaps(projBounds, enemySprite.getBounds())) {
-          enemy.takeDamage(damage, proj.x, time);
+        const eBounds = enemySprite.getBounds();
+        if (Phaser.Geom.Rectangle.Overlaps(projBounds, eBounds)) {
+          const finalDmg = this.applyWeakPoint(proj, eBounds, damage, player);
+          enemy.takeDamage(finalDmg, proj.x, time);
           player.onAttackHit(time);
           if (!piercing) { proj.setActive(false).setVisible(false); proj.body!.enable = false; break; }
         }
@@ -143,8 +146,10 @@ export class CombatSystem {
       if (!proj.active) continue;
       const boss = this.scene.getBoss();
       if (boss && boss.isActive && boss.state !== 'dead') {
-        if (Phaser.Geom.Rectangle.Overlaps(projBounds, boss.sprite.getBounds())) {
-          boss.takeDamage(damage, proj.x, time);
+        const bBounds = boss.sprite.getBounds();
+        if (Phaser.Geom.Rectangle.Overlaps(projBounds, bBounds)) {
+          const finalDmg = this.applyWeakPoint(proj, bBounds, damage, player);
+          boss.takeDamage(finalDmg, proj.x, time);
           player.onAttackHit(time);
           if (!piercing) { proj.setActive(false).setVisible(false); proj.body!.enable = false; }
         }
@@ -205,6 +210,33 @@ export class CombatSystem {
         proj.destroy();
       }
     }
+  }
+
+  /** Gunner weak-point: hitting the top 30% of a target = headshot (1.5× damage) */
+  private applyWeakPoint(
+    proj: Phaser.Physics.Arcade.Sprite,
+    targetBounds: Phaser.Geom.Rectangle,
+    baseDamage: number,
+    player: any
+  ): number {
+    const headZone = targetBounds.top + targetBounds.height * 0.3;
+    if (proj.y <= headZone) {
+      // Headshot! Visual feedback
+      const fx = this.scene.add.text(proj.x, proj.y - 8, 'HEADSHOT', {
+        fontSize: '7px', color: '#ffcc00', fontFamily: 'monospace',
+        stroke: '#000000', strokeThickness: 1,
+      }).setOrigin(0.5).setDepth(20);
+      this.scene.tweens.add({
+        targets: fx, y: fx.y - 16, alpha: 0, duration: 600,
+        onComplete: () => fx.destroy(),
+      });
+      playSound('critHit');
+      // Bonus damage — scales with Gunner's weak-point skill if present
+      let mult = 1.5;
+      if (player.getWeakPointBonus) mult = player.getWeakPointBonus();
+      return Math.round(baseDamage * mult);
+    }
+    return baseDamage;
   }
 
   /** Apply stagger to a boss — interrupts telegraph and pushes back */

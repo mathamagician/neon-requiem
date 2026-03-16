@@ -64,6 +64,15 @@ const ZONE_MUSIC: Record<string, ZoneMusic> = {
     arpRelease: 2.0,
     padDetune: 10,
   },
+  garden: {
+    // D minor 9 — eerie, organic, slightly unsettling but beautiful
+    padNotes: [NOTE.D3, NOTE.F3, NOTE.A3, NOTE.E4],
+    arpNotes: [NOTE.A4, NOTE.F4, NOTE.D4, NOTE.E4, NOTE.F4, NOTE.A4, NOTE.G4, NOTE.E4],
+    arpSpeed: 2400,
+    arpAttack: 0.4,
+    arpRelease: 1.8,
+    padDetune: 7,
+  },
 };
 
 

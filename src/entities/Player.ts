@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { safeShake } from '../systems/AccessibilitySettings';
 import { playSound } from '../systems/SoundManager';
+import { readGamepad, type GamepadState } from '../systems/GamepadInput';
 import {
   PLAYER_SPEED,
   PLAYER_JUMP_VELOCITY,
@@ -82,6 +83,7 @@ export class Player {
   };
 
   // Particles
+  private gp: GamepadState | null = null;
   private dustEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
   private hitEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
 
@@ -138,6 +140,7 @@ export class Player {
   }
 
   update(time: number, delta: number) {
+    this.gp = readGamepad(this.scene);
     const dt = delta;
     const onFloor = this.body.onFloor();
 
@@ -254,8 +257,8 @@ export class Player {
     // Slow movement while shielding
     const shieldMult = this.isShielding ? 0.4 : 1;
 
-    const left = this.cursors.left.isDown;
-    const right = this.cursors.right.isDown;
+    const left = this.cursors.left.isDown || !!this.gp?.left;
+    const right = this.cursors.right.isDown || !!this.gp?.right;
 
     if (left) {
       this.body.setVelocityX(-PLAYER_SPEED * shieldMult);
@@ -278,7 +281,8 @@ export class Player {
 
   private handleJump(onFloor: boolean) {
     const jumpPressed = Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
-                        Phaser.Input.Keyboard.JustDown(this.keys.up);
+                        Phaser.Input.Keyboard.JustDown(this.keys.up) ||
+                        !!this.gp?.jumpJust;
 
     if (jumpPressed) {
       this.jumpBuffered = true;
@@ -296,13 +300,13 @@ export class Player {
     }
 
     // Variable jump height — release early for short hop
-    if ((this.cursors.up.isUp && this.keys.up.isUp) && this.body.velocity.y < PLAYER_JUMP_VELOCITY * 0.4) {
+    if ((this.cursors.up.isUp && this.keys.up.isUp && !this.gp?.jump) && this.body.velocity.y < PLAYER_JUMP_VELOCITY * 0.4) {
       this.body.setVelocityY(this.body.velocity.y * 0.5);
     }
   }
 
   private handleAttack(time: number) {
-    if (!Phaser.Input.Keyboard.JustDown(this.keys.attack)) return;
+    if (!Phaser.Input.Keyboard.JustDown(this.keys.attack) && !this.gp?.attackJust) return;
     if (this.attackCooldown > 0) return;
     if (this.isDashing) return;
 
@@ -310,7 +314,7 @@ export class Player {
   }
 
   private handleDash(_time: number) {
-    if (!Phaser.Input.Keyboard.JustDown(this.keys.dash)) return;
+    if (!Phaser.Input.Keyboard.JustDown(this.keys.dash) && !this.gp?.dashJust) return;
     if (this.dashCooldown > 0 || this.isDashing) return;
 
     this.isDashing = true;
@@ -338,8 +342,8 @@ export class Player {
     }
 
     // Activate pogo: hold attack + down while in the air
-    const holdingAttack = this.keys.attack.isDown;
-    const holdingDown = this.cursors.down.isDown;
+    const holdingAttack = this.keys.attack.isDown || !!this.gp?.attack;
+    const holdingDown = this.cursors.down.isDown || !!this.gp?.down;
 
     if (holdingAttack && holdingDown && !this.isPogoing) {
       this.isPogoing = true;
@@ -569,7 +573,7 @@ export class Player {
   }
 
   private handleShield(delta: number) {
-    this.isShielding = this.keys.shield.isDown && !this.isDashing && !this.isAttacking;
+    this.isShielding = (this.keys.shield.isDown || !!this.gp?.shield) && !this.isDashing && !this.isAttacking;
 
     // Shield regen when not blocking
     if (!this.isShielding) {

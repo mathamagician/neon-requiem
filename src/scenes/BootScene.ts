@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
 import { TILE_SIZE, COLORS } from '../../shared/constants';
 import { generateUpgradedSprites } from '../art/spriteRenderer';
+import { getSettings } from '../systems/AccessibilitySettings';
+import { setSoundVolume } from '../systems/SoundManager';
+import { setMusicVolume } from '../systems/MusicManager';
 
 /**
  * BootScene generates all placeholder textures using detailed pixel art
@@ -29,6 +32,11 @@ export class BootScene extends Phaser.Scene {
     // -- Particles --
     this.generateRect('particle', 3, 3, 0xffffff);
     this.generateRect('particle-hit', 2, 2, 0xffcc44);
+
+    // Apply saved volume settings
+    const settings = getSettings();
+    setSoundVolume((settings.accessibility.sfxVolume ?? 30) / 100);
+    setMusicVolume((settings.accessibility.musicVolume ?? 6) / 100);
 
     this.scene.start('TitleScene');
   }

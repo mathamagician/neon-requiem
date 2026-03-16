@@ -16,6 +16,9 @@ const config: Phaser.Types.Core.GameConfig = {
   zoom: SCALE,
   pixelArt: true,
   backgroundColor: COLORS.background,
+  input: {
+    gamepad: true,
+  },
   physics: {
     default: 'arcade',
     arcade: {

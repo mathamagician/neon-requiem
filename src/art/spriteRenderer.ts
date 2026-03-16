@@ -438,6 +438,65 @@ function drawPlantCreature(ctx: CanvasRenderingContext2D, ox: number, oy: number
   px(ctx, x + 10, y + 10, '#66cc00');
 }
 
+function drawCharger(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // CHARGER — heavy armored bull-bot, wide and low, glowing ram plate
+  // Head/ram plate
+  fillRect(ctx, x + 2, y + 2, 20, 4, '#883322');
+  fillRect(ctx, x + 0, y + 4, 24, 3, '#aa4433');
+  fillRect(ctx, x + 1, y + 5, 22, 2, '#cc5544');
+  // Ram glow
+  fillRect(ctx, x + 0, y + 5, 2, 2, '#ff6644');
+  fillRect(ctx, x + 22, y + 5, 2, 2, '#ff6644');
+  px(ctx, x + 0, y + 6, '#ffaa44');
+  px(ctx, x + 23, y + 6, '#ffaa44');
+  // Eyes — angry red
+  fillRect(ctx, x + 5, y + 3, 3, 2, '#110000');
+  px(ctx, x + 6, y + 3, '#ff2200');
+  fillRect(ctx, x + 16, y + 3, 3, 2, '#110000');
+  px(ctx, x + 17, y + 3, '#ff2200');
+  // Body — heavy armor plating
+  fillRect(ctx, x + 3, y + 7, 18, 10, '#553322');
+  fillRect(ctx, x + 4, y + 8, 16, 8, '#664433');
+  fillRect(ctx, x + 5, y + 9, 14, 6, '#775544');
+  // Armor rivets
+  px(ctx, x + 6, y + 10, '#998877'); px(ctx, x + 17, y + 10, '#998877');
+  px(ctx, x + 6, y + 13, '#998877'); px(ctx, x + 17, y + 13, '#998877');
+  // Engine glow on back
+  fillRect(ctx, x + 9, y + 8, 6, 2, '#ff4422');
+  fillRect(ctx, x + 10, y + 8, 4, 1, '#ffaa44');
+  // Legs — thick stompy
+  fillRect(ctx, x + 4, y + 17, 5, 5, '#553322');
+  fillRect(ctx, x + 15, y + 17, 5, 5, '#553322');
+  fillRect(ctx, x + 3, y + 21, 6, 3, '#443322');
+  fillRect(ctx, x + 15, y + 21, 6, 3, '#443322');
+}
+
+function drawShade(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // SHADE — ghostly wraith-like entity, translucent purple, wispy
+  // Head — ethereal hooded shape
+  fillRect(ctx, x + 6, y + 0, 8, 2, '#4422aa');
+  fillRect(ctx, x + 5, y + 2, 10, 3, '#5533bb');
+  fillRect(ctx, x + 4, y + 4, 12, 2, '#6644cc');
+  // Face — glowing eyes in darkness
+  fillRect(ctx, x + 5, y + 3, 10, 2, '#110022');
+  px(ctx, x + 7, y + 3, '#cc44ff'); px(ctx, x + 12, y + 3, '#cc44ff');
+  px(ctx, x + 7, y + 4, '#aa22dd'); px(ctx, x + 12, y + 4, '#aa22dd');
+  // Body — wispy, tapers
+  fillRect(ctx, x + 5, y + 6, 10, 4, '#4422aa');
+  fillRect(ctx, x + 4, y + 7, 12, 3, '#3311aa');
+  fillRect(ctx, x + 6, y + 10, 8, 3, '#2211aa');
+  fillRect(ctx, x + 7, y + 13, 6, 2, '#1a0088');
+  // Trailing wisps
+  px(ctx, x + 4, y + 10, '#5533cc'); px(ctx, x + 15, y + 10, '#5533cc');
+  px(ctx, x + 3, y + 12, '#3311aa'); px(ctx, x + 16, y + 12, '#3311aa');
+  fillRect(ctx, x + 8, y + 15, 4, 2, '#110066');
+  // Glow particles
+  px(ctx, x + 3, y + 6, '#aa66ff'); px(ctx, x + 16, y + 7, '#aa66ff');
+  px(ctx, x + 5, y + 14, '#7744dd'); px(ctx, x + 14, y + 14, '#7744dd');
+}
+
 // ---------------------------------------------------------------------------
 // Boss drawing functions
 // ---------------------------------------------------------------------------
@@ -791,6 +850,53 @@ function drawDaggerArc(ctx: CanvasRenderingContext2D, ox: number, oy: number): v
   px(ctx, x + 0, y + 1, '#3311aa');
 }
 
+function drawLadyHemlock(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // LADY HEMLOCK — elegant poison sorceress with vine hair and thorned dress
+  // Hair/Crown — green vine tendrils
+  fillRect(ctx, x + 8, y + 0, 16, 2, '#225522');
+  fillRect(ctx, x + 6, y + 1, 20, 2, '#338833');
+  fillRect(ctx, x + 5, y + 3, 22, 2, '#44aa44');
+  px(ctx, x + 5, y + 1, '#66cc44'); px(ctx, x + 26, y + 1, '#66cc44'); // vine tips
+  px(ctx, x + 7, y + 0, '#88ff44'); px(ctx, x + 24, y + 0, '#88ff44'); // leaf accents
+  // Face
+  fillRect(ctx, x + 8, y + 5, 16, 5, '#ccbb99');
+  fillRect(ctx, x + 9, y + 6, 14, 3, '#ddcc99');
+  // Eyes — poison green glow
+  fillRect(ctx, x + 10, y + 6, 3, 2, '#001100');
+  px(ctx, x + 11, y + 6, '#44ff44');
+  fillRect(ctx, x + 19, y + 6, 3, 2, '#001100');
+  px(ctx, x + 20, y + 6, '#44ff44');
+  // Mouth
+  fillRect(ctx, x + 13, y + 9, 6, 1, '#aa6644');
+  // Torso — dark dress with vine patterns
+  fillRect(ctx, x + 8, y + 10, 16, 10, '#1a3322');
+  fillRect(ctx, x + 9, y + 11, 14, 8, '#224422');
+  fillRect(ctx, x + 10, y + 12, 12, 6, '#2a5533');
+  // Vine pattern on dress
+  px(ctx, x + 11, y + 13, '#44aa44'); px(ctx, x + 20, y + 14, '#44aa44');
+  px(ctx, x + 14, y + 15, '#338833'); px(ctx, x + 17, y + 12, '#338833');
+  // Gem on chest
+  px(ctx, x + 15, y + 11, '#ff44ff'); px(ctx, x + 16, y + 11, '#ff44ff');
+  // Arms — reaching out with thorns
+  fillRect(ctx, x + 4, y + 12, 4, 7, '#224422');
+  fillRect(ctx, x + 24, y + 12, 4, 7, '#224422');
+  px(ctx, x + 3, y + 14, '#44aa44'); px(ctx, x + 28, y + 14, '#44aa44'); // thorns
+  px(ctx, x + 3, y + 16, '#338833'); px(ctx, x + 28, y + 16, '#338833');
+  // Skirt/roots — widens at bottom, root-like
+  fillRect(ctx, x + 6, y + 20, 20, 6, '#1a3322');
+  fillRect(ctx, x + 4, y + 22, 24, 4, '#112211');
+  fillRect(ctx, x + 3, y + 24, 26, 4, '#0a1a0a');
+  fillRect(ctx, x + 2, y + 26, 28, 4, '#081808');
+  // Root tendrils at bottom
+  fillRect(ctx, x + 0, y + 28, 4, 2, '#0a1a0a');
+  fillRect(ctx, x + 28, y + 28, 4, 2, '#0a1a0a');
+  px(ctx, x + 0, y + 29, '#224422'); px(ctx, x + 31, y + 29, '#224422');
+  // Thorns protruding from dress
+  px(ctx, x + 6, y + 21, '#66cc44'); px(ctx, x + 25, y + 22, '#66cc44');
+  px(ctx, x + 8, y + 25, '#44aa44'); px(ctx, x + 23, y + 24, '#44aa44');
+}
+
 // ---------------------------------------------------------------------------
 // Canvas creation helper
 // ---------------------------------------------------------------------------
@@ -877,6 +983,20 @@ export function generateUpgradedSprites(scene: Phaser.Scene): void {
     scene.textures.addCanvas('enemy-bone-archer', canvas);
   }
 
+  // Charger: 24x24
+  {
+    const [canvas, ctx] = createCanvas(24, 24);
+    drawCharger(ctx, 0, 0);
+    scene.textures.addCanvas('enemy-charger', canvas);
+  }
+
+  // Shade: 20x18
+  {
+    const [canvas, ctx] = createCanvas(20, 18);
+    drawShade(ctx, 0, 0);
+    scene.textures.addCanvas('enemy-shade', canvas);
+  }
+
   // --- Bosses ---
 
   // Voltrexx: 32x40
@@ -891,6 +1011,13 @@ export function generateUpgradedSprites(scene: Phaser.Scene): void {
     const [canvas, ctx] = createCanvas(28, 34);
     drawHollowKing(ctx, 0, 0);
     scene.textures.addCanvas('boss-hollowking', canvas);
+  }
+
+  // Lady Hemlock: 32x30
+  {
+    const [canvas, ctx] = createCanvas(32, 30);
+    drawLadyHemlock(ctx, 0, 0);
+    scene.textures.addCanvas('boss-hemlock', canvas);
   }
 
   // --- NPCs & Objects ---

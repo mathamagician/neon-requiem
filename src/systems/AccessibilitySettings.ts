@@ -24,6 +24,10 @@ export interface AccessibilityOptions {
   hudScale: number;
   /** Show damage numbers */
   showDamageNumbers: boolean;
+  /** SFX volume 0-100 */
+  sfxVolume: number;
+  /** Music volume 0-100 */
+  musicVolume: number;
 }
 
 export interface GameSettings {
@@ -47,6 +51,8 @@ const DEFAULT_ACCESSIBILITY: AccessibilityOptions = {
   colorblindMode: 'none',
   hudScale: 1,
   showDamageNumbers: true,
+  sfxVolume: 30,
+  musicVolume: 6,
 };
 
 let cachedSettings: GameSettings | null = null;

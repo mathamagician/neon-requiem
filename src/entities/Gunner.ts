@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { safeShake } from '../systems/AccessibilitySettings';
 import { playSound } from '../systems/SoundManager';
+import { readGamepad, type GamepadState } from '../systems/GamepadInput';
 import {
   PLAYER_SPEED,
   PLAYER_JUMP_VELOCITY,
@@ -75,6 +76,9 @@ export class Gunner {
   // Gun barrel aim indicator
   private gunBarrel: Phaser.GameObjects.Sprite;
 
+  // Gamepad
+  private gp: GamepadState | null = null;
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
     this.hp = Math.floor(PLAYER_MAX_HP * 0.85); // Gunner has less HP
@@ -128,6 +132,7 @@ export class Gunner {
   }
 
   update(time: number, delta: number) {
+    this.gp = readGamepad(this.scene);
     const onFloor = this.body.onFloor();
 
     // Hitstop
@@ -199,8 +204,8 @@ export class Gunner {
   private handleMovement(onFloor: boolean) {
     // Slower while charging
     const speedMult = this.isCharging ? 0.5 : 1;
-    const left = this.cursors.left.isDown;
-    const right = this.cursors.right.isDown;
+    const left = this.cursors.left.isDown || !!this.gp?.left;
+    const right = this.cursors.right.isDown || !!this.gp?.right;
 
     if (left) {
       this.body.setVelocityX(-PLAYER_SPEED * speedMult);
@@ -222,7 +227,8 @@ export class Gunner {
 
   private handleJump(onFloor: boolean) {
     const jumpPressed = Phaser.Input.Keyboard.JustDown(this.cursors.up) ||
-                        Phaser.Input.Keyboard.JustDown(this.keys.up);
+                        Phaser.Input.Keyboard.JustDown(this.keys.up) ||
+                        !!this.gp?.jumpJust;
     if (jumpPressed) {
       this.jumpBuffered = true;
       this.jumpBufferTimer = JUMP_BUFFER_MS;
@@ -234,14 +240,14 @@ export class Gunner {
       this.coyoteTimeLeft = 0;
       playSound('jump');
     }
-    if ((this.cursors.up.isUp && this.keys.up.isUp) && this.body.velocity.y < PLAYER_JUMP_VELOCITY * 0.4) {
+    if ((this.cursors.up.isUp && this.keys.up.isUp && !this.gp?.jump) && this.body.velocity.y < PLAYER_JUMP_VELOCITY * 0.4) {
       this.body.setVelocityY(this.body.velocity.y * 0.5);
     }
   }
 
   private handleShooting(time: number, delta: number) {
-    // Hold Z to charge, release to fire
-    if (this.keys.attack.isDown) {
+    // Hold Z/gamepad X to charge, release to fire
+    if (this.keys.attack.isDown || this.gp?.attack) {
       if (!this.isCharging && this.shootCooldown <= 0) {
         this.isCharging = true;
         this.chargeTime = 0;
@@ -251,7 +257,8 @@ export class Gunner {
       }
     }
 
-    if (Phaser.Input.Keyboard.JustUp(this.keys.attack) && this.isCharging) {
+    // Release: keyboard JustUp OR gamepad button just released
+    if ((Phaser.Input.Keyboard.JustUp(this.keys.attack) || this.gp?.attackReleased) && this.isCharging) {
       this.fireProjectile(time);
       this.isCharging = false;
       this.chargeTime = 0;
@@ -263,27 +270,22 @@ export class Gunner {
     }
   }
 
-  /** Get aim direction based on arrow keys — supports 8-directional aiming */
+  /** Get aim direction based on arrow keys / gamepad — supports 8-directional aiming */
   private getAimDirection(): { x: number; y: number } {
-    const up = this.cursors.up.isDown;
-    const down = this.cursors.down.isDown;
+    const up = this.cursors.up.isDown || !!this.gp?.up;
+    const down = this.cursors.down.isDown || !!this.gp?.down;
+    const left = this.cursors.left.isDown || !!this.gp?.left;
+    const right = this.cursors.right.isDown || !!this.gp?.right;
     const dirX = this.facingRight ? 1 : -1;
 
     if (up && !down) {
-      // Diagonal up or straight up if no horizontal input
-      const left = this.cursors.left.isDown;
-      const right = this.cursors.right.isDown;
       if (!left && !right) return { x: 0, y: -1 }; // Straight up
       return { x: dirX * 0.707, y: -0.707 }; // Diagonal up
     }
     if (down && !up) {
-      // Diagonal down (only in air) or straight down
       const onFloor = this.body.onFloor();
-      const left = this.cursors.left.isDown;
-      const right = this.cursors.right.isDown;
       if (!left && !right && !onFloor) return { x: 0, y: 1 }; // Straight down (airborne)
-      if (!onFloor) return { x: dirX * 0.707, y: 0.707 }; // Diagonal down
-      return { x: dirX * 0.707, y: 0.707 }; // Diagonal down even on floor
+      return { x: dirX * 0.707, y: 0.707 }; // Diagonal down
     }
     return { x: dirX, y: 0 }; // Horizontal (default)
   }
@@ -381,7 +383,7 @@ export class Gunner {
   }
 
   private handleDash(time: number) {
-    if (!Phaser.Input.Keyboard.JustDown(this.keys.dash)) return;
+    if (!Phaser.Input.Keyboard.JustDown(this.keys.dash) && !this.gp?.dashJust) return;
     if (this.dashCooldown > 0 || this.isDashing) return;
     this.isDashing = true;
     this.dashTimer = this.DASH_DURATION;
@@ -516,4 +518,15 @@ export class Gunner {
 
   getAttackHitbox(): Phaser.Geom.Rectangle | null { return null; } // Gunner uses projectiles
   getAttackDamage(): number { return 0; }
+
+  /** Weak-point (headshot) damage multiplier — base 1.5×, scales with skills */
+  getWeakPointBonus(): number {
+    let mult = 1.5;
+    const inv = (this.scene as any).getInventory?.();
+    if (inv) {
+      const bonus = inv.getSkillEffect('weakPointBonus');
+      if (bonus) mult += bonus; // e.g. +0.25 from skill tree
+    }
+    return mult;
+  }
 }

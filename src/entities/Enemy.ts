@@ -11,7 +11,7 @@ import {
   TILE_SIZE,
 } from '../../shared/constants';
 
-export type EnemyType = 'grunt' | 'ranged' | 'flyer' | 'skeleton' | 'ghost' | 'bone_archer';
+export type EnemyType = 'grunt' | 'ranged' | 'flyer' | 'charger' | 'skeleton' | 'ghost' | 'bone_archer' | 'shade';
 
 type EnemyState = 'patrol' | 'chase' | 'attack' | 'hurt' | 'dead';
 
@@ -28,20 +28,28 @@ const ENEMY_CONFIGS: Record<EnemyType, EnemyStats> = {
   grunt: { hp: 30, damage: 10, speed: ENEMY_PATROL_SPEED, xpValue: 15, textureKey: 'enemy-grunt' },
   ranged: { hp: 20, damage: 8, speed: ENEMY_PATROL_SPEED * 0.8, xpValue: 20, textureKey: 'enemy-ranged' },
   flyer: { hp: 15, damage: 6, speed: ENEMY_PATROL_SPEED * 1.2, xpValue: 18, textureKey: 'enemy-flyer' },
+  charger: { hp: 50, damage: 18, speed: ENEMY_PATROL_SPEED * 0.6, xpValue: 28, textureKey: 'enemy-charger' },
   // Cryptvault enemies
   skeleton: { hp: 35, damage: 12, speed: ENEMY_PATROL_SPEED * 0.9, xpValue: 18, textureKey: 'enemy-skeleton' },
   ghost: { hp: 20, damage: 8, speed: ENEMY_PATROL_SPEED * 1.3, xpValue: 22, textureKey: 'enemy-ghost' },
   bone_archer: { hp: 22, damage: 10, speed: ENEMY_PATROL_SPEED * 0.7, xpValue: 25, textureKey: 'enemy-bone-archer' },
+  shade: { hp: 25, damage: 14, speed: ENEMY_PATROL_SPEED * 1.1, xpValue: 30, textureKey: 'enemy-shade' },
 };
 
 /** Which enemy types can jump */
-const CAN_JUMP: Set<EnemyType> = new Set(['grunt', 'skeleton']);
+const CAN_JUMP: Set<EnemyType> = new Set(['grunt', 'skeleton', 'charger']);
 /** Which enemy types shoot projectiles */
 const CAN_SHOOT: Set<EnemyType> = new Set(['ranged', 'bone_archer']);
 /** Jump velocity for ground enemies */
 const ENEMY_JUMP_VEL = -220;
 /** How close ranged enemies prefer to stay from the player */
 const RANGED_PREFERRED_DIST = 80;
+/** Charger rush speed multiplier */
+const CHARGER_RUSH_SPEED = 3.5;
+const CHARGER_TELEGRAPH_MS = 600;
+/** Shade phase timing */
+const SHADE_PHASE_INTERVAL = 2500;
+const SHADE_PHASE_DURATION = 800;
 
 export class Enemy {
   scene: Phaser.Scene;
@@ -75,6 +83,16 @@ export class Enemy {
   private poisonTimer = 0;
   private poisonSlowMult = 1; // multiplier applied to speed (< 1 = slowed)
 
+  // Charger state
+  private chargeState: 'idle' | 'telegraph' | 'rushing' = 'idle';
+  private chargeTimer = 0;
+  private chargeDir = 0;
+
+  // Shade state (phases in/out of visibility)
+  private shadePhaseTimer = SHADE_PHASE_INTERVAL;
+  private isPhased = false;
+  private shadePhaseCount = 0;
+
   // HP bar
   private hpBarBg: Phaser.GameObjects.Graphics;
   private hpBar: Phaser.GameObjects.Graphics;
@@ -98,16 +116,24 @@ export class Enemy {
     this.body.setCollideWorldBounds(true);
 
     // Set body size for upgraded sprites
-    if (type === 'ghost') {
+    if (type === 'ghost' || type === 'shade') {
       this.body.setSize(12, 14);
       this.body.setOffset(4, 2);
+    } else if (type === 'charger') {
+      this.body.setSize(18, 22);
+      this.body.setOffset(3, 2);
     } else {
       this.body.setSize(14, 18);
       this.body.setOffset(3, 2);
     }
 
-    if (type === 'flyer' || type === 'ghost') {
+    if (type === 'flyer' || type === 'ghost' || type === 'shade') {
       this.body.setAllowGravity(false);
+    }
+
+    // Shade starts semi-transparent
+    if (type === 'shade') {
+      this.sprite.setAlpha(0.6);
     }
 
     // Store reference for collision
@@ -170,6 +196,20 @@ export class Enemy {
     const distX = player.sprite.x - this.sprite.x;
     const distY = player.sprite.y - this.sprite.y;
     const dist = Math.sqrt(distX * distX + distY * distY);
+
+    // --- Charger special behavior ---
+    if (this.type === 'charger') {
+      this.updateCharger(dist, distX, delta, player);
+      this.drawHpBar();
+      return;
+    }
+
+    // --- Shade special behavior ---
+    if (this.type === 'shade') {
+      this.updateShade(dist, distX, distY, delta, player);
+      this.drawHpBar();
+      return;
+    }
 
     // Ranged enemies attack from further away
     const attackRange = CAN_SHOOT.has(this.type) ? RANGED_PREFERRED_DIST : ENEMY_ATTACK_RANGE;
@@ -267,6 +307,109 @@ export class Enemy {
     }
   }
 
+  /** Charger: slow patrol, telegraphed rush when player is near */
+  private updateCharger(dist: number, distX: number, delta: number, _player: any) {
+    if (this.chargeState === 'idle') {
+      // Slow patrol until player is in range
+      if (dist < ENEMY_DETECT_RANGE * 1.2 && this.attackCooldown <= 0) {
+        // Telegraph — flash red, lock direction
+        this.chargeState = 'telegraph';
+        this.chargeTimer = CHARGER_TELEGRAPH_MS;
+        this.chargeDir = distX > 0 ? 1 : -1;
+        this.body.setVelocityX(0);
+        this.sprite.setTint(0xff6644);
+        playSound('enemyHit');
+      } else {
+        this.patrol(delta);
+      }
+    } else if (this.chargeState === 'telegraph') {
+      this.chargeTimer -= delta;
+      // Shake in place to telegraph
+      this.sprite.x += (Math.random() - 0.5) * 2;
+      this.body.setVelocityX(0);
+      if (this.chargeTimer <= 0) {
+        this.chargeState = 'rushing';
+        this.chargeTimer = 600; // Rush for 600ms
+        this.sprite.setTint(0xff2222);
+      }
+    } else if (this.chargeState === 'rushing') {
+      this.chargeTimer -= delta;
+      const rushSpeed = ENEMY_CHASE_SPEED * CHARGER_RUSH_SPEED * this.poisonSlowMult;
+      this.body.setVelocityX(this.chargeDir * rushSpeed);
+      // Stop if hit a wall
+      if (this.body.blocked.left || this.body.blocked.right || this.chargeTimer <= 0) {
+        this.chargeState = 'idle';
+        this.attackCooldown = 1500;
+        this.sprite.clearTint();
+        if (this.poisonTimer > 0) this.sprite.setTint(0x88ff88);
+        // Wall impact — brief stun
+        if (this.body.blocked.left || this.body.blocked.right) {
+          this.body.setVelocityX(0);
+          this.hurtTimer = 400;
+          this.state = 'hurt';
+          return;
+        }
+      }
+    }
+    this.state = this.chargeState === 'idle' ? 'patrol' : 'chase';
+    this.facingRight = this.body.velocity.x > 0 || this.chargeDir > 0;
+    this.sprite.setFlipX(!this.facingRight);
+  }
+
+  /** Shade: phases in/out, teleports behind player when phased */
+  private updateShade(dist: number, distX: number, distY: number, delta: number, player: any) {
+    this.shadePhaseTimer -= delta;
+
+    if (this.isPhased) {
+      // Currently invisible — move toward player's back
+      this.chargeTimer -= delta;
+      const behindX = player.sprite.x + (player.facingRight ? -30 : 30);
+      const dx = behindX - this.sprite.x;
+      const dy = (player.sprite.y - 10) - this.sprite.y;
+      this.body.setVelocity(
+        Math.sign(dx) * Math.min(Math.abs(dx) * 3, 150),
+        Math.sign(dy) * Math.min(Math.abs(dy) * 3, 100)
+      );
+      // Shimmer effect
+      this.sprite.setAlpha(0.1 + Math.sin(Date.now() * 0.02) * 0.08);
+
+      if (this.chargeTimer <= 0) {
+        // Phase back in — attack!
+        this.isPhased = false;
+        this.sprite.setAlpha(0.7);
+        this.shadePhaseTimer = SHADE_PHASE_INTERVAL;
+        this.shadePhaseCount++;
+        playSound('swordSwing');
+      }
+    } else {
+      // Visible — float and approach
+      if (dist < ENEMY_DETECT_RANGE) {
+        this.body.setVelocityX(distX > 0 ? this.speed * this.poisonSlowMult : -this.speed * this.poisonSlowMult);
+        this.body.setVelocityY(distY > 0 ? this.speed * 0.6 : -this.speed * 0.6);
+        this.state = 'chase';
+      } else {
+        this.patrol(delta);
+        // Bob vertically like ghost
+        this.body.setVelocityY(Math.sin(Date.now() * 0.003) * 20);
+        this.state = 'patrol';
+      }
+
+      // Phase out when timer expires and player is in range
+      if (this.shadePhaseTimer <= 0 && dist < ENEMY_DETECT_RANGE * 1.3) {
+        this.isPhased = true;
+        this.chargeTimer = SHADE_PHASE_DURATION;
+        this.sprite.setAlpha(0.15);
+        playSound('dash');
+      }
+
+      // Gentle alpha pulse when visible
+      this.sprite.setAlpha(0.5 + Math.sin(Date.now() * 0.004) * 0.15);
+    }
+
+    this.facingRight = this.body.velocity.x > 0;
+    this.sprite.setFlipX(!this.facingRight);
+  }
+
   private doAttack(_player: any) {
     // Ranged enemies have longer cooldown but attack from further away
     this.attackCooldown = CAN_SHOOT.has(this.type) ? 1200 : 800;
@@ -315,6 +458,8 @@ export class Enemy {
 
   takeDamage(amount: number, sourceX: number, time: number) {
     if (this.state === 'dead') return;
+    // Shades are invulnerable while phased out
+    if (this.type === 'shade' && this.isPhased) return;
 
     this.hp -= amount;
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
@@ -322,7 +467,8 @@ export class Enemy {
     // Defer knockback until after hitstop ends
     const dir = this.sprite.x < sourceX ? -1 : 1;
     this.pendingKnockbackX = dir * KNOCKBACK_VELOCITY;
-    this.pendingKnockbackY = (this.type !== 'flyer' && this.type !== 'ghost') ? -80 : 0;
+    const isFloater = this.type === 'flyer' || this.type === 'ghost' || this.type === 'shade';
+    this.pendingKnockbackY = isFloater ? 0 : -80;
 
     // Freeze immediately for hitstop
     this.body.setVelocity(0, 0);
@@ -358,7 +504,9 @@ export class Enemy {
       gameScene.player.gainXP(this.xpValue);
     }
     if (gameScene.spawnLootDrop) {
-      gameScene.spawnLootDrop(this.sprite.x, this.sprite.y);
+      // Tougher enemies have higher drop rate and quality boost
+      const dropBoost = (this.type === 'charger' || this.type === 'shade') ? 0.15 : 0;
+      gameScene.spawnLootDrop(this.sprite.x, this.sprite.y, dropBoost);
     }
 
     // Death particles
@@ -400,14 +548,27 @@ export class Enemy {
     this.body.setVelocity(0, 0);
 
     // Restore type-specific physics settings
-    if (this.type === 'ghost') {
+    if (this.type === 'charger') {
+      this.body.setSize(18, 22);
+      this.body.setOffset(3, 2);
+      this.chargeState = 'idle';
+      this.chargeTimer = 0;
+      this.chargeDir = 0;
+    } else if (this.type === 'shade') {
+      this.body.setSize(12, 14);
+      this.body.setOffset(4, 2);
+      this.isPhased = false;
+      this.shadePhaseTimer = 2500;
+      this.shadePhaseCount = 0;
+      this.sprite.setAlpha(1);
+    } else if (this.type === 'ghost') {
       this.body.setSize(12, 14);
       this.body.setOffset(4, 2);
     } else {
       this.body.setSize(14, 18);
       this.body.setOffset(3, 2);
     }
-    if (this.type === 'flyer' || this.type === 'ghost') this.body.setAllowGravity(false);
+    if (this.type === 'flyer' || this.type === 'ghost' || this.type === 'shade') this.body.setAllowGravity(false);
   }
 
   private drawHpBar() {
