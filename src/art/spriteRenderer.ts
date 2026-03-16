@@ -754,6 +754,43 @@ function drawGunnerChargeShot(ctx: CanvasRenderingContext2D, ox: number, oy: num
   px(ctx, x + 11, y + 6, '#00aa88');
 }
 
+function drawGunBarrel(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Arm cannon barrel — drawn pointing right, rotated in-game
+  // Body
+  fillRect(ctx, x + 0, y + 1, 10, 4, '#555566');
+  fillRect(ctx, x + 1, y + 2, 8, 2, '#666688');
+  // Muzzle
+  fillRect(ctx, x + 10, y + 0, 4, 6, '#777799');
+  fillRect(ctx, x + 11, y + 1, 2, 4, '#8888bb');
+  // Muzzle glow
+  fillRect(ctx, x + 14, y + 1, 2, 4, '#00ffaa');
+  px(ctx, x + 14, y + 2, '#66ffcc');
+  px(ctx, x + 15, y + 3, '#ffffff');
+  // Mount point accent
+  px(ctx, x + 0, y + 1, '#444455');
+  px(ctx, x + 0, y + 4, '#444455');
+}
+
+function drawDaggerArc(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Larger arc slash — sweeping dagger trail, more visible
+  // Outer arc trail
+  fillRect(ctx, x + 2, y + 0, 16, 2, '#6633aa');
+  fillRect(ctx, x + 0, y + 2, 20, 2, '#8844cc');
+  fillRect(ctx, x + 1, y + 4, 18, 2, '#aa66ee');
+  // Bright core
+  fillRect(ctx, x + 4, y + 2, 12, 2, '#cc88ff');
+  fillRect(ctx, x + 6, y + 1, 8, 1, '#ddaaff');
+  // Energy tip
+  px(ctx, x + 18, y + 2, '#ffffff');
+  px(ctx, x + 19, y + 3, '#ddaaff');
+  px(ctx, x + 17, y + 1, '#cc88ff');
+  // Trail fade
+  fillRect(ctx, x + 0, y + 3, 3, 2, '#4422aa');
+  px(ctx, x + 0, y + 1, '#3311aa');
+}
+
 // ---------------------------------------------------------------------------
 // Canvas creation helper
 // ---------------------------------------------------------------------------
@@ -914,5 +951,19 @@ export function generateUpgradedSprites(scene: Phaser.Scene): void {
     const [canvas, ctx] = createCanvas(14, 8);
     drawGunnerChargeShot(ctx, 0, 0);
     scene.textures.addCanvas('weapon-chargeshot', canvas);
+  }
+
+  // Gunner barrel (aim indicator): 16x6
+  {
+    const [canvas, ctx] = createCanvas(16, 6);
+    drawGunBarrel(ctx, 0, 0);
+    scene.textures.addCanvas('weapon-gunbarrel', canvas);
+  }
+
+  // Wraith arc slash (larger, more visible): 20x6
+  {
+    const [canvas, ctx] = createCanvas(20, 6);
+    drawDaggerArc(ctx, 0, 0);
+    scene.textures.addCanvas('weapon-dagger-arc', canvas);
   }
 }

@@ -72,6 +72,9 @@ export class Gunner {
   // Charge visual
   private chargeIndicator: Phaser.GameObjects.Graphics;
 
+  // Gun barrel aim indicator
+  private gunBarrel: Phaser.GameObjects.Sprite;
+
   constructor(scene: Phaser.Scene, x: number, y: number) {
     this.scene = scene;
     this.hp = Math.floor(PLAYER_MAX_HP * 0.85); // Gunner has less HP
@@ -115,6 +118,13 @@ export class Gunner {
 
     this.chargeIndicator = scene.add.graphics();
     this.chargeIndicator.setDepth(15);
+
+    // Gun barrel — shows aim direction at all times
+    const barrelKey = scene.textures.exists('weapon-gunbarrel') ? 'weapon-gunbarrel' : 'projectile-player';
+    this.gunBarrel = scene.add.sprite(x, y - 16, barrelKey);
+    this.gunBarrel.setOrigin(0, 0.5); // Pivot at left edge (shoulder mount)
+    this.gunBarrel.setDisplaySize(16, 6);
+    this.gunBarrel.setDepth(11);
   }
 
   update(time: number, delta: number) {
@@ -124,6 +134,7 @@ export class Gunner {
     if (time < this.hitstopUntil) {
       this.body.setVelocity(0, 0);
       this.body.setAllowGravity(false);
+      this.updateGunBarrel(); // Keep barrel attached during freeze
       return;
     }
     this.body.setAllowGravity(true);
@@ -159,6 +170,7 @@ export class Gunner {
         this.body.setVelocityY(0);
         this.body.setAllowGravity(false);
         this.sprite.setAlpha(0.6);
+        this.updateGunBarrel(); // Keep barrel attached during dash
         return;
       }
     }
@@ -176,6 +188,9 @@ export class Gunner {
 
     // Update charge visual
     this.updateChargeVisual();
+
+    // Update gun barrel aim direction
+    this.updateGunBarrel();
   }
 
   private handleMovement(onFloor: boolean) {
@@ -391,6 +406,31 @@ export class Gunner {
     }
   }
 
+  private updateGunBarrel() {
+    const aim = this.getAimDirection();
+    // Position barrel at the character's arm/shoulder area
+    const mountX = this.sprite.x + (this.facingRight ? 4 : -4);
+    const mountY = this.sprite.y - 18;
+    this.gunBarrel.setPosition(mountX, mountY);
+
+    // Rotate to match aim direction
+    const angle = Math.atan2(aim.y, aim.x);
+    this.gunBarrel.setRotation(angle);
+
+    // Flip vertically when facing left so the barrel doesn't render upside-down
+    this.gunBarrel.setFlipY(!this.facingRight);
+
+    // Subtle glow when charging — teal→cyan ramp
+    if (this.isCharging) {
+      const ratio = Math.min(1, this.chargeTime / this.CHARGE_THRESHOLD);
+      this.gunBarrel.setTint(Phaser.Display.Color.GetColor(
+        0, Math.round(0xaa + ratio * 0x55), Math.round(0x66 + ratio * 0x99)
+      ));
+    } else {
+      this.gunBarrel.clearTint();
+    }
+  }
+
   private updateState(onFloor: boolean) {
     if (this.isDashing) this.state = 'dash';
     else if (this.isCharging) this.state = 'charge';
@@ -456,6 +496,7 @@ export class Gunner {
   destroy() {
     this.chargeIndicator.destroy();
     this.dustEmitter.destroy();
+    this.gunBarrel.destroy();
     this.projectiles.destroy(true);
   }
 
@@ -466,6 +507,7 @@ export class Gunner {
     this.sprite.setPosition(spawnX, spawnY);
     this.hp = this.maxHp;
     this.energy = this.maxEnergy;
+    this.updateGunBarrel(); // Snap barrel to respawn position
     this.scene.cameras.main.flash(300, 255, 50, 50);
   }
 

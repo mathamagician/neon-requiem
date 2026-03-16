@@ -324,37 +324,83 @@ export class Wraith {
     playSound('swordSwing');
   }
 
+  // Arc slash animation state
+  private slashArcProgress = 0; // 0→1 over the attack duration
+  private slashArcDuration = 0;
+
   private createSlash() {
     if (this.slashSprite) this.slashSprite.destroy();
 
-    const dir = this.facingRight ? 1 : -1;
-    const offsetX = dir * 16; // Increased reach from 12 to 16
-    const widths = [18, 20, 18, 26]; // Wider hitboxes (was 14/16/14/22)
-    const w = widths[this.attackCombo];
-    const h = 12; // Taller hitbox (was 8)
-
-    const textureKey = this.scene.textures.exists('weapon-dagger') ? 'weapon-dagger' : 'slash';
+    const textureKey = this.scene.textures.exists('weapon-dagger-arc') ? 'weapon-dagger-arc' : 'slash';
     this.slashSprite = this.scene.add.sprite(
-      this.sprite.x + offsetX,
-      this.sprite.y - 10 + (this.attackCombo % 2 === 0 ? -2 : 2), // Alternating height
+      this.sprite.x,
+      this.sprite.y - 20,
       textureKey
     );
-    this.slashSprite.setDisplaySize(w, h);
-    this.slashSprite.setAlpha(0.6);
+
+    // Larger, more visible slash
+    const sizes = [
+      { w: 22, h: 10 },
+      { w: 24, h: 12 },
+      { w: 22, h: 10 },
+      { w: 30, h: 14 }, // Finisher — big arc
+    ];
+    const size = sizes[this.attackCombo];
+    this.slashSprite.setDisplaySize(size.w, size.h);
+    this.slashSprite.setAlpha(0.85);
     this.slashSprite.setTint(COLORS.wraith);
     this.slashSprite.setDepth(10);
 
+    // Arc animation: track progress through the swing
+    this.slashArcProgress = 0;
+    const durations = [100, 90, 80, 200];
+    this.slashArcDuration = durations[this.attackCombo];
+
     // Small forward lunge on each hit
+    const dir = this.facingRight ? 1 : -1;
     this.body.setVelocityX(dir * 40);
+
+    // Position at start of arc
+    this.updateSlashPosition();
   }
 
   private updateSlashPosition() {
     if (!this.slashSprite) return;
     const dir = this.facingRight ? 1 : -1;
-    this.slashSprite.setPosition(
-      this.sprite.x + dir * 16,
-      this.sprite.y - 10 + (this.attackCombo % 2 === 0 ? -2 : 2)
-    );
+
+    // Arc progress: 0 = start (low-front), 1 = end (high-behind or low again)
+    // Advance progress based on remaining attack time
+    const durations = [100, 90, 80, 200];
+    const totalDur = durations[this.attackCombo];
+    this.slashArcProgress = Math.min(1, 1 - (this.attackTimer / totalDur));
+
+    // Arc path: sweeps from low-front, up over the head, to high-behind
+    // Even combos (0,2): sweep low→up→over    Odd combos (1,3): sweep high→down→forward
+    const t = this.slashArcProgress;
+    let arcAngle: number;
+    let radius: number;
+
+    if (this.attackCombo % 2 === 0) {
+      // Upward arc: from 30° below horizontal to 150° above
+      arcAngle = (-30 + t * 180) * (Math.PI / 180);
+      radius = 18;
+    } else {
+      // Downward arc: from 150° above to 30° below
+      arcAngle = (150 - t * 180) * (Math.PI / 180);
+      radius = 20;
+    }
+
+    // Position along arc centered on player shoulder
+    const pivotX = this.sprite.x;
+    const pivotY = this.sprite.y - 20; // Shoulder height
+    const slashX = pivotX + dir * Math.cos(arcAngle) * radius;
+    const slashY = pivotY - Math.sin(arcAngle) * radius;
+
+    this.slashSprite.setPosition(slashX, slashY);
+    // Rotate sprite to follow arc tangent
+    const visualAngle = dir > 0 ? -arcAngle : Math.PI + arcAngle;
+    this.slashSprite.setRotation(visualAngle);
+    this.slashSprite.setFlipY(!this.facingRight);
   }
 
   private endAttack() {
@@ -496,13 +542,18 @@ export class Wraith {
 
   getAttackHitbox(): Phaser.Geom.Rectangle | null {
     if (!this.isAttacking || !this.slashSprite) return null;
-    const widths = [18, 20, 18, 26];
-    const w = widths[this.attackCombo];
-    const h = 12;
+    // Hitbox follows the slash sprite position (which arcs)
+    const sizes = [
+      { w: 22, h: 16 },
+      { w: 24, h: 18 },
+      { w: 22, h: 16 },
+      { w: 30, h: 22 }, // Finisher — large sweep
+    ];
+    const size = sizes[this.attackCombo];
     return new Phaser.Geom.Rectangle(
-      this.slashSprite.x - w / 2,
-      this.slashSprite.y - h / 2,
-      w, h
+      this.slashSprite.x - size.w / 2,
+      this.slashSprite.y - size.h / 2,
+      size.w, size.h
     );
   }
 
