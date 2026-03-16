@@ -37,6 +37,7 @@ export class GameScene extends Phaser.Scene {
   private inventory!: InventorySystem;
 
   private lootDrops: { sprite: Phaser.GameObjects.Sprite; item: any }[] = [];
+  private enemyInstances: Enemy[] = [];
   bossPowers: string[] = [];
   private boss: Boss | null = null;
   private bossTriggered = false;
@@ -158,7 +159,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     // -- Spawn enemies --
-    this.enemies = this.physics.add.group({ classType: Enemy, runChildUpdate: true });
+    this.enemies = this.physics.add.group();
+    this.enemyInstances = [];
     this.spawnZoneEnemies();
 
     // -- Collisions --
@@ -264,6 +266,7 @@ export class GameScene extends Phaser.Scene {
 
   update(time: number, delta: number) {
     this.player.update(time, delta);
+    for (const enemy of this.enemyInstances) enemy.update(time, delta);
     this.combat.update(time, delta);
     this.bossPowerSystem.update(time, delta);
     this.checkLootPickup();
@@ -638,6 +641,7 @@ export class GameScene extends Phaser.Scene {
       const spawnY = (type === 'flyer' || type === 'ghost') ? groundY - 40 : groundY - 20;
       const enemy = new Enemy(this, worldX, spawnY, type);
       this.enemies.add(enemy.sprite);
+      this.enemyInstances.push(enemy);
     }
   }
 

@@ -40,6 +40,10 @@ export class CombatSystem {
       this.hitEnemiesThisSwing.clear();
       this.lastAttackCombo = this.scene.player.attackCombo;
     }
+    // Pogo attacks clear hit tracking each frame (allows repeated bounces)
+    if ((this.scene.player as any).isPogoing) {
+      this.hitEnemiesThisSwing.clear();
+    }
 
     // Player attack → enemy + boss hit detection
     this.checkPlayerAttackHits(time);
@@ -87,6 +91,11 @@ export class CombatSystem {
           const dir = enemySprite.x > player.sprite.x ? 1 : -1;
           enemySprite.body!.velocity.x = dir * 200;
           (enemySprite.body as any).velocity.y = -80;
+        }
+
+        // Vanguard pogo bounce — bounce up on hit
+        if ((player as any).isPogoing) {
+          (player as any).pogoBounce();
         }
       }
     }
@@ -169,6 +178,11 @@ export class CombatSystem {
       // Vanguard shield punch stagger — interrupts boss telegraph/attack
       if ((player as any).isShieldPunch?.()) {
         this.applyStagger(boss, player.sprite.x);
+      }
+
+      // Vanguard pogo bounce off boss
+      if ((player as any).isPogoing) {
+        (player as any).pogoBounce();
       }
     }
   }

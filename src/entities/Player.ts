@@ -33,10 +33,12 @@ export class Player {
   xpToNext = 100;
 
   // Combat
-  attackCombo = 0; // 0, 1, 2 for 3-hit chain
+  attackCombo = 0; // 0=spear, 1=sword, 2=shield punch
   attackTimer = 0;
   attackCooldown = 0;
   isAttacking = false;
+  private comboResetTimer = 0; // ms until combo resets to spear (0)
+  private readonly COMBO_RESET_MS = 400; // time after attack ends before combo resets
   slashSprite: Phaser.GameObjects.Sprite | null = null;
   invincibleUntil = 0;
   hitstopUntil = 0;
@@ -62,6 +64,13 @@ export class Player {
   private shieldRegenDelay = 0; // ms until shield starts regenerating
   private shieldGraphic: Phaser.GameObjects.Graphics;
   private shieldFlashUntil = 0;
+
+  // Pogo attack (hold attack + down while airborne)
+  isPogoing = false;
+  private pogoHitCooldown = 0;
+  private readonly POGO_BOUNCE_VEL = -260; // upward bounce on hit
+  private readonly POGO_DAMAGE = 14;
+  private readonly POGO_FALL_BOOST = 100; // extra downward speed during pogo
 
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -175,6 +184,15 @@ export class Player {
       }
     }
 
+    // Combo reset — if not attacking for a while, reset to spear (0)
+    if (!this.isAttacking && this.comboResetTimer > 0) {
+      this.comboResetTimer -= dt;
+      if (this.comboResetTimer <= 0) {
+        this.attackCombo = 0;
+        this.comboResetTimer = 0;
+      }
+    }
+
     // Dash timer
     if (this.dashCooldown > 0) this.dashCooldown -= dt;
     if (this.isDashing) {
@@ -205,13 +223,18 @@ export class Player {
     this.handleMovement(onFloor);
     this.handleJump(onFloor);
     this.handleAttack(time);
+    this.handlePogo(onFloor, time);
     this.handleDash(time);
 
     // Update state
     this.updateState(onFloor);
 
-    // Landing dust (check before updating wasOnFloor)
+    // Pogo cooldown tick
+    if (this.pogoHitCooldown > 0) this.pogoHitCooldown -= dt;
+
+    // Landing: cancel pogo, emit dust
     if (onFloor && !this.wasOnFloor) {
+      this.isPogoing = false;
       this.emitDust(4);
       playSound('land');
     }
@@ -300,13 +323,82 @@ export class Player {
     this.emitDust(6);
   }
 
+  /** Pogo attack: hold attack + down while airborne → plunge downward with spear */
+  private handlePogo(onFloor: boolean, _time: number) {
+    if (onFloor || this.isDashing) {
+      if (this.isPogoing) {
+        this.isPogoing = false;
+        // Clean up pogo spear visual
+        if (this.slashSprite && this.slashSprite.rotation !== 0) {
+          this.slashSprite.destroy();
+          this.slashSprite = null;
+        }
+      }
+      return;
+    }
+
+    // Activate pogo: hold attack + down while in the air
+    const holdingAttack = this.keys.attack.isDown;
+    const holdingDown = this.cursors.down.isDown;
+
+    if (holdingAttack && holdingDown && !this.isPogoing) {
+      this.isPogoing = true;
+      playSound('spearThrust');
+    }
+
+    // Cancel pogo if player releases keys
+    if (this.isPogoing && (!holdingAttack || !holdingDown)) {
+      this.isPogoing = false;
+      if (this.slashSprite && this.slashSprite.rotation !== 0) {
+        this.slashSprite.destroy();
+        this.slashSprite = null;
+      }
+      return;
+    }
+
+    if (this.isPogoing) {
+      // Boost downward speed for a fast plunge
+      if (this.body.velocity.y < this.POGO_FALL_BOOST) {
+        this.body.setVelocityY(this.body.velocity.y + 15);
+      }
+
+      // Create/update downward spear visual
+      if (!this.slashSprite || this.slashSprite.rotation === 0) {
+        if (this.slashSprite) this.slashSprite.destroy();
+        const textureKey = this.scene.textures.exists('weapon-spear') ? 'weapon-spear' : 'slash';
+        this.slashSprite = this.scene.add.sprite(
+          this.sprite.x,
+          this.sprite.y + 4,
+          textureKey
+        );
+        this.slashSprite.setDisplaySize(8, 28); // rotated: narrow and tall
+        this.slashSprite.setRotation(Math.PI / 2); // point downward
+        this.slashSprite.setAlpha(0.9);
+        this.slashSprite.setDepth(10);
+      } else {
+        // Track player position
+        this.slashSprite.setPosition(this.sprite.x, this.sprite.y + 4);
+      }
+    }
+  }
+
+  /** Called by CombatSystem when pogo hits an enemy — bounce up */
+  pogoBounce() {
+    this.body.setVelocityY(this.POGO_BOUNCE_VEL);
+    playSound('swordHit');
+    this.pogoHitCooldown = 200; // brief invulnerability between pogo hits
+  }
+
   private startAttack(time: number) {
     this.isAttacking = true;
 
-    // Combo chain: timing window for next hit
-    if (this.attackCombo < 2 && this.attackTimer > -200) {
+    // Combo chain: if pressing attack within the combo window, advance.
+    // Otherwise always start with spear (combo 0).
+    if (this.comboResetTimer > 0 && this.attackCombo < 2) {
+      // Within combo window — advance: spear→sword→shield
       this.attackCombo++;
     } else {
+      // Too slow or chain complete — reset to spear
       this.attackCombo = 0;
     }
 
@@ -315,7 +407,8 @@ export class Player {
     // Attack 2: Shield punch (slow windup, pushback + stagger)
     const durations = [180, 220, 320];
     this.attackTimer = durations[this.attackCombo];
-    this.attackCooldown = 50; // Tighter window for responsive combo chaining
+    this.attackCooldown = 50;
+    this.comboResetTimer = 0; // Clear — will be set fresh in endAttack
 
     this.createSlash(time);
     const sounds = ['spearThrust', 'swordSwing', 'shieldPunch'];
@@ -333,7 +426,7 @@ export class Player {
     const widths = [28, 24, 30];
     const heights = [8, 14, 16];
     const offsetX = dir * offsets[this.attackCombo];
-    const offsetY = this.attackCombo === 0 ? -14 : -16; // spear slightly higher
+    const offsetY = this.attackCombo === 0 ? -22 : -16; // spear at shoulder height
 
     const w = widths[this.attackCombo];
     const h = heights[this.attackCombo];
@@ -366,7 +459,7 @@ export class Player {
     if (!this.slashSprite) return;
     const dir = this.facingRight ? 1 : -1;
     const offsets = [24, 16, 12];
-    const offsetY = this.attackCombo === 0 ? -14 : -16;
+    const offsetY = this.attackCombo === 0 ? -22 : -16;
     this.slashSprite.setPosition(
       this.sprite.x + dir * offsets[this.attackCombo],
       this.sprite.y + offsetY
@@ -379,10 +472,9 @@ export class Player {
       this.slashSprite.destroy();
       this.slashSprite = null;
     }
-    // Reset combo after delay if no follow-up
-    this.scene.time.delayedCall(300, () => {
-      if (!this.isAttacking) this.attackCombo = 0;
-    });
+    // Start combo reset countdown — if player attacks again before this expires,
+    // they advance to the next weapon in the chain. Otherwise resets to spear.
+    this.comboResetTimer = this.COMBO_RESET_MS;
   }
 
   private updateState(onFloor: boolean) {
@@ -588,9 +680,19 @@ export class Player {
 
   /** Get the attack hitbox in world coords (used by CombatSystem) */
   getAttackHitbox(): Phaser.Geom.Rectangle | null {
+    // Pogo attack: hitbox below the player's feet
+    if (this.isPogoing && this.pogoHitCooldown <= 0) {
+      return new Phaser.Geom.Rectangle(
+        this.sprite.x - 8,
+        this.sprite.y - 4,
+        16,
+        16
+      );
+    }
+
     if (!this.isAttacking || !this.slashSprite) return null;
     const widths = [28, 24, 30]; // spear wide reach, sword medium, shield wide
-    const heights = [8, 14, 16];
+    const heights = [18, 14, 16]; // spear hitbox tall to cover low enemies despite high visual
     const w = widths[this.attackCombo];
     const h = heights[this.attackCombo];
     return new Phaser.Geom.Rectangle(
@@ -608,6 +710,9 @@ export class Player {
 
   /** Damage dealt by current attack combo step, scaled by might + skills */
   getAttackDamage(): number {
+    // Pogo attack damage
+    if (this.isPogoing) return this.POGO_DAMAGE;
+
     // Spear: moderate | Sword: high | Shield punch: moderate but staggers
     const damages = [10, 16, 12];
     let dmg = damages[this.attackCombo];
