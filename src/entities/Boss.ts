@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { safeShake } from '../systems/AccessibilitySettings';
+import { playSound } from '../systems/SoundManager';
+import { flashBloom } from '../systems/FXManager';
 import { COLORS, HITSTOP_DURATION_MS, GAME_WIDTH, GAME_HEIGHT } from '../../shared/constants';
 
 export type BossPhase = 1 | 2 | 3;
@@ -129,6 +131,7 @@ export class Boss {
     this.nameText.setText(this.name);
 
     // Dramatic entrance
+    playSound('bossRoar');
     safeShake(this.scene.cameras.main, 300, 0.015);
     this.scene.cameras.main.flash(200, 0, 100, 200);
   }
@@ -261,6 +264,8 @@ export class Boss {
       });
     }
 
+    playSound('bossHit');
+    flashBloom(this.scene, isWeak ? 3 : 2, 120);
     safeShake(this.scene.cameras.main, isWeak ? 80 : 60, isWeak ? 0.012 : 0.008);
 
     if (this.hp <= 0) {
@@ -271,6 +276,7 @@ export class Boss {
   private die() {
     this.state = 'dead';
     this.cleanupHazards();
+    playSound('bossDeath');
 
     // Explosion sequence
     safeShake(this.scene.cameras.main, 500, 0.03);

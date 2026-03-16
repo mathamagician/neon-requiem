@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT } from '../../shared/constants';
 import { generateDrop, type EquipmentItem, RARITY_COLORS, type Rarity } from '../../shared/data/equipment';
 import type { InventorySystem } from '../systems/InventorySystem';
+import { playSound } from '../systems/SoundManager';
 
 const MONO = 'Consolas, "Courier New", monospace';
 const FONT = 'Arial, Helvetica, sans-serif';
@@ -185,11 +186,13 @@ export class ShopScene extends Phaser.Scene {
   private buySelected() {
     const entry = this.stock[this.selectedIndex];
     if (this.gold < entry.price) {
+      playSound('menuSelect');
       this.showMessage('Not enough gold!', '#ff4444');
       return;
     }
 
     if (entry.type === 'consumable') {
+      playSound('shopBuy');
       this.gold -= entry.price;
       this.gameScene.gold = this.gold;
       this.goldText.setText(`Gold: ${this.gold}`);
@@ -200,6 +203,7 @@ export class ShopScene extends Phaser.Scene {
         this.showMessage('Backpack full!', '#ff4444');
         return;
       }
+      playSound('shopBuy');
       this.gold -= entry.price;
       this.gameScene.gold = this.gold;
       this.goldText.setText(`Gold: ${this.gold}`);

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { safeShake } from '../systems/AccessibilitySettings';
+import { playSound } from '../systems/SoundManager';
 import {
   PLAYER_SPEED,
   PLAYER_JUMP_VELOCITY,
@@ -212,6 +213,7 @@ export class Player {
     // Landing dust (check before updating wasOnFloor)
     if (onFloor && !this.wasOnFloor) {
       this.emitDust(4);
+      playSound('land');
     }
     this.wasOnFloor = onFloor;
 
@@ -266,6 +268,7 @@ export class Player {
       this.jumpBuffered = false;
       this.coyoteTimeLeft = 0;
       this.emitDust(3);
+      playSound('jump');
     }
 
     // Variable jump height — release early for short hop
@@ -289,6 +292,7 @@ export class Player {
     this.isDashing = true;
     this.dashTimer = this.DASH_DURATION;
     this.dashCooldown = this.DASH_COOLDOWN;
+    playSound('dash');
     this.invincibleUntil = Math.max(this.invincibleUntil, _time + this.DASH_DURATION);
 
     // Dash burst particles
@@ -312,6 +316,7 @@ export class Player {
 
     // Create slash hitbox visual
     this.createSlash(time);
+    playSound('swordSwing');
   }
 
   private createSlash(_time: number) {
@@ -394,6 +399,7 @@ export class Player {
     const finalDmg = Math.max(1, Math.round(amount * (1 - reduction)));
 
     this.hp = Math.max(0, this.hp - finalDmg);
+    playSound('playerHurt');
     this.invincibleUntil = time + INVINCIBILITY_FRAMES_MS;
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
 
@@ -418,6 +424,7 @@ export class Player {
     });
 
     if (this.hp <= 0) {
+      playSound('playerDeath');
       this.die();
     }
   }
@@ -427,6 +434,7 @@ export class Player {
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
     safeShake(this.scene.cameras.main, 50, 0.005);
     this.gainEnergy(3);
+    playSound('swordHit');
   }
 
   gainXP(amount: number) {
@@ -442,8 +450,9 @@ export class Player {
       this.hp = this.maxHp;
       this.maxEnergy += 3;
       this.energy = this.maxEnergy;
-      this.sprite.setTint(0xffffff);
+      this.sprite.setTint(0x44ffff);
       this.scene.time.delayedCall(200, () => this.sprite.clearTint());
+      playSound('levelUp');
       (this.scene as any).onPlayerLevelUp?.();
     }
   }
@@ -474,6 +483,7 @@ export class Player {
 
     const absorbed = Math.min(this.shieldHp, damage);
     this.shieldHp -= absorbed;
+    playSound('shieldBlock');
     this.shieldRegenDelay = 1500; // 1.5s before shield starts regenerating
     this.shieldFlashUntil = time + 100;
 

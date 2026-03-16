@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../../shared/constants';
 import type { ClassName } from './GameScene';
+import { playSound } from '../systems/SoundManager';
 
 const FONT = 'Arial, Helvetica, sans-serif';
 const MONO = 'Consolas, "Courier New", monospace';
@@ -120,6 +121,7 @@ export class ClassSelectScene extends Phaser.Scene {
 
   private move(dir: number) {
     this.selectedIndex = (this.selectedIndex + dir + CLASSES.length) % CLASSES.length;
+    playSound('menuSelect');
     this.updateSelection();
   }
 
@@ -152,6 +154,7 @@ export class ClassSelectScene extends Phaser.Scene {
 
   private confirm() {
     const cls = CLASSES[this.selectedIndex];
+    playSound('menuConfirm');
 
     // Flash effect
     this.cameras.main.flash(300, 255, 255, 255);

@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { safeShake } from '../systems/AccessibilitySettings';
+import { playSound } from '../systems/SoundManager';
 import {
   PLAYER_SPEED,
   PLAYER_JUMP_VELOCITY,
@@ -211,6 +212,7 @@ export class Gunner {
       this.body.setVelocityY(PLAYER_JUMP_VELOCITY);
       this.jumpBuffered = false;
       this.coyoteTimeLeft = 0;
+      playSound('jump');
     }
     if ((this.cursors.up.isUp && this.keys.up.isUp) && this.body.velocity.y < PLAYER_JUMP_VELOCITY * 0.4) {
       this.body.setVelocityY(this.body.velocity.y * 0.5);
@@ -311,11 +313,12 @@ export class Gunner {
 
     if (isCharged) {
       // Charge shot: bigger, faster, pierces
+      playSound('chargedShot');
       proj.setDisplaySize(12, 6);
       const chargeSpeed = Math.round(200 * shotSpeedMult);
       projBody.setVelocity(aim.x * chargeSpeed, aim.y * chargeSpeed);
       proj.setTint(0x00ffcc);
-      let chargeDmg = Math.round(18 * precisionMult * (1 + rangedBonus));
+      let chargeDmg = Math.round(12 * precisionMult * (1 + rangedBonus));
       // Skill: overchargeDamageBonus — extra damage for charged shots
       if (inv) {
         const overcharge = inv.getSkillEffect('overchargeDamageBonus');
@@ -325,6 +328,7 @@ export class Gunner {
       (proj as any).piercing = true;
     } else {
       // Normal shot
+      playSound('gunShot');
       proj.setDisplaySize(8, 4);
       const normalSpeed = Math.round(160 * shotSpeedMult);
       projBody.setVelocity(aim.x * normalSpeed, aim.y * normalSpeed);
@@ -402,6 +406,7 @@ export class Gunner {
     const finalDmg = Math.max(1, Math.round(amount * (1 - reduction)));
 
     this.hp = Math.max(0, this.hp - finalDmg);
+    playSound('playerHurt');
     this.invincibleUntil = time + INVINCIBILITY_FRAMES_MS;
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
     const dir = this.sprite.x < sourceX ? -1 : 1;
@@ -414,12 +419,13 @@ export class Gunner {
     this.scene.time.delayedCall(300, () => {
       if (this.state === 'hurt') this.state = 'idle';
     });
-    if (this.hp <= 0) this.die();
+    if (this.hp <= 0) { playSound('playerDeath'); this.die(); }
   }
 
   onAttackHit(time: number) {
     this.hitstopUntil = time + HITSTOP_DURATION_MS * 0.5;
     this.gainEnergy(2);
+    playSound('enemyHit');
   }
 
   gainXP(amount: number) {

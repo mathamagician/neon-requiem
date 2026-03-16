@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import { playSound } from '../systems/SoundManager';
 import {
   ENEMY_PATROL_SPEED,
   ENEMY_CHASE_SPEED,
@@ -294,6 +295,7 @@ export class Enemy {
 
   private die() {
     this.state = 'dead';
+    playSound('enemyDeath');
 
     // Grant XP and spawn loot
     const gameScene = this.scene as any;

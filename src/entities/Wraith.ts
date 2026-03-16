@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { safeShake } from '../systems/AccessibilitySettings';
+import { playSound } from '../systems/SoundManager';
 import {
   PLAYER_SPEED,
   PLAYER_JUMP_VELOCITY,
@@ -59,6 +60,9 @@ export class Wraith {
   private jumpBuffered = false;
   private jumpBufferTimer = 0;
   private wasOnFloor = false;
+
+  // Double jump (Wraith exclusive mobility)
+  private hasDoubleJump = true;
 
   // Wall cling (Wraith starts with this!)
   private isTouchingWall = false;
@@ -194,9 +198,10 @@ export class Wraith {
     this.handleDash(time);
     this.updateState(onFloor);
 
-    // Landing dust
+    // Landing dust + reset double jump
     if (onFloor && !this.wasOnFloor) {
       this.dustEmitter.emitParticleAt(this.sprite.x, this.sprite.y, 4);
+      this.hasDoubleJump = true;
     }
     this.wasOnFloor = onFloor;
 
@@ -257,9 +262,11 @@ export class Wraith {
       this.body.setVelocityX(-this.wallDir * this.WRAITH_SPEED); // Jump away from wall
       this.jumpBuffered = false;
       this.isTouchingWall = false;
+      this.hasDoubleJump = true; // Wall jump resets double jump
       this.facingRight = this.wallDir < 0;
       this.sprite.setFlipX(!this.facingRight);
       this.dustEmitter.emitParticleAt(this.sprite.x, this.sprite.y - 10, 3);
+      playSound('wallJump');
       return;
     }
 
@@ -268,6 +275,19 @@ export class Wraith {
       this.body.setVelocityY(this.WRAITH_JUMP);
       this.jumpBuffered = false;
       this.coyoteTimeLeft = 0;
+      this.hasDoubleJump = true; // Reset double jump on ground jump
+      playSound('jump');
+      return;
+    }
+
+    // Double jump (air only, once per grounding)
+    if (this.jumpBuffered && !onFloor && this.hasDoubleJump && !this.isTouchingWall) {
+      this.body.setVelocityY(this.WRAITH_JUMP * 0.85); // Slightly weaker than ground jump
+      this.jumpBuffered = false;
+      this.hasDoubleJump = false;
+      // Visual feedback: burst of particles
+      this.dustEmitter.emitParticleAt(this.sprite.x, this.sprite.y, 5);
+      playSound('doubleJump');
     }
 
     // Variable jump height
@@ -297,6 +317,7 @@ export class Wraith {
     this.attackCooldown = 50; // Very low — encourages rapid mashing
 
     this.createSlash();
+    playSound('swordSwing');
   }
 
   private createSlash() {
@@ -349,6 +370,7 @@ export class Wraith {
     this.dashTimer = this.DASH_DURATION;
     this.dashCooldown = this.DASH_COOLDOWN;
     this.invincibleUntil = Math.max(this.invincibleUntil, time + this.DASH_DURATION);
+    playSound('dash');
   }
 
   private spawnAfterimage() {
@@ -385,6 +407,7 @@ export class Wraith {
     const finalDmg = Math.max(1, Math.round(amount * (1 - reduction)));
 
     this.hp = Math.max(0, this.hp - finalDmg);
+    playSound('playerHurt');
     this.invincibleUntil = time + INVINCIBILITY_FRAMES_MS;
     this.hitstopUntil = time + HITSTOP_DURATION_MS;
     const dir = this.sprite.x < sourceX ? -1 : 1;
@@ -397,7 +420,7 @@ export class Wraith {
     this.scene.time.delayedCall(250, () => {
       if (this.state === 'hurt') this.state = 'idle';
     });
-    if (this.hp <= 0) this.die();
+    if (this.hp <= 0) { playSound('playerDeath'); this.die(); }
   }
 
   onAttackHit(time: number) {
@@ -411,12 +434,16 @@ export class Wraith {
     if (this.lastHitWasCrit) {
       this.critEmitter.emitParticleAt(this.sprite.x + (this.facingRight ? 15 : -15), this.sprite.y - 10, 6);
       safeShake(this.scene.cameras.main, 60, 0.008);
+      playSound('critHit');
+    } else {
+      playSound('swordHit');
     }
 
     // Backstab feedback — purple flash
     if (this.lastHitWasBackstab) {
       this.critEmitter.emitParticleAt(this.sprite.x + (this.facingRight ? 15 : -15), this.sprite.y - 14, 4);
       this.lastHitWasBackstab = false;
+      playSound('backstab');
     }
 
     this.gainEnergy(this.lastHitWasCrit ? 4 : 2); // Crits give more energy

@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
 import { safeShake } from '../systems/AccessibilitySettings';
+import { playSound } from '../systems/SoundManager';
+import { flashBloom } from '../systems/FXManager';
 import { COLORS, HITSTOP_DURATION_MS, GAME_WIDTH, GAME_HEIGHT } from '../../shared/constants';
 
 type BossPhase = 1 | 2 | 3;
@@ -137,6 +139,7 @@ export class HollowKing {
     this.hpBar.setVisible(true);
     this.nameText.setText(this.name);
 
+    playSound('bossRoar');
     safeShake(this.scene.cameras.main, 300, 0.015);
     this.scene.cameras.main.flash(200, 50, 0, 150);
   }
@@ -260,6 +263,8 @@ export class HollowKing {
       });
     }
 
+    playSound('bossHit');
+    flashBloom(this.scene, isWeak ? 3 : 2, 120);
     safeShake(this.scene.cameras.main, isWeak ? 80 : 60, isWeak ? 0.012 : 0.008);
 
     if (this.hp <= 0) this.die();
@@ -269,6 +274,7 @@ export class HollowKing {
     this.state = 'dead';
     this.cleanupHazards();
     this.cleanupSkulls();
+    playSound('bossDeath');
 
     safeShake(this.scene.cameras.main, 500, 0.03);
 

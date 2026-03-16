@@ -19,6 +19,8 @@ import { HollowKing } from '../entities/HollowKing';
 import type { AnyPlayer } from '../entities/PlayerTypes';
 import { getDefaultBranch } from '../../shared/data/skillTrees';
 import { buildSaveData, writeSave, restoreInventory, type SaveData } from '../systems/SaveSystem';
+import { playSound } from '../systems/SoundManager';
+import { initCameraFX, updateFX, destroyFX } from '../systems/FXManager';
 
 export type ClassName = 'vanguard' | 'gunner' | 'wraith';
 
@@ -182,6 +184,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
     this.cameras.main.setDeadzone(40, 20);
+    initCameraFX(this.cameras.main);
     this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
     // -- HUD --
@@ -263,6 +266,11 @@ export class GameScene extends Phaser.Scene {
       this.boss2.update(time, delta);
     }
 
+    // Post-processing FX
+    const anyBossActive = (this.boss?.isActive && this.boss.state !== 'dead')
+      || (this.boss2?.isActive && this.boss2.state !== 'dead');
+    updateFX(delta, !!anyBossActive, this.player.hp / this.player.maxHp);
+
     // NPC interaction
     this.checkNPCProximity();
 
@@ -306,6 +314,7 @@ export class GameScene extends Phaser.Scene {
   absorbBossPower(powerId: string, bossId?: string) {
     this.bossPowers.push(powerId);
     this.inventory.absorbPower(powerId);
+    playSound('powerAbsorb');
     if (bossId && !this.bossesDefeated.includes(bossId)) {
       this.bossesDefeated.push(bossId);
     }
@@ -319,6 +328,7 @@ export class GameScene extends Phaser.Scene {
     // Always drop some gold
     const goldAmount = 5 + Math.floor(Math.random() * 10) + this.player.level * 2;
     this.gold += goldAmount;
+    playSound('goldPickup');
     this.showLootText(x, y - 16, `+${goldAmount}g`, 'legendary');
 
     // 40% chance to drop equipment
@@ -390,6 +400,7 @@ export class GameScene extends Phaser.Scene {
       if (dist < 20) {
         const added = this.inventory.addItem(drop.item);
         if (added) {
+          playSound('pickup');
           this.showLootText(drop.sprite.x, drop.sprite.y - 10, drop.item.name, drop.item.rarity);
           drop.sprite.destroy();
           this.lootDrops.splice(i, 1);
@@ -611,6 +622,7 @@ export class GameScene extends Phaser.Scene {
     for (const exit of this.zoneExits) {
       if (Math.abs(px - exit.x) < 16 && py > (this.zoneDef.height - 6) * TILE_SIZE) {
         // Save before transitioning
+        playSound('zoneTransit');
         this.saveGame();
 
         // Build save data to carry through zone transition (preserves inventory/state)
@@ -710,6 +722,7 @@ export class GameScene extends Phaser.Scene {
       const dist = Phaser.Math.Distance.Between(px, py, sp.x, sp.y);
       if (dist < 24) {
         this.saveGame();
+        playSound('savePoint');
         this.lastSaveNotif = time;
 
         // Flash the crystal

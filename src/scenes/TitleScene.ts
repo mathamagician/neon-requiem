@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../../shared/constants';
 import { hasSave, loadSave, deleteSave, formatSaveInfo } from '../systems/SaveSystem';
+import { playSound } from '../systems/SoundManager';
 
 const FONT = 'Arial, Helvetica, sans-serif';
 const MONO = 'Consolas, "Courier New", monospace';
@@ -110,10 +111,12 @@ export class TitleScene extends Phaser.Scene {
     // Input
     this.input.keyboard!.on('keydown-UP', () => {
       this.selectedIndex = (this.selectedIndex - 1 + this.menuItems.length) % this.menuItems.length;
+      playSound('menuSelect');
       this.updateMenu();
     });
     this.input.keyboard!.on('keydown-DOWN', () => {
       this.selectedIndex = (this.selectedIndex + 1) % this.menuItems.length;
+      playSound('menuSelect');
       this.updateMenu();
     });
     this.input.keyboard!.on('keydown-Z', () => this.confirm());
@@ -141,6 +144,7 @@ export class TitleScene extends Phaser.Scene {
       return;
     }
 
+    playSound('menuConfirm');
     this.cameras.main.flash(300, 255, 255, 255);
 
     this.time.delayedCall(300, () => {
