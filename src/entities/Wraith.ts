@@ -466,7 +466,7 @@ export class Wraith {
     this.body.setVelocityY(-120);
     safeShake(this.scene.cameras.main, 100, 0.01);
     this.sprite.setTint(0xff4444);
-    this.scene.time.delayedCall(100, () => this.sprite.clearTint());
+    this.scene.time.delayedCall(100, () => { if (this.sprite.active) this.sprite.clearTint(); });
     this.state = 'hurt';
     this.scene.time.delayedCall(250, () => {
       if (this.state === 'hurt') this.state = 'idle';

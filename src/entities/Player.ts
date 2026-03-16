@@ -523,7 +523,7 @@ export class Player {
 
     // Flash red
     this.sprite.setTint(0xff4444);
-    this.scene.time.delayedCall(100, () => this.sprite.clearTint());
+    this.scene.time.delayedCall(100, () => { if (this.sprite.active) this.sprite.clearTint(); });
 
     this.state = 'hurt';
     this.scene.time.delayedCall(200, () => {

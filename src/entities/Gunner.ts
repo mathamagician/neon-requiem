@@ -175,7 +175,10 @@ export class Gunner {
       }
     }
 
-    if (this.state === 'hurt') return;
+    if (this.state === 'hurt') {
+      this.updateGunBarrel(); // Keep barrel attached during knockback
+      return;
+    }
 
     this.handleMovement(onFloor);
     this.handleJump(onFloor);
@@ -458,7 +461,7 @@ export class Gunner {
     this.body.setVelocityY(-120);
     safeShake(this.scene.cameras.main, 100, 0.01);
     this.sprite.setTint(0xff4444);
-    this.scene.time.delayedCall(100, () => this.sprite.clearTint());
+    this.scene.time.delayedCall(100, () => { if (this.sprite.active) this.sprite.clearTint(); });
     this.state = 'hurt';
     this.scene.time.delayedCall(300, () => {
       if (this.state === 'hurt') this.state = 'idle';
