@@ -170,7 +170,11 @@ export class GameScene extends Phaser.Scene {
     this.spawnZoneEnemies();
 
     // -- Collisions --
-    this.physics.add.collider(this.player.sprite, this.groundLayer);
+    this.physics.add.collider(this.player.sprite, this.groundLayer, undefined, (_sprite, tile) => {
+      // Allow dropping through one-way platforms (tile index 2)
+      if ((tile as any).index === 2 && (this.player as any).droppingThrough) return false;
+      return true;
+    });
     this.physics.add.collider(this.enemies, this.groundLayer);
 
     // -- Boss (zone-specific) --
@@ -534,7 +538,10 @@ export class GameScene extends Phaser.Scene {
     this.player.hp = oldHp;
     this.player.maxEnergy = oldMaxEnergy;
     this.player.energy = oldEnergy;
-    this.physics.add.collider(this.player.sprite, this.groundLayer);
+    this.physics.add.collider(this.player.sprite, this.groundLayer, undefined, (_sprite, tile) => {
+      if ((tile as any).index === 2 && (this.player as any).droppingThrough) return false;
+      return true;
+    });
     this.combat = new CombatSystem(this);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
     this.currentClass = cls;

@@ -97,7 +97,7 @@ export class TitleScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, 'v0.2.0 - Phase 5 Prototype', {
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, 'v1.3.1', {
       fontSize: '12px', fontFamily: FONT, color: '#333344',
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);

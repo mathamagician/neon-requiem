@@ -76,6 +76,11 @@ export class Gunner {
   // Gun barrel aim indicator
   private gunBarrel: Phaser.GameObjects.Sprite;
 
+  // Drop-through platforms
+  droppingThrough = false;
+  private lastDownPress = 0;
+  private readonly DROP_TAP_WINDOW = 250;
+
   // Gamepad
   private gp: GamepadState | null = null;
 
@@ -185,6 +190,7 @@ export class Gunner {
       return;
     }
 
+    this.handleDropThrough(onFloor);
     this.handleMovement(onFloor);
     this.handleJump(onFloor);
     this.handleShooting(time, delta);
@@ -380,6 +386,21 @@ export class Gunner {
 
     this.isAttacking = true;
     this.scene.time.delayedCall(150, () => { this.isAttacking = false; });
+  }
+
+  private handleDropThrough(onFloor: boolean) {
+    const downJust = Phaser.Input.Keyboard.JustDown(this.cursors.down) || !!this.gp?.downJust;
+    if (downJust && onFloor) {
+      const now = this.scene.time.now;
+      if (now - this.lastDownPress < this.DROP_TAP_WINDOW) {
+        this.droppingThrough = true;
+        this.body.setVelocityY(40);
+        this.scene.time.delayedCall(200, () => { this.droppingThrough = false; });
+        this.lastDownPress = 0;
+      } else {
+        this.lastDownPress = now;
+      }
+    }
   }
 
   private handleDash(time: number) {

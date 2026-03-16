@@ -38,10 +38,10 @@ export class HUDScene extends Phaser.Scene {
       fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
     }).setOrigin(0.5).setAlpha(0);
 
-    this.stateText = this.add.text(GAME_WIDTH - 8, 6, '', {
+    this.stateText = this.add.text(8, 52, '', {
       fontSize: '11px', fontFamily: 'Consolas, monospace', color: '#999999',
-      stroke: '#000000', strokeThickness: 1,
-    }).setOrigin(1, 0);
+      stroke: '#000000', strokeThickness: 2,
+    });
 
     // Boss power display (bottom-left)
     this.powerText = this.add.text(8, GAME_HEIGHT - 28, '', {

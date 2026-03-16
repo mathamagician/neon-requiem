@@ -29,6 +29,8 @@ export interface GamepadState {
   dashJust: boolean;
   /** True on the frame the button was first released */
   attackReleased: boolean;
+  /** True on the frame down was first pressed (for platform drop-through) */
+  downJust: boolean;
   /** Vanguard shield (RB / R1) */
   shield: boolean;
 }
@@ -39,6 +41,7 @@ const DEADZONE = 0.3;
 let prevJump = false;
 let prevAttack = false;
 let prevDash = false;
+let prevDown = false;
 
 export function readGamepad(scene: Phaser.Scene): GamepadState | null {
   if (!scene.input.gamepad) return null;
@@ -61,10 +64,12 @@ export function readGamepad(scene: Phaser.Scene): GamepadState | null {
   const attackJust = attack && !prevAttack;
   const dashJust = dash && !prevDash;
   const attackReleased = !attack && prevAttack;
+  const downJust = down && !prevDown;
 
   prevJump = jump;
   prevAttack = attack;
   prevDash = dash;
+  prevDown = down;
 
   return {
     left, right, up, down,
@@ -74,6 +79,7 @@ export function readGamepad(scene: Phaser.Scene): GamepadState | null {
     inventory: pad.buttons[9]?.pressed ?? false,
     jumpJust, attackJust, dashJust,
     attackReleased,
+    downJust,
     shield: pad.R1 ? true : false,
   };
 }

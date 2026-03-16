@@ -66,6 +66,11 @@ export class Player {
   private shieldGraphic: Phaser.GameObjects.Graphics;
   private shieldFlashUntil = 0;
 
+  // Drop-through platforms (double-tap down)
+  droppingThrough = false;
+  private lastDownPress = 0;
+  private readonly DROP_TAP_WINDOW = 250; // ms between taps
+
   // Pogo attack (hold attack + down while airborne)
   isPogoing = false;
   private pogoHitCooldown = 0;
@@ -221,6 +226,9 @@ export class Player {
 
     // Shield
     this.handleShield(delta);
+
+    // Drop-through platforms (double-tap down)
+    this.handleDropThrough(onFloor);
 
     // Handle input
     this.handleMovement(onFloor);
@@ -581,6 +589,21 @@ export class Player {
         this.shieldRegenDelay -= delta;
       } else {
         this.shieldHp = Math.min(this.maxShieldHp, this.shieldHp + delta * 0.02);
+      }
+    }
+  }
+
+  private handleDropThrough(onFloor: boolean) {
+    const downJust = Phaser.Input.Keyboard.JustDown(this.cursors.down) || !!this.gp?.downJust;
+    if (downJust && onFloor) {
+      const now = this.scene.time.now;
+      if (now - this.lastDownPress < this.DROP_TAP_WINDOW) {
+        this.droppingThrough = true;
+        this.body.setVelocityY(40); // Small nudge through platform
+        this.scene.time.delayedCall(200, () => { this.droppingThrough = false; });
+        this.lastDownPress = 0; // Reset to prevent triple-tap
+      } else {
+        this.lastDownPress = now;
       }
     }
   }

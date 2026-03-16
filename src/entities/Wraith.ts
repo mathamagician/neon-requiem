@@ -92,6 +92,11 @@ export class Wraith {
   private dustEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
   private critEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
 
+  // Drop-through platforms
+  droppingThrough = false;
+  private lastDownPress = 0;
+  private readonly DROP_TAP_WINDOW = 250;
+
   // Gamepad
   private gp: GamepadState | null = null;
 
@@ -197,6 +202,7 @@ export class Wraith {
 
     if (this.state === 'hurt') return;
 
+    this.handleDropThrough(onFloor);
     this.handleMovement(onFloor);
     this.handleJump(onFloor);
     this.handleAttack(time);
@@ -380,19 +386,20 @@ export class Wraith {
     const totalDur = durations[this.attackCombo];
     this.slashArcProgress = Math.min(1, 1 - (this.attackTimer / totalDur));
 
-    // Arc path: sweeps from low-front, up over the head, to high-behind
-    // Even combos (0,2): sweep low→up→over    Odd combos (1,3): sweep high→down→forward
+    // Arc path: starts straight ahead (0°), sweeps upward (~100°)
+    // Mashing attack hits forward; upswing catches enemies above
+    // Even combos (0,2): tight forward→up    Odd combos (1,3): slightly lower start→higher end
     const t = this.slashArcProgress;
     let arcAngle: number;
     let radius: number;
 
     if (this.attackCombo % 2 === 0) {
-      // Upward arc: from 30° below horizontal to 150° above
-      arcAngle = (-30 + t * 180) * (Math.PI / 180);
+      // Forward → up: 0° to 100°
+      arcAngle = (t * 100) * (Math.PI / 180);
       radius = 18;
     } else {
-      // Downward arc: from 150° above to 30° below
-      arcAngle = (150 - t * 180) * (Math.PI / 180);
+      // Slight dip forward → up: -10° to 110°
+      arcAngle = (-10 + t * 120) * (Math.PI / 180);
       radius = 20;
     }
 
@@ -418,6 +425,21 @@ export class Wraith {
     this.scene.time.delayedCall(250, () => {
       if (!this.isAttacking) this.attackCombo = 0;
     });
+  }
+
+  private handleDropThrough(onFloor: boolean) {
+    const downJust = Phaser.Input.Keyboard.JustDown(this.cursors.down) || !!this.gp?.downJust;
+    if (downJust && onFloor) {
+      const now = this.scene.time.now;
+      if (now - this.lastDownPress < this.DROP_TAP_WINDOW) {
+        this.droppingThrough = true;
+        this.body.setVelocityY(40);
+        this.scene.time.delayedCall(200, () => { this.droppingThrough = false; });
+        this.lastDownPress = 0;
+      } else {
+        this.lastDownPress = now;
+      }
+    }
   }
 
   private handleDash(time: number) {
