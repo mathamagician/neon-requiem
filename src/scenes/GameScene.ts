@@ -63,6 +63,9 @@ export class GameScene extends Phaser.Scene {
   private swapPowerKey!: Phaser.Input.Keyboard.Key;
   private interactKey!: Phaser.Input.Keyboard.Key;
 
+  // Level data (stored for pit detection)
+  private levelData: number[][] = [];
+
   constructor() {
     super({ key: 'GameScene' });
   }
@@ -99,7 +102,8 @@ export class GameScene extends Phaser.Scene {
     }
 
     // -- Build tilemap based on zone --
-    const levelData = this.getLevelData();
+    this.levelData = this.getLevelData();
+    const levelData = this.levelData;
     const levelW = this.zoneDef.width;
     const levelH = this.zoneDef.height;
 
@@ -270,6 +274,9 @@ export class GameScene extends Phaser.Scene {
     const anyBossActive = (this.boss?.isActive && this.boss.state !== 'dead')
       || (this.boss2?.isActive && this.boss2.state !== 'dead');
     updateFX(delta, !!anyBossActive, this.player.hp / this.player.maxHp);
+
+    // Pit hazard check
+    this.checkPitFall(time);
 
     // NPC interaction
     this.checkNPCProximity();
@@ -747,6 +754,42 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  // -- Pit Hazard --
+
+  private lastPitDamageTime = 0;
+
+  /** Check if the player is falling into a pit (gap in the ground floor) */
+  private checkPitFall(time: number) {
+    const p = this.player.sprite;
+    const levelH = this.zoneDef.height;
+    const bottomY = (levelH - 1) * TILE_SIZE; // bottom row of level
+
+    // Only check when player is near the bottom of the level
+    if (p.y < bottomY - TILE_SIZE) return;
+
+    // Check the tile column the player is in
+    const tileX = Math.floor(p.x / TILE_SIZE);
+    const bottomRow = levelH - 1;
+    const aboveRow = levelH - 2;
+
+    // If both bottom rows are air (pit), deal damage
+    if (
+      tileX >= 0 && tileX < this.zoneDef.width &&
+      this.levelData[bottomRow]?.[tileX] === 0 &&
+      this.levelData[aboveRow]?.[tileX] === 0
+    ) {
+      // Debounce: damage every 400ms while in pit
+      if (time - this.lastPitDamageTime > 400) {
+        this.lastPitDamageTime = time;
+        // Deal 25% maxHp damage per tick — pits are lethal if you don't escape quickly
+        const pitDmg = Math.max(5, Math.floor(this.player.maxHp * 0.25));
+        this.player.takeDamage(pitDmg, p.x, time);
+        playSound('playerHurt');
+        this.showNotification('Falling!', '#ff4444');
+      }
+    }
+  }
+
   // -- NPCs --
 
   private spawnHubNPCs() {
@@ -812,9 +855,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Show a brief notification at the top of the screen */
-  private showNotification(message: string) {
+  private showNotification(message: string, color = '#00ffcc') {
     const text = this.add.text(GAME_WIDTH / 2, 24, message, {
-      fontSize: '13px', fontFamily: 'Arial, sans-serif', color: '#00ffcc',
+      fontSize: '13px', fontFamily: 'Arial, sans-serif', color,
       stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
 

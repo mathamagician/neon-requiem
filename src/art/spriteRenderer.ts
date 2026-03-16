@@ -646,6 +646,75 @@ function drawSaveCrystal(ctx: CanvasRenderingContext2D, ox: number, oy: number):
 }
 
 // ---------------------------------------------------------------------------
+// Weapon drawing functions
+// ---------------------------------------------------------------------------
+
+function drawSpearThrust(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Horizontal spear thrust — long narrow blade with shaft
+  // Shaft
+  fillRect(ctx, x + 0, y + 3, 18, 2, '#886644');
+  fillRect(ctx, x + 1, y + 3, 16, 1, '#aa8866');
+  // Spear head — bright blue energy blade
+  fillRect(ctx, x + 18, y + 2, 8, 4, '#4488cc');
+  fillRect(ctx, x + 19, y + 1, 6, 6, '#66aaee');
+  fillRect(ctx, x + 22, y + 2, 4, 4, '#88ccff');
+  px(ctx, x + 25, y + 3, '#ffffff');
+  px(ctx, x + 26, y + 4, '#aaddff');
+  // Energy trail
+  px(ctx, x + 17, y + 2, '#2266aa');
+  px(ctx, x + 17, y + 5, '#2266aa');
+}
+
+function drawSwordSlash(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Diagonal sword slash arc — bright energy blade
+  // Blade body
+  fillRect(ctx, x + 2, y + 0, 16, 3, '#aaddff');
+  fillRect(ctx, x + 4, y + 3, 14, 3, '#88bbee');
+  fillRect(ctx, x + 6, y + 6, 10, 2, '#6699cc');
+  // Bright edge
+  fillRect(ctx, x + 3, y + 0, 14, 1, '#ffffff');
+  px(ctx, x + 17, y + 1, '#ffffff');
+  // Energy trail
+  fillRect(ctx, x + 0, y + 1, 3, 2, '#4477aa');
+  fillRect(ctx, x + 0, y + 4, 5, 2, '#335588');
+}
+
+function drawShieldBash(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Shield impact — wide arc with shockwave lines
+  // Shield face
+  fillRect(ctx, x + 2, y + 1, 6, 10, '#2244aa');
+  fillRect(ctx, x + 3, y + 2, 4, 8, '#3366cc');
+  fillRect(ctx, x + 4, y + 3, 2, 6, '#4488ee');
+  // Center emblem
+  px(ctx, x + 4, y + 5, '#00ccff');
+  px(ctx, x + 5, y + 5, '#00ccff');
+  // Impact shockwave lines
+  fillRect(ctx, x + 8, y + 3, 4, 1, '#66aaff');
+  fillRect(ctx, x + 9, y + 5, 5, 2, '#88ccff');
+  fillRect(ctx, x + 8, y + 8, 4, 1, '#66aaff');
+  px(ctx, x + 13, y + 6, '#ffffff');
+  px(ctx, x + 14, y + 5, '#aaddff');
+}
+
+function drawDaggerSlash(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Fast dagger swipe — small, quick, purple energy
+  // Blade
+  fillRect(ctx, x + 1, y + 1, 10, 2, '#8844cc');
+  fillRect(ctx, x + 3, y + 0, 8, 1, '#aa66ee');
+  fillRect(ctx, x + 5, y + 3, 6, 1, '#6633aa');
+  // Bright tip
+  px(ctx, x + 10, y + 1, '#cc88ff');
+  px(ctx, x + 11, y + 1, '#ffffff');
+  // Energy trail
+  fillRect(ctx, x + 0, y + 2, 3, 1, '#4422aa');
+  px(ctx, x + 0, y + 0, '#3311aa');
+}
+
+// ---------------------------------------------------------------------------
 // Canvas creation helper
 // ---------------------------------------------------------------------------
 
@@ -761,5 +830,35 @@ export function generateUpgradedSprites(scene: Phaser.Scene): void {
     const [canvas, ctx] = createCanvas(12, 12);
     drawSaveCrystal(ctx, 0, 0);
     scene.textures.addCanvas('save-crystal', canvas);
+  }
+
+  // --- Weapon attack sprites ---
+
+  // Vanguard spear thrust: 28x8
+  {
+    const [canvas, ctx] = createCanvas(28, 8);
+    drawSpearThrust(ctx, 0, 0);
+    scene.textures.addCanvas('weapon-spear', canvas);
+  }
+
+  // Vanguard sword slash: 20x8
+  {
+    const [canvas, ctx] = createCanvas(20, 8);
+    drawSwordSlash(ctx, 0, 0);
+    scene.textures.addCanvas('weapon-sword', canvas);
+  }
+
+  // Vanguard shield bash: 16x12
+  {
+    const [canvas, ctx] = createCanvas(16, 12);
+    drawShieldBash(ctx, 0, 0);
+    scene.textures.addCanvas('weapon-shield', canvas);
+  }
+
+  // Wraith dagger slash: 14x6
+  {
+    const [canvas, ctx] = createCanvas(14, 6);
+    drawDaggerSlash(ctx, 0, 0);
+    scene.textures.addCanvas('weapon-dagger', canvas);
   }
 }

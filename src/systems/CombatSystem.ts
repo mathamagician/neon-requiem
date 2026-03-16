@@ -81,6 +81,13 @@ export class CombatSystem {
         const damage = player.getAttackDamage();
         enemy.takeDamage(damage, player.sprite.x, time);
         player.onAttackHit(time);
+
+        // Vanguard shield punch — extra knockback on regular enemies
+        if ((player as any).isShieldPunch?.()) {
+          const dir = enemySprite.x > player.sprite.x ? 1 : -1;
+          enemySprite.body!.velocity.x = dir * 200;
+          (enemySprite.body as any).velocity.y = -80;
+        }
       }
     }
   }
@@ -158,6 +165,11 @@ export class CombatSystem {
       const damage = player.getAttackDamage();
       boss.takeDamage(damage, player.sprite.x, time);
       player.onAttackHit(time);
+
+      // Vanguard shield punch stagger — interrupts boss telegraph/attack
+      if ((player as any).isShieldPunch?.()) {
+        this.applyStagger(boss, player.sprite.x);
+      }
     }
   }
 
@@ -179,6 +191,29 @@ export class CombatSystem {
         proj.destroy();
       }
     }
+  }
+
+  /** Apply stagger to a boss — interrupts telegraph and pushes back */
+  private applyStagger(boss: any, sourceX: number) {
+    // Only stagger during telegraph (charge-up) or attack states
+    if (boss.state !== 'telegraph' && boss.state !== 'attack') return;
+
+    boss.state = 'hurt';
+    boss.sprite.setTint(0xffff44);
+    const dir = boss.sprite.x > sourceX ? 1 : -1;
+    boss.body.setVelocityX(dir * 120);
+
+    // Reset boss attack timer — they lose their current attack
+    if (boss.currentAttack) boss.currentAttack = null;
+    if (boss.attackTimer !== undefined) boss.attackTimer = 1000; // 1s recovery
+
+    boss.scene.time.delayedCall(500, () => {
+      if (boss.state === 'hurt') {
+        boss.state = 'idle';
+        boss.sprite.clearTint();
+        boss.body.setVelocityX(0);
+      }
+    });
   }
 
   /** Apply Wraith-specific effects: backstab check and poison on finisher */

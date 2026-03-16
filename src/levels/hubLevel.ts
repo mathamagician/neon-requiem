@@ -35,8 +35,8 @@ export function createHubLevel(): number[][] {
   // Stepped platform approach to left exit
   for (let x = 2; x < 5; x++) level[H - 4][x] = 2;   // low step
   for (let x = 5; x < 8; x++) level[H - 5][x] = 2;   // mid step
-  // Neon archway framing the left exit
-  for (let y = 2; y < H - 5; y++) level[y][1] = 3;
+  // Neon archway framing the left exit — only upper portion to avoid trapping player
+  for (let y = 2; y < H - 8; y++) level[y][1] = 3;
   level[2][2] = 3;
   level[2][3] = 3;
 
@@ -44,8 +44,8 @@ export function createHubLevel(): number[][] {
   // Stepped platform approach to right exit
   for (let x = 35; x < 38; x++) level[H - 4][x] = 2;  // low step
   for (let x = 32; x < 35; x++) level[H - 5][x] = 2;  // mid step
-  // Neon archway framing the right exit
-  for (let y = 2; y < H - 5; y++) level[y][W - 2] = 3;
+  // Neon archway framing the right exit — only upper portion to avoid trapping player
+  for (let y = 2; y < H - 8; y++) level[y][W - 2] = 3;
   level[2][W - 3] = 3;
   level[2][W - 4] = 3;
 
@@ -54,9 +54,9 @@ export function createHubLevel(): number[][] {
   for (let x = 17; x < 23; x++) {
     level[H - 3][x] = 1;
   }
-  // Accent trim on shop platform edges
-  level[H - 4][17] = 3;
-  level[H - 4][22] = 3;
+  // Accent trim on shop platform edges — use platforms (2) so player can jump through
+  level[H - 4][17] = 2;
+  level[H - 4][22] = 2;
 
   // === Upper walkway — spans the center for vertical exploration ===
   for (let x = 10; x < 30; x++) {
@@ -67,11 +67,11 @@ export function createHubLevel(): number[][] {
   for (let x = 30; x < 33; x++) level[H - 5][x] = 2;  // right ladder
 
   // === Decorative pillars flanking the plaza ===
+  // Only 2 tiles tall so player can easily jump over them
   const pillarPositions = [9, 12, 27, 30];
   for (const px of pillarPositions) {
     level[H - 3][px] = 3;
     level[H - 4][px] = 3;
-    level[H - 5][px] = 3;
   }
 
   // === Upper alcove — hidden nook above the shop ===

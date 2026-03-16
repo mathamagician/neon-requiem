@@ -309,53 +309,67 @@ export class Player {
       this.attackCombo = 0;
     }
 
-    // Attack duration varies by combo hit
-    const durations = [200, 180, 300]; // 3rd hit is slower but stronger
+    // Attack 0: Spear thrust (fast, medium range)
+    // Attack 1: Sword slash (standard, close range, higher damage)
+    // Attack 2: Shield punch (slow windup, pushback + stagger)
+    const durations = [180, 220, 320];
     this.attackTimer = durations[this.attackCombo];
     this.attackCooldown = 80;
 
-    // Create slash hitbox visual
     this.createSlash(time);
-    playSound('swordSwing');
+    const sounds = ['spearThrust', 'swordSwing', 'shieldPunch'];
+    playSound(sounds[this.attackCombo] as any);
   }
 
   private createSlash(_time: number) {
     if (this.slashSprite) this.slashSprite.destroy();
 
     const dir = this.facingRight ? 1 : -1;
-    const offsetX = dir * 16;
-    const offsetY = -16;
 
-    // Size varies by combo
-    const widths = [20, 22, 28];
-    const heights = [10, 10, 14];
+    // Hitbox offset and size varies per combo attack
+    // Spear: far reach, narrow | Sword: medium, wide | Shield: close, very wide
+    const offsets = [24, 16, 12]; // distance from player center
+    const widths = [28, 24, 30];
+    const heights = [8, 14, 16];
+    const offsetX = dir * offsets[this.attackCombo];
+    const offsetY = this.attackCombo === 0 ? -14 : -16; // spear slightly higher
+
     const w = widths[this.attackCombo];
     const h = heights[this.attackCombo];
+
+    // Use different texture keys for weapon visuals
+    const textures = ['weapon-spear', 'weapon-sword', 'weapon-shield'];
+    const textureKey = this.scene.textures.exists(textures[this.attackCombo])
+      ? textures[this.attackCombo] : 'slash';
 
     this.slashSprite = this.scene.add.sprite(
       this.sprite.x + offsetX,
       this.sprite.y + offsetY,
-      'slash'
+      textureKey
     );
     this.slashSprite.setDisplaySize(w, h);
-    this.slashSprite.setAlpha(0.7);
+    this.slashSprite.setAlpha(0.8);
     this.slashSprite.setFlipX(!this.facingRight);
     this.slashSprite.setDepth(10);
 
-    // Rotation for variety
-    const rotations = [0, -0.15, 0.3];
+    // Rotation per attack
+    const rotations = [0, -0.2, 0];
     this.slashSprite.setRotation(rotations[this.attackCombo] * dir);
 
-    // Slight forward lunge on combo 3
-    if (this.attackCombo === 2) {
-      this.body.setVelocityX(dir * 80);
-    }
+    // Forward lunge — spear has moderate, shield punch has big
+    const lunges = [60, 40, 100];
+    this.body.setVelocityX(dir * lunges[this.attackCombo]);
   }
 
   private updateSlashPosition() {
     if (!this.slashSprite) return;
     const dir = this.facingRight ? 1 : -1;
-    this.slashSprite.setPosition(this.sprite.x + dir * 16, this.sprite.y - 16);
+    const offsets = [24, 16, 12];
+    const offsetY = this.attackCombo === 0 ? -14 : -16;
+    this.slashSprite.setPosition(
+      this.sprite.x + dir * offsets[this.attackCombo],
+      this.sprite.y + offsetY
+    );
   }
 
   private endAttack() {
@@ -574,8 +588,8 @@ export class Player {
   /** Get the attack hitbox in world coords (used by CombatSystem) */
   getAttackHitbox(): Phaser.Geom.Rectangle | null {
     if (!this.isAttacking || !this.slashSprite) return null;
-    const widths = [20, 22, 28];
-    const heights = [10, 10, 14];
+    const widths = [28, 24, 30]; // spear wide reach, sword medium, shield wide
+    const heights = [8, 14, 16];
     const w = widths[this.attackCombo];
     const h = heights[this.attackCombo];
     return new Phaser.Geom.Rectangle(
@@ -586,9 +600,15 @@ export class Player {
     );
   }
 
+  /** Is the current attack a shield punch (combo hit 2)? Used by CombatSystem for stagger. */
+  isShieldPunch(): boolean {
+    return this.attackCombo === 2 && this.isAttacking;
+  }
+
   /** Damage dealt by current attack combo step, scaled by might + skills */
   getAttackDamage(): number {
-    const damages = [10, 12, 20]; // 3rd hit deals most
+    // Spear: moderate | Sword: high | Shield punch: moderate but staggers
+    const damages = [10, 16, 12];
     let dmg = damages[this.attackCombo];
 
     // Stat scaling: +4% melee damage per might above 5

@@ -324,15 +324,16 @@ export class Wraith {
     if (this.slashSprite) this.slashSprite.destroy();
 
     const dir = this.facingRight ? 1 : -1;
-    const offsetX = dir * 12;
-    const widths = [14, 16, 14, 22];
+    const offsetX = dir * 16; // Increased reach from 12 to 16
+    const widths = [18, 20, 18, 26]; // Wider hitboxes (was 14/16/14/22)
     const w = widths[this.attackCombo];
-    const h = 8;
+    const h = 12; // Taller hitbox (was 8)
 
+    const textureKey = this.scene.textures.exists('weapon-dagger') ? 'weapon-dagger' : 'slash';
     this.slashSprite = this.scene.add.sprite(
       this.sprite.x + offsetX,
       this.sprite.y - 10 + (this.attackCombo % 2 === 0 ? -2 : 2), // Alternating height
-      'slash'
+      textureKey
     );
     this.slashSprite.setDisplaySize(w, h);
     this.slashSprite.setAlpha(0.6);
@@ -347,7 +348,7 @@ export class Wraith {
     if (!this.slashSprite) return;
     const dir = this.facingRight ? 1 : -1;
     this.slashSprite.setPosition(
-      this.sprite.x + dir * 12,
+      this.sprite.x + dir * 16,
       this.sprite.y - 10 + (this.attackCombo % 2 === 0 ? -2 : 2)
     );
   }
@@ -491,9 +492,9 @@ export class Wraith {
 
   getAttackHitbox(): Phaser.Geom.Rectangle | null {
     if (!this.isAttacking || !this.slashSprite) return null;
-    const widths = [14, 16, 14, 22];
+    const widths = [18, 20, 18, 26];
     const w = widths[this.attackCombo];
-    const h = 8;
+    const h = 12;
     return new Phaser.Geom.Rectangle(
       this.slashSprite.x - w / 2,
       this.slashSprite.y - h / 2,
@@ -520,7 +521,7 @@ export class Wraith {
   }
 
   getAttackDamage(): number {
-    const baseDamages = [6, 7, 6, 14]; // Low per-hit but fast and 4th hit is big
+    const baseDamages = [8, 9, 8, 18]; // Buffed from 6/7/6/14 — still fast, better damage
     let dmg = baseDamages[this.attackCombo];
 
     // Stat scaling: +3% damage per precision above 5 (Wraith scales on precision)
