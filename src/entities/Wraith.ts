@@ -243,8 +243,12 @@ export class Wraith {
       this.facingRight = true;
       this.sprite.setFlipX(false);
     } else {
-      if (onFloor) this.body.setVelocityX(this.body.velocity.x * 0.75);
-      else this.body.setVelocityX(this.body.velocity.x * 0.93);
+      if (onFloor) {
+        this.body.setVelocityX(this.body.velocity.x * 0.6);
+        if (Math.abs(this.body.velocity.x) < 8) this.body.setVelocityX(0);
+      } else {
+        this.body.setVelocityX(this.body.velocity.x * 0.9);
+      }
     }
   }
 

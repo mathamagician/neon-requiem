@@ -714,6 +714,46 @@ function drawDaggerSlash(ctx: CanvasRenderingContext2D, ox: number, oy: number):
   px(ctx, x + 0, y + 0, '#3311aa');
 }
 
+function drawGunnerShot(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Small green energy bolt — Gunner's normal projectile
+  // Core
+  fillRect(ctx, x + 2, y + 1, 6, 2, '#44ff88');
+  fillRect(ctx, x + 3, y + 0, 4, 4, '#66ffaa');
+  // Bright center
+  fillRect(ctx, x + 4, y + 1, 2, 2, '#ffffff');
+  px(ctx, x + 5, y + 1, '#ccffdd');
+  // Trail
+  fillRect(ctx, x + 0, y + 1, 2, 2, '#228844');
+  px(ctx, x + 0, y + 2, '#115533');
+  // Front glow
+  px(ctx, x + 8, y + 2, '#88ffbb');
+  px(ctx, x + 9, y + 1, '#44ff88');
+}
+
+function drawGunnerChargeShot(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Larger cyan energy blast — Gunner's charged projectile
+  // Outer glow
+  fillRect(ctx, x + 1, y + 1, 12, 6, '#005544');
+  fillRect(ctx, x + 2, y + 0, 10, 8, '#007766');
+  // Core body
+  fillRect(ctx, x + 3, y + 1, 8, 6, '#00ccaa');
+  fillRect(ctx, x + 4, y + 2, 6, 4, '#00ffcc');
+  // Bright center
+  fillRect(ctx, x + 5, y + 3, 4, 2, '#ffffff');
+  px(ctx, x + 6, y + 3, '#eeffff');
+  px(ctx, x + 7, y + 4, '#eeffff');
+  // Trail wisps
+  fillRect(ctx, x + 0, y + 2, 3, 4, '#006655');
+  px(ctx, x + 0, y + 3, '#004433');
+  // Front point
+  px(ctx, x + 12, y + 3, '#88ffee');
+  px(ctx, x + 13, y + 4, '#66ffdd');
+  px(ctx, x + 11, y + 1, '#00aa88');
+  px(ctx, x + 11, y + 6, '#00aa88');
+}
+
 // ---------------------------------------------------------------------------
 // Canvas creation helper
 // ---------------------------------------------------------------------------
@@ -860,5 +900,19 @@ export function generateUpgradedSprites(scene: Phaser.Scene): void {
     const [canvas, ctx] = createCanvas(14, 6);
     drawDaggerSlash(ctx, 0, 0);
     scene.textures.addCanvas('weapon-dagger', canvas);
+  }
+
+  // Gunner normal shot: 10x4
+  {
+    const [canvas, ctx] = createCanvas(10, 4);
+    drawGunnerShot(ctx, 0, 0);
+    scene.textures.addCanvas('weapon-gunshot', canvas);
+  }
+
+  // Gunner charge shot: 14x8
+  {
+    const [canvas, ctx] = createCanvas(14, 8);
+    drawGunnerChargeShot(ctx, 0, 0);
+    scene.textures.addCanvas('weapon-chargeshot', canvas);
   }
 }

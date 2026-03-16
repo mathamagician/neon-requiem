@@ -8,6 +8,7 @@ import {
   KNOCKBACK_VELOCITY,
   HITSTOP_DURATION_MS,
   COLORS,
+  TILE_SIZE,
 } from '../../shared/constants';
 
 export type EnemyType = 'grunt' | 'ranged' | 'flyer' | 'skeleton' | 'ghost' | 'bone_archer';
@@ -25,13 +26,22 @@ interface EnemyStats {
 const ENEMY_CONFIGS: Record<EnemyType, EnemyStats> = {
   // Neon Foundry enemies
   grunt: { hp: 30, damage: 10, speed: ENEMY_PATROL_SPEED, xpValue: 15, textureKey: 'enemy-grunt' },
-  ranged: { hp: 20, damage: 8, speed: ENEMY_PATROL_SPEED * 0.7, xpValue: 20, textureKey: 'enemy-ranged' },
+  ranged: { hp: 20, damage: 8, speed: ENEMY_PATROL_SPEED * 0.8, xpValue: 20, textureKey: 'enemy-ranged' },
   flyer: { hp: 15, damage: 6, speed: ENEMY_PATROL_SPEED * 1.2, xpValue: 18, textureKey: 'enemy-flyer' },
   // Cryptvault enemies
   skeleton: { hp: 35, damage: 12, speed: ENEMY_PATROL_SPEED * 0.9, xpValue: 18, textureKey: 'enemy-skeleton' },
   ghost: { hp: 20, damage: 8, speed: ENEMY_PATROL_SPEED * 1.3, xpValue: 22, textureKey: 'enemy-ghost' },
-  bone_archer: { hp: 22, damage: 10, speed: ENEMY_PATROL_SPEED * 0.6, xpValue: 25, textureKey: 'enemy-bone-archer' },
+  bone_archer: { hp: 22, damage: 10, speed: ENEMY_PATROL_SPEED * 0.7, xpValue: 25, textureKey: 'enemy-bone-archer' },
 };
+
+/** Which enemy types can jump */
+const CAN_JUMP: Set<EnemyType> = new Set(['grunt', 'skeleton']);
+/** Which enemy types shoot projectiles */
+const CAN_SHOOT: Set<EnemyType> = new Set(['ranged', 'bone_archer']);
+/** Jump velocity for ground enemies */
+const ENEMY_JUMP_VEL = -220;
+/** How close ranged enemies prefer to stay from the player */
+const RANGED_PREFERRED_DIST = 80;
 
 export class Enemy {
   scene: Phaser.Scene;
@@ -54,6 +64,8 @@ export class Enemy {
   private hitstopUntil = 0;
   private spawnX: number;
   private spawnY: number;
+  private jumpCooldown = 0;
+  private patrolJumpTimer = 1000 + Math.random() * 2000; // delay before first patrol hop
 
   // Deferred knockback — applied when hitstop ends
   private pendingKnockbackX = 0;
@@ -146,8 +158,9 @@ export class Enemy {
       }
     }
 
-    // Attack cooldown
+    // Cooldown timers
     if (this.attackCooldown > 0) this.attackCooldown -= delta;
+    if (this.jumpCooldown > 0) this.jumpCooldown -= delta;
 
     // Find player
     const gameScene = this.scene as any;
@@ -158,9 +171,13 @@ export class Enemy {
     const distY = player.sprite.y - this.sprite.y;
     const dist = Math.sqrt(distX * distX + distY * distY);
 
+    // Ranged enemies attack from further away
+    const attackRange = CAN_SHOOT.has(this.type) ? RANGED_PREFERRED_DIST : ENEMY_ATTACK_RANGE;
+    const detectRange = CAN_SHOOT.has(this.type) ? ENEMY_DETECT_RANGE * 1.5 : ENEMY_DETECT_RANGE;
+
     // State machine
-    if (dist < ENEMY_DETECT_RANGE) {
-      if (dist < ENEMY_ATTACK_RANGE && this.attackCooldown <= 0) {
+    if (dist < detectRange) {
+      if (dist < attackRange && this.attackCooldown <= 0) {
         this.state = 'attack';
         this.doAttack(player);
       } else {
@@ -188,35 +205,73 @@ export class Enemy {
     this.patrolTimer -= delta;
     if (this.patrolTimer <= 0) {
       this.patrolDir *= -1;
-      this.patrolTimer = 1500 + Math.random() * 2000;
+      this.patrolTimer = 1200 + Math.random() * 1800;
     }
 
-    // Don't wander too far from spawn
-    const maxWander = 60;
+    // Wander within a reasonable radius of spawn
+    const maxWander = 100;
     if (Math.abs(this.sprite.x - this.spawnX) > maxWander) {
       this.patrolDir = this.sprite.x > this.spawnX ? -1 : 1;
     }
 
     this.body.setVelocityX(this.patrolDir * this.speed * this.poisonSlowMult);
 
+    // Flying enemies bob up and down
     if (this.type === 'flyer' || this.type === 'ghost') {
-      this.body.setVelocityY(Math.sin(Date.now() * 0.003) * 20);
+      this.body.setVelocityY(Math.sin(Date.now() * 0.003) * 25);
+    }
+
+    // Ground enemies occasionally jump while patrolling (looks lively)
+    if (CAN_JUMP.has(this.type) && this.body.onFloor()) {
+      this.patrolJumpTimer -= delta;
+      if (this.patrolJumpTimer <= 0) {
+        this.patrolJumpTimer = 2000 + Math.random() * 3000;
+        this.body.setVelocityY(ENEMY_JUMP_VEL * 0.5); // small hop
+      }
     }
   }
 
-  private chase(distX: number, distY: number, _dist: number) {
+  private chase(distX: number, distY: number, dist: number) {
     const chaseSpeed = ENEMY_CHASE_SPEED * this.poisonSlowMult;
-    this.body.setVelocityX(distX > 0 ? chaseSpeed : -chaseSpeed);
 
+    // Ranged enemies try to keep distance — back away if too close, close in if too far
+    if (CAN_SHOOT.has(this.type)) {
+      if (dist < RANGED_PREFERRED_DIST * 0.6) {
+        // Too close — back away
+        this.body.setVelocityX(distX > 0 ? -chaseSpeed * 0.8 : chaseSpeed * 0.8);
+      } else if (dist > RANGED_PREFERRED_DIST * 1.5) {
+        // Too far — approach
+        this.body.setVelocityX(distX > 0 ? chaseSpeed * 0.6 : -chaseSpeed * 0.6);
+      } else {
+        // Good distance — strafe slowly
+        this.body.setVelocityX(this.patrolDir * chaseSpeed * 0.3);
+      }
+    } else {
+      // Melee enemies chase directly
+      this.body.setVelocityX(distX > 0 ? chaseSpeed : -chaseSpeed);
+    }
+
+    // Flying enemies track vertically
     if (this.type === 'flyer' || this.type === 'ghost') {
-      this.body.setVelocityY(distY > 0 ? chaseSpeed * 0.6 : -chaseSpeed * 0.6);
+      this.body.setVelocityY(distY > 0 ? chaseSpeed * 0.7 : -chaseSpeed * 0.7);
+    }
+
+    // Ground enemies jump when player is above them or when blocked by a wall
+    if (CAN_JUMP.has(this.type) && this.body.onFloor() && this.jumpCooldown <= 0) {
+      const shouldJump = distY < -TILE_SIZE * 2 // player is above
+        || (this.body.blocked.left || this.body.blocked.right); // stuck against wall
+      if (shouldJump) {
+        this.body.setVelocityY(ENEMY_JUMP_VEL);
+        this.jumpCooldown = 800;
+      }
     }
   }
 
   private doAttack(_player: any) {
-    this.attackCooldown = 1000;
+    // Ranged enemies have longer cooldown but attack from further away
+    this.attackCooldown = CAN_SHOOT.has(this.type) ? 1200 : 800;
 
-    if (this.type === 'ranged' || this.type === 'bone_archer') {
+    if (CAN_SHOOT.has(this.type)) {
       this.shootProjectile(_player);
     }
     // Grunt/flyer damage is handled by contact collision in CombatSystem

@@ -89,9 +89,10 @@ export class Gunner {
     this.body.setMaxVelocityY(600);
     (this.sprite as any).owner = this;
 
-    // Projectile group
+    // Projectile group — uses weapon-gunshot sprite if available
+    const projKey = scene.textures.exists('weapon-gunshot') ? 'weapon-gunshot' : 'projectile-player';
     this.projectiles = scene.physics.add.group({
-      defaultKey: 'projectile-player',
+      defaultKey: projKey,
       maxSize: 20,
     });
 
@@ -193,9 +194,10 @@ export class Gunner {
       this.sprite.setFlipX(false);
     } else {
       if (onFloor) {
-        this.body.setVelocityX(this.body.velocity.x * 0.7);
+        this.body.setVelocityX(this.body.velocity.x * 0.6);
+        if (Math.abs(this.body.velocity.x) < 8) this.body.setVelocityX(0);
       } else {
-        this.body.setVelocityX(this.body.velocity.x * 0.92);
+        this.body.setVelocityX(this.body.velocity.x * 0.9);
       }
     }
   }
@@ -312,9 +314,11 @@ export class Gunner {
     }
 
     if (isCharged) {
-      // Charge shot: bigger, faster, pierces
+      // Charge shot: bigger, faster, pierces — use charged texture
       playSound('chargedShot');
-      proj.setDisplaySize(12, 6);
+      const chargeKey = this.scene.textures.exists('weapon-chargeshot') ? 'weapon-chargeshot' : undefined;
+      if (chargeKey) proj.setTexture(chargeKey);
+      proj.setDisplaySize(14, 8);
       const chargeSpeed = Math.round(200 * shotSpeedMult);
       projBody.setVelocity(aim.x * chargeSpeed, aim.y * chargeSpeed);
       proj.setTint(0x00ffcc);

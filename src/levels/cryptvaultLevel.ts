@@ -2,7 +2,7 @@
  * Cryptvault — undead gothic catacombs.
  * Dark, atmospheric level with vertical shafts, burial alcoves,
  * hidden passages, and claustrophobic corridors.
- * Tile indices: 0=air, 1=solid, 2=platform, 3=accent wall
+ * Tile indices: 0=air, 1=solid, 2=platform, 3=accent wall, 4=spikes
  */
 
 const W = 100;
@@ -247,6 +247,29 @@ export function createCryptvaultLevel(): number[][] {
       if (px >= 0 && px < W && plat.y >= 0 && plat.y < H) {
         level[plat.y][px] = 2;
       }
+    }
+  }
+
+  // ==== Environmental hazards: Spikes ====
+  // Purple spikes at pit edges and key chokepoints
+  const spikePositions = [
+    // First pit edges (section 2)
+    { x: 20, y: H - 3 }, { x: 24, y: H - 3 },
+    // Burial pit edges (section 3)
+    { x: 32, y: H - 3 }, { x: 41, y: H - 3 },
+    // Gallery pit edges (section 4)
+    { x: 48, y: H - 3 }, { x: 53, y: H - 3 },
+    // Dark corridor pits (section 5)
+    { x: 61, y: H - 3 }, { x: 64, y: H - 3 },
+    { x: 68, y: H - 3 }, { x: 71, y: H - 3 },
+    // Catacomb descent (section 6)
+    { x: 78, y: H - 3 }, { x: 79, y: H - 3 },
+    // Boss arena edges
+    { x: 85, y: H - 3 }, { x: 97, y: H - 3 },
+  ];
+  for (const sp of spikePositions) {
+    if (sp.x >= 0 && sp.x < W && sp.y >= 0 && sp.y < H) {
+      level[sp.y][sp.x] = 4;
     }
   }
 

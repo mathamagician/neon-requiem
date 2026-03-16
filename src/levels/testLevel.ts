@@ -7,6 +7,7 @@
  *   1 = solid ground
  *   2 = one-way platform
  *   3 = neon accent wall
+ *   4 = spikes (hazard, deals damage)
  */
 
 export const LEVEL_WIDTH_TILES = 120;
@@ -236,6 +237,28 @@ export function createTestLevel(): number[][] {
       if (px >= 0 && px < W && plat.y >= 0 && plat.y < H) {
         level[plat.y][px] = 2;
       }
+    }
+  }
+
+  // ==== Environmental hazards: Spikes ====
+  // Spike strips at pit edges and in the gauntlet — tile 4 placed on ground-level row
+  const spikePositions = [
+    // Pit 1 edges (section 2)
+    { x: 20, y: H - 3 }, { x: 24, y: H - 3 },
+    // Pipe run pit edges (section 4)
+    { x: 53, y: H - 3 }, { x: 57, y: H - 3 },
+    { x: 61, y: H - 3 }, { x: 64, y: H - 3 },
+    // Forge pit edges (section 5)
+    { x: 71, y: H - 3 }, { x: 76, y: H - 3 },
+    // Gauntlet floor spikes (section 6)
+    { x: 84, y: H - 3 }, { x: 85, y: H - 3 },
+    { x: 91, y: H - 3 }, { x: 92, y: H - 3 },
+    // Boss arena edge spikes
+    { x: 100, y: H - 3 }, { x: 118, y: H - 3 },
+  ];
+  for (const sp of spikePositions) {
+    if (sp.x >= 0 && sp.x < W && sp.y >= 0 && sp.y < H) {
+      level[sp.y][sp.x] = 4;
     }
   }
 

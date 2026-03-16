@@ -243,11 +243,12 @@ export class Player {
       this.facingRight = true;
       this.sprite.setFlipX(false);
     } else {
-      // Deceleration
+      // Deceleration — snappy ground stops, floaty air control
       if (onFloor) {
-        this.body.setVelocityX(this.body.velocity.x * 0.7);
+        this.body.setVelocityX(this.body.velocity.x * 0.6);
+        if (Math.abs(this.body.velocity.x) < 8) this.body.setVelocityX(0);
       } else {
-        this.body.setVelocityX(this.body.velocity.x * 0.92);
+        this.body.setVelocityX(this.body.velocity.x * 0.9);
       }
     }
   }
@@ -314,7 +315,7 @@ export class Player {
     // Attack 2: Shield punch (slow windup, pushback + stagger)
     const durations = [180, 220, 320];
     this.attackTimer = durations[this.attackCombo];
-    this.attackCooldown = 80;
+    this.attackCooldown = 50; // Tighter window for responsive combo chaining
 
     this.createSlash(time);
     const sounds = ['spearThrust', 'swordSwing', 'shieldPunch'];
@@ -433,7 +434,7 @@ export class Player {
     this.scene.time.delayedCall(100, () => this.sprite.clearTint());
 
     this.state = 'hurt';
-    this.scene.time.delayedCall(300, () => {
+    this.scene.time.delayedCall(200, () => {
       if (this.state === 'hurt') this.state = 'idle';
     });
 

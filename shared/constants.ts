@@ -13,13 +13,17 @@ export const PLAYER_SPEED = 120;
 export const PLAYER_JUMP_VELOCITY = -280;
 export const PLAYER_MAX_HP = 100;
 export const PLAYER_MAX_ENERGY = 50;
-export const COYOTE_TIME_MS = 80; // ms after leaving platform where jump still works
-export const JUMP_BUFFER_MS = 100; // ms before landing where jump input is remembered
+export const COYOTE_TIME_MS = 120; // ms after leaving platform where jump still works
+export const JUMP_BUFFER_MS = 150; // ms before landing where jump input is remembered
 
 // Combat
 export const INVINCIBILITY_FRAMES_MS = 800;
 export const HITSTOP_DURATION_MS = 50;
 export const KNOCKBACK_VELOCITY = 150;
+
+// Environmental hazards
+export const SPIKE_DAMAGE_PERCENT = 0.15; // % of maxHP per spike tick
+export const SPIKE_TICK_MS = 600; // ms between spike damage ticks
 
 // Enemy defaults
 export const ENEMY_PATROL_SPEED = 40;

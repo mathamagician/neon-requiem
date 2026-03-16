@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TILE_SIZE, GAME_WIDTH, GAME_HEIGHT } from '../../shared/constants';
+import { TILE_SIZE, GAME_WIDTH, GAME_HEIGHT, SPIKE_DAMAGE_PERCENT, SPIKE_TICK_MS } from '../../shared/constants';
 import { Player } from '../entities/Player';
 import { Gunner } from '../entities/Gunner';
 import { Wraith } from '../entities/Wraith';
@@ -21,6 +21,7 @@ import { getDefaultBranch } from '../../shared/data/skillTrees';
 import { buildSaveData, writeSave, restoreInventory, type SaveData } from '../systems/SaveSystem';
 import { playSound } from '../systems/SoundManager';
 import { initCameraFX, updateFX, destroyFX } from '../systems/FXManager';
+import { startMusic, stopMusic } from '../systems/MusicManager';
 
 export type ClassName = 'vanguard' | 'gunner' | 'wraith';
 
@@ -63,8 +64,9 @@ export class GameScene extends Phaser.Scene {
   private swapPowerKey!: Phaser.Input.Keyboard.Key;
   private interactKey!: Phaser.Input.Keyboard.Key;
 
-  // Level data (stored for pit detection)
+  // Level data (stored for pit/spike detection)
   private levelData: number[][] = [];
+  private lastSpikeDamageTime = 0;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -242,6 +244,22 @@ export class GameScene extends Phaser.Scene {
     if (save) {
       this.showNotification('Save loaded');
     }
+
+    // -- Background music --
+    // Start on first user interaction (AudioContext requires gesture)
+    const startZoneMusic = () => {
+      startMusic(this.currentZone);
+      this.input.off('pointerdown', startZoneMusic);
+      this.input.keyboard!.off('keydown', startZoneMusic);
+    };
+    this.input.on('pointerdown', startZoneMusic);
+    this.input.keyboard!.on('keydown', startZoneMusic);
+  }
+
+  /** Clean up persistent resources when scene shuts down */
+  shutdown() {
+    stopMusic();
+    destroyFX();
   }
 
   update(time: number, delta: number) {
@@ -277,6 +295,9 @@ export class GameScene extends Phaser.Scene {
 
     // Pit hazard check
     this.checkPitFall(time);
+
+    // Spike hazard check
+    this.checkSpikeHazard(time);
 
     // NPC interaction
     this.checkNPCProximity();
@@ -519,6 +540,7 @@ export class GameScene extends Phaser.Scene {
    * Tile 1 = ground (solid, dark, with edge highlights on exposed faces)
    * Tile 2 = platform (one-way, neon accent line on top)
    * Tile 3 = wall (same as ground visually)
+   * Tile 4 = spikes (non-solid, deals damage, sharp triangles)
    */
   private drawPlatformVisuals(levelData: number[][], levelW: number, levelH: number) {
     const ts = TILE_SIZE;
@@ -568,6 +590,28 @@ export class GameScene extends Phaser.Scene {
           // Neon accent top line (shows it's a one-way platform)
           gfx.lineStyle(2, accentColor, 0.6);
           gfx.lineBetween(px, py + 1, px + ts, py + 1);
+        } else if (tile === 4) {
+          // Spike — dark base with sharp red/orange triangles
+          gfx.fillStyle(0x1a1a2e);
+          gfx.fillRect(px, py + ts * 0.6, ts, ts * 0.4);
+
+          // Draw 3 spike triangles
+          const spikeColor = this.currentZone === 'cryptvault' ? 0x8844cc : 0xff4422;
+          gfx.fillStyle(spikeColor);
+          for (let s = 0; s < 3; s++) {
+            const sx = px + 1 + s * 5;
+            gfx.fillTriangle(
+              sx, py + ts,          // bottom-left
+              sx + 2.5, py + 2,     // tip
+              sx + 5, py + ts       // bottom-right
+            );
+          }
+          // Bright tip highlights
+          gfx.fillStyle(0xffaa66);
+          for (let s = 0; s < 3; s++) {
+            const sx = px + 1 + s * 5;
+            gfx.fillRect(sx + 2, py + 2, 1, 2);
+          }
         }
       }
     }
@@ -657,6 +701,9 @@ export class GameScene extends Phaser.Scene {
         const transitionSave = buildSaveData(
           this.currentClass, this.player, this.inventory, this.bossesDefeated, exit.targetZone, this.gold
         );
+
+        // Stop music before transitioning (prevents oscillator leak)
+        stopMusic(true);
 
         // Transition to new zone
         this.scene.stop('HUDScene');
@@ -786,6 +833,32 @@ export class GameScene extends Phaser.Scene {
         this.player.takeDamage(pitDmg, p.x, time);
         playSound('playerHurt');
         this.showNotification('Falling!', '#ff4444');
+      }
+    }
+  }
+
+  // -- Spike Hazard --
+
+  /** Check if the player is standing on a spike tile (type 4) */
+  private checkSpikeHazard(time: number) {
+    if (time - this.lastSpikeDamageTime < SPIKE_TICK_MS) return;
+
+    const p = this.player.sprite;
+    const tileX = Math.floor(p.x / TILE_SIZE);
+    const tileY = Math.floor(p.y / TILE_SIZE); // feet row
+    const tileAbove = tileY - 1;
+
+    // Check the tile at player's feet and one above
+    for (const ty of [tileY, tileAbove]) {
+      if (ty < 0 || ty >= this.zoneDef.height) continue;
+      if (tileX < 0 || tileX >= this.zoneDef.width) continue;
+      if (this.levelData[ty]?.[tileX] === 4) {
+        this.lastSpikeDamageTime = time;
+        const dmg = Math.max(3, Math.floor(this.player.maxHp * SPIKE_DAMAGE_PERCENT));
+        this.player.takeDamage(dmg, p.x, time);
+        playSound('playerHurt');
+        this.showNotification('Spikes!', '#ff6644');
+        return;
       }
     }
   }
