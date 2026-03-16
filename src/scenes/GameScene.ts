@@ -98,7 +98,6 @@ export class GameScene extends Phaser.Scene {
 
     // -- Build tilemap based on zone --
     const levelData = this.getLevelData();
-    const tilesetKey = this.getTilesetKey();
     const levelW = this.zoneDef.width;
     const levelH = this.zoneDef.height;
 
@@ -108,13 +107,28 @@ export class GameScene extends Phaser.Scene {
       tileHeight: TILE_SIZE,
     });
 
-    const tileset = map.addTilesetImage('tileset', tilesetKey, TILE_SIZE, TILE_SIZE, 0, 0)!;
+    // Use a 3-tile-wide opaque strip for the collision-only tilemap.
+    // All 3 tiles are identical white — we only need valid frames for collision.
+    // The tilemap is INVISIBLE — visual platforms are drawn separately.
+    const collisionTileKey = 'tile-collision-strip';
+    if (!this.textures.exists(collisionTileKey)) {
+      const g = this.add.graphics();
+      g.fillStyle(0xffffff);
+      g.fillRect(0, 0, TILE_SIZE * 3, TILE_SIZE);
+      g.generateTexture(collisionTileKey, TILE_SIZE * 3, TILE_SIZE);
+      g.destroy();
+    }
+    const tileset = map.addTilesetImage('tileset', collisionTileKey, TILE_SIZE, TILE_SIZE, 0, 0)!;
     this.groundLayer = map.createLayer(0, tileset, 0, 0)!;
+    this.groundLayer.setVisible(false); // Collision only — visuals are separate
     this.groundLayer.setCollision([1, 3]);
     this.groundLayer.setCollision(2);
     this.groundLayer.forEachTile(tile => {
       if (tile.index === 2) tile.setCollision(false, false, true, false);
     });
+
+    // Draw platform visuals as a separate graphics layer (decoupled from collision)
+    this.drawPlatformVisuals(levelData, levelW, levelH);
 
     // -- Spawn player --
     const initData = this.scene.settings.data as any;
@@ -475,6 +489,48 @@ export class GameScene extends Phaser.Scene {
       case 'cryptvault': return 'tileset-cryptvault';
       case 'hub': return 'tileset-hub';
       default: return 'tileset';
+    }
+  }
+
+  /**
+   * Draw platform visuals as a separate graphics layer, completely decoupled
+   * from the collision tilemap. This follows the Hollow Knight pattern:
+   * collision geometry is invisible, visuals are their own layer.
+   *
+   * Tile 1 (ground) and 3 (wall) = invisible collision only.
+   * Tile 2 (platform) = visible one-way platform with neon accent line.
+   */
+  private drawPlatformVisuals(levelData: number[][], levelW: number, levelH: number) {
+    const ts = TILE_SIZE;
+    const palette = this.zoneDef.palette;
+    const platformColor = palette.platform;
+    const accentColor = palette.accent;
+
+    // Brighten the platform color slightly for the border
+    const borderColor = Phaser.Display.Color.IntegerToColor(platformColor).brighten(30).color;
+
+    const gfx = this.add.graphics();
+    gfx.setDepth(1); // Above background, below entities
+
+    for (let y = 0; y < levelH; y++) {
+      for (let x = 0; x < levelW; x++) {
+        if (levelData[y][x] !== 2) continue;
+
+        const px = x * ts;
+        const py = y * ts;
+
+        // Platform fill
+        gfx.fillStyle(platformColor);
+        gfx.fillRect(px, py, ts, ts);
+
+        // Border
+        gfx.lineStyle(1, borderColor, 0.8);
+        gfx.strokeRect(px + 0.5, py + 0.5, ts - 1, ts - 1);
+
+        // Neon accent top line (shows it's a one-way platform)
+        gfx.lineStyle(2, accentColor, 0.6);
+        gfx.lineBetween(px, py + 1, px + ts, py + 1);
+      }
     }
   }
 

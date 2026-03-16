@@ -33,11 +33,6 @@ export class BootScene extends Phaser.Scene {
     this.generateRect('particle', 3, 3, 0xffffff);
     this.generateRect('particle-hit', 2, 2, 0xffcc44);
 
-    // -- Generate tileset images for tilemaps --
-    this.generateTileset();
-    this.generateCryptvaultTileset();
-    this.generateHubTileset();
-
     this.scene.start('TitleScene');
   }
 
@@ -59,74 +54,4 @@ export class BootScene extends Phaser.Scene {
     g.destroy();
   }
 
-  /**
-   * Generate tileset textures using Canvas 2D so tiles 1 and 3 can be
-   * fully transparent (invisible ground/walls) while tile 2 (platform) is visible.
-   * Phaser Graphics.generateTexture always produces an opaque background,
-   * so we use raw Canvas for true transparency.
-   */
-  private generateTileset() {
-    const ts = TILE_SIZE;
-    this.generateCanvasTileset('tileset', ts, {
-      platformFill: '#445566',
-      platformBorder: '#667788',
-      platformAccent: 'rgba(0,255,204,0.5)', // neon
-    });
-  }
-
-  private generateCryptvaultTileset() {
-    const ts = TILE_SIZE;
-    this.generateCanvasTileset('tileset-cryptvault', ts, {
-      platformFill: '#3a3050',
-      platformBorder: '#4a4070',
-      platformAccent: 'rgba(102,68,170,0.5)',
-    });
-  }
-
-  private generateHubTileset() {
-    const ts = TILE_SIZE;
-    this.generateCanvasTileset('tileset-hub', ts, {
-      platformFill: '#4a3a2a',
-      platformBorder: '#5a4a3a',
-      platformAccent: 'rgba(204,170,102,0.5)',
-    });
-  }
-
-  /**
-   * Shared tileset generator using Phaser's createCanvas for true alpha transparency.
-   * Uses createCanvas() instead of raw DOM canvas + addCanvas() so that Phaser's
-   * tileset frame extraction (addTilesetImage) works correctly.
-   */
-  private generateCanvasTileset(
-    key: string,
-    ts: number,
-    colors: { platformFill: string; platformBorder: string; platformAccent: string }
-  ) {
-    const canvasTex = this.textures.createCanvas(key, ts * 3, ts)!;
-    const ctx = canvasTex.context;
-
-    // Clear to fully transparent
-    ctx.clearRect(0, 0, ts * 3, ts);
-
-    // Tile 1 (0,0): ground — TRANSPARENT (invisible, collision only)
-    // Tile 3 (ts*2,0): accent wall — TRANSPARENT (invisible, collision only)
-    // (Canvas starts fully transparent, so we just skip drawing on these tiles)
-
-    // Tile 2 (ts,0): platform — VISIBLE
-    ctx.fillStyle = colors.platformFill;
-    ctx.fillRect(ts, 0, ts, ts);
-    ctx.strokeStyle = colors.platformBorder;
-    ctx.lineWidth = 1;
-    ctx.strokeRect(ts + 0.5, 0.5, ts - 1, ts - 1);
-    // Bright top line to show it's a one-way platform
-    ctx.strokeStyle = colors.platformAccent;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(ts, 1);
-    ctx.lineTo(ts * 2, 1);
-    ctx.stroke();
-
-    // Commit the canvas drawing to the texture
-    canvasTex.refresh();
-  }
 }
