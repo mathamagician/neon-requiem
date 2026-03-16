@@ -69,7 +69,9 @@ export function renderZoneBackground(
   worldWidth: number,
   worldHeight: number,
 ): void {
-  switch (zoneId) {
+  // Boss practice zones use parent zone's background
+  const baseZone = zoneId.replace(/_boss$/, '');
+  switch (baseZone) {
     case 'foundry':
       renderFoundry(scene, worldWidth, worldHeight);
       break;
@@ -78,6 +80,12 @@ export function renderZoneBackground(
       break;
     case 'hub':
       renderHub(scene, worldWidth, worldHeight);
+      break;
+    case 'garden':
+      renderGarden(scene, worldWidth, worldHeight);
+      break;
+    case 'citadel':
+      renderCitadel(scene, worldWidth, worldHeight);
       break;
     default:
       renderFoundry(scene, worldWidth, worldHeight);
@@ -418,6 +426,115 @@ function renderHub(scene: Phaser.Scene, ww: number, wh: number): void {
       g.fillCircle(lx + 1, postY - postH - 2, 10);
       g.fillStyle(0xffcc66, 0.7);
       g.fillRect(lx - 1, postY - postH - 3, 4, 3);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// GARDEN — Overgrown ruins, twisted vines, eerie green
+// ---------------------------------------------------------------------------
+
+function renderGarden(scene: Phaser.Scene, ww: number, wh: number): void {
+  // Layer 1: dark green gradient sky with distant ruined structures
+  createBgLayer(scene, 'bg-garden-1', ww, wh, 0.1, -100, (g) => {
+    fillGradient(g, 0, 0, ww, wh, 0x0a1408, 0x1a2a10);
+
+    // Distant ruins silhouettes
+    const ruinCount = Math.floor(ww / 100);
+    for (let i = 0; i < ruinCount; i++) {
+      const rx = noiseRange(i, 10, i * 100, i * 100 + 70);
+      const rh = noiseRange(i, 20, 50, 120);
+      const rw = noiseRange(i, 30, 30, 60);
+      g.fillStyle(0x1a2818, 1);
+      g.fillRect(rx, wh - rh, rw, rh);
+      // Broken top
+      g.fillTriangle(rx, wh - rh, rx + rw * 0.5, wh - rh - 15, rx + rw, wh - rh);
+    }
+  });
+
+  // Layer 2: twisted vine structures
+  createBgLayer(scene, 'bg-garden-2', ww, wh, 0.3, -90, (g) => {
+    const vineCount = Math.floor(ww / 60);
+    for (let i = 0; i < vineCount; i++) {
+      const vx = noiseRange(i, 40, i * 60, i * 60 + 40);
+      g.lineStyle(2, 0x2a4a1a, 0.4);
+      // Twisting vine from top
+      for (let seg = 0; seg < 8; seg++) {
+        const y1 = seg * (wh / 8);
+        const y2 = (seg + 1) * (wh / 8);
+        const wobble = Math.sin(seg * 1.3 + i) * 15;
+        g.lineBetween(vx + wobble, y1, vx + Math.sin((seg + 1) * 1.3 + i) * 15, y2);
+      }
+      // Leaf clusters
+      if (noise(i, 0, 50) > 0.4) {
+        g.fillStyle(0x44cc44, 0.08);
+        g.fillCircle(vx, noiseRange(i, 55, wh * 0.3, wh * 0.7), 20);
+      }
+    }
+
+    // Bioluminescent spores
+    for (let i = 0; i < 30; i++) {
+      const sx = noise(i, 0, 60) * ww;
+      const sy = noise(i, 0, 70) * wh;
+      g.fillStyle(0x44cc44, 0.15);
+      g.fillCircle(sx, sy, 3);
+      g.fillStyle(0x88ff88, 0.06);
+      g.fillCircle(sx, sy, 8);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// CITADEL — High-tech fortress, data streams, cold blue/cyan
+// ---------------------------------------------------------------------------
+
+function renderCitadel(scene: Phaser.Scene, ww: number, wh: number): void {
+  // Layer 1: deep blue gradient with distant server towers
+  createBgLayer(scene, 'bg-citadel-1', ww, wh, 0.1, -100, (g) => {
+    fillGradient(g, 0, 0, ww, wh, 0x060618, 0x101035);
+
+    // Distant server tower silhouettes
+    const towerCount = Math.floor(ww / 90);
+    for (let i = 0; i < towerCount; i++) {
+      const tx = noiseRange(i, 10, i * 90, i * 90 + 60);
+      const th = noiseRange(i, 20, 80, 180);
+      const tw = noiseRange(i, 30, 20, 45);
+      g.fillStyle(0x151530, 1);
+      g.fillRect(tx, wh - th, tw, th);
+      // Antenna
+      g.fillStyle(0x252550, 1);
+      g.fillRect(tx + tw * 0.4, wh - th - 20, 2, 20);
+      // Blinking light at top
+      g.fillStyle(noise(i, 0, 40) > 0.5 ? 0x44ccff : 0xff4444, 0.8);
+      g.fillRect(tx + tw * 0.4 - 1, wh - th - 22, 4, 3);
+    }
+  });
+
+  // Layer 2: data stream lines and holographic panels
+  createBgLayer(scene, 'bg-citadel-2', ww, wh, 0.3, -90, (g) => {
+    // Vertical data streams
+    const streamCount = Math.floor(ww / 40);
+    for (let i = 0; i < streamCount; i++) {
+      const sx = noiseRange(i, 50, i * 40, i * 40 + 30);
+      const segments = 3 + Math.floor(noise(i, 0, 55) * 5);
+      for (let s = 0; s < segments; s++) {
+        const sy = noiseRange(s + i * 10, 60, 0, wh);
+        const sLen = noiseRange(s + i * 10, 65, 10, 40);
+        g.lineStyle(1, 0x44ccff, 0.12);
+        g.lineBetween(sx, sy, sx, sy + sLen);
+      }
+    }
+
+    // Holographic panels
+    for (let i = 0; i < 8; i++) {
+      const px = noise(i, 0, 70) * ww;
+      const py = noise(i, 0, 75) * wh * 0.7 + wh * 0.1;
+      const pw = 15 + noise(i, 0, 80) * 25;
+      const ph = 8 + noise(i, 0, 85) * 15;
+      g.lineStyle(1, 0x44ccff, 0.15);
+      g.strokeRect(px, py, pw, ph);
+      g.fillStyle(0x44ccff, 0.03);
+      g.fillRect(px, py, pw, ph);
     }
   });
 }

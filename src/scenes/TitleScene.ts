@@ -97,7 +97,7 @@ export class TitleScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, 'v1.3.1', {
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, 'v1.4.0', {
       fontSize: '12px', fontFamily: FONT, color: '#333344',
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
@@ -155,9 +155,9 @@ export class TitleScene extends Phaser.Scene {
           return;
         }
       }
-      // New game — delete any existing save and go to class select
+      // New game — delete any existing save and show story, then class select
       deleteSave();
-      this.scene.start('ClassSelectScene');
+      this.scene.start('LoreScene');
     });
   }
 }

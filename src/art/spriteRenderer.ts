@@ -897,6 +897,57 @@ function drawLadyHemlock(ctx: CanvasRenderingContext2D, ox: number, oy: number):
   px(ctx, x + 8, y + 25, '#44aa44'); px(ctx, x + 23, y + 24, '#44aa44');
 }
 
+function drawOverclock(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // OVERCLOCK — rogue AI combat mech, angular cyber design, cyan/chrome
+  // Head — angular helmet with visor
+  fillRect(ctx, x + 10, y + 0, 14, 3, '#334455');
+  fillRect(ctx, x + 8, y + 3, 18, 5, '#445566');
+  fillRect(ctx, x + 9, y + 4, 16, 3, '#556677');
+  // Visor — glowing cyan eye slit
+  fillRect(ctx, x + 10, y + 5, 14, 2, '#001122');
+  fillRect(ctx, x + 11, y + 5, 12, 1, '#44ccff');
+  px(ctx, x + 14, y + 5, '#88ffff'); px(ctx, x + 19, y + 5, '#88ffff'); // bright spots
+  // Antenna
+  px(ctx, x + 16, y + 0, '#44ccff'); px(ctx, x + 17, y + 0, '#44ccff');
+  // Torso — heavy mech chassis
+  fillRect(ctx, x + 6, y + 8, 22, 14, '#334455');
+  fillRect(ctx, x + 8, y + 9, 18, 12, '#445566');
+  fillRect(ctx, x + 10, y + 10, 14, 10, '#556677');
+  // Core reactor — glowing center
+  fillRect(ctx, x + 14, y + 12, 6, 6, '#112233');
+  fillRect(ctx, x + 15, y + 13, 4, 4, '#44ccff');
+  px(ctx, x + 16, y + 14, '#88ffff'); px(ctx, x + 17, y + 14, '#88ffff');
+  // Shoulder armor
+  fillRect(ctx, x + 2, y + 8, 6, 6, '#445566');
+  fillRect(ctx, x + 26, y + 8, 6, 6, '#445566');
+  fillRect(ctx, x + 3, y + 9, 4, 4, '#556677');
+  fillRect(ctx, x + 27, y + 9, 4, 4, '#556677');
+  px(ctx, x + 4, y + 10, '#44ccff'); px(ctx, x + 28, y + 10, '#44ccff'); // shoulder lights
+  // Arms — heavy pistons
+  fillRect(ctx, x + 2, y + 14, 5, 12, '#334455');
+  fillRect(ctx, x + 27, y + 14, 5, 12, '#334455');
+  fillRect(ctx, x + 3, y + 16, 3, 8, '#445566');
+  fillRect(ctx, x + 28, y + 16, 3, 8, '#445566');
+  px(ctx, x + 4, y + 20, '#44ccff'); px(ctx, x + 29, y + 20, '#44ccff'); // wrist lights
+  // Fists
+  fillRect(ctx, x + 1, y + 26, 6, 4, '#556677');
+  fillRect(ctx, x + 27, y + 26, 6, 4, '#556677');
+  // Legs — heavy stabilizers
+  fillRect(ctx, x + 8, y + 22, 7, 10, '#334455');
+  fillRect(ctx, x + 19, y + 22, 7, 10, '#334455');
+  fillRect(ctx, x + 9, y + 24, 5, 6, '#445566');
+  fillRect(ctx, x + 20, y + 24, 5, 6, '#445566');
+  // Feet — wide base
+  fillRect(ctx, x + 6, y + 32, 10, 3, '#445566');
+  fillRect(ctx, x + 18, y + 32, 10, 3, '#445566');
+  // Accent lights on legs
+  px(ctx, x + 11, y + 28, '#44ccff'); px(ctx, x + 22, y + 28, '#44ccff');
+  // Exhaust vents (back detail)
+  px(ctx, x + 7, y + 18, '#223344'); px(ctx, x + 26, y + 18, '#223344');
+  px(ctx, x + 7, y + 19, '#44ccff'); px(ctx, x + 26, y + 19, '#44ccff'); // glow
+}
+
 // ---------------------------------------------------------------------------
 // Canvas creation helper
 // ---------------------------------------------------------------------------
@@ -1018,6 +1069,13 @@ export function generateUpgradedSprites(scene: Phaser.Scene): void {
     const [canvas, ctx] = createCanvas(32, 30);
     drawLadyHemlock(ctx, 0, 0);
     scene.textures.addCanvas('boss-hemlock', canvas);
+  }
+
+  // Overclock: 34x36
+  {
+    const [canvas, ctx] = createCanvas(34, 36);
+    drawOverclock(ctx, 0, 0);
+    scene.textures.addCanvas('boss-overclock', canvas);
   }
 
   // --- NPCs & Objects ---

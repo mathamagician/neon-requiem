@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { GAME_WIDTH, GAME_HEIGHT, COLORS } from '../../shared/constants';
+import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE, COLORS } from '../../shared/constants';
 import type { GameScene } from './GameScene';
 
 export class HUDScene extends Phaser.Scene {
@@ -14,12 +14,20 @@ export class HUDScene extends Phaser.Scene {
   private powerText!: Phaser.GameObjects.Text;
   private powerCooldownBar!: Phaser.GameObjects.Graphics;
 
+  // Minimap
+  private minimapGfx!: Phaser.GameObjects.Graphics;
+  private minimapTex: Phaser.GameObjects.Image | null = null;
+  private minimapDot!: Phaser.GameObjects.Graphics;
+  private minimapBuilt = false;
+
   constructor() {
     super({ key: 'HUDScene' });
   }
 
   init(data: { gameScene: GameScene }) {
     this.gameScene = data.gameScene;
+    this.minimapBuilt = false;
+    this.minimapTex = null;
   }
 
   create() {
@@ -50,7 +58,7 @@ export class HUDScene extends Phaser.Scene {
     });
 
     this.controlsText = this.add.text(GAME_WIDTH / 2, 80,
-      'ARROWS: Move/Jump | Z: Attack | X: Dash | C: Power | S: Swap | TAB: Inventory', {
+      'ARROWS: Move/Jump | Z: Attack | X: Dash | C: Power | S: Swap | TAB: Inventory | DOWN×2: Drop', {
       fontSize: '11px', fontFamily: 'Arial, sans-serif', color: '#667788',
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
@@ -58,6 +66,10 @@ export class HUDScene extends Phaser.Scene {
     this.time.delayedCall(12000, () => {
       this.tweens.add({ targets: this.controlsText, alpha: 0, duration: 2000 });
     });
+
+    // Minimap
+    this.minimapGfx = this.add.graphics();
+    this.minimapDot = this.add.graphics();
   }
 
   update() {
@@ -152,5 +164,82 @@ export class HUDScene extends Phaser.Scene {
     this.stateText.setText(
       `${p.state} | HP:${p.hp}/${p.maxHp} | EN:${p.energy}/${p.maxEnergy} | XP:${p.xp}/${p.xpToNext}`
     );
+
+    // Minimap
+    this.updateMinimap();
+  }
+
+  private updateMinimap() {
+    const gs = this.gameScene as any;
+    const levelData: number[][] | undefined = gs.levelData;
+    if (!levelData || levelData.length === 0) return;
+
+    const levelH = levelData.length;
+    const levelW = levelData[0].length;
+
+    // Minimap dimensions — fit in top-right corner
+    const maxW = 120;
+    const maxH = 40;
+    const scale = Math.min(maxW / levelW, maxH / levelH);
+    const mapW = Math.floor(levelW * scale);
+    const mapH = Math.floor(levelH * scale);
+    const mapX = GAME_WIDTH - mapW - 6;
+    const mapY = 6;
+
+    // Build the static minimap texture once per zone
+    if (!this.minimapBuilt) {
+      this.minimapBuilt = true;
+      this.minimapGfx.clear();
+
+      // Background
+      this.minimapGfx.fillStyle(0x000000, 0.5);
+      this.minimapGfx.fillRect(mapX - 1, mapY - 1, mapW + 2, mapH + 2);
+
+      // Draw tiles
+      for (let ty = 0; ty < levelH; ty++) {
+        for (let tx = 0; tx < levelW; tx++) {
+          const tile = levelData[ty][tx];
+          if (tile === 0) continue;
+
+          let color = 0x334455;
+          if (tile === 1) color = 0x556677;
+          else if (tile === 2) color = 0x445566;
+          else if (tile === 3) color = 0x00aa88;
+          else if (tile === 4) color = 0xff4444;
+
+          const px = mapX + Math.floor(tx * scale);
+          const py = mapY + Math.floor(ty * scale);
+          const pw = Math.max(1, Math.ceil(scale));
+          const ph = Math.max(1, Math.ceil(scale));
+          this.minimapGfx.fillStyle(color, 0.8);
+          this.minimapGfx.fillRect(px, py, pw, ph);
+        }
+      }
+
+      // Border
+      this.minimapGfx.lineStyle(1, 0x00ffcc, 0.3);
+      this.minimapGfx.strokeRect(mapX - 1, mapY - 1, mapW + 2, mapH + 2);
+    }
+
+    // Player dot — blinks every frame
+    this.minimapDot.clear();
+    const p = this.gameScene.player;
+    const px = mapX + (p.sprite.x / (levelW * TILE_SIZE)) * mapW;
+    const py = mapY + (p.sprite.y / (levelH * TILE_SIZE)) * mapH;
+    const blink = Math.sin(this.gameScene.time.now * 0.008) > 0;
+    this.minimapDot.fillStyle(blink ? 0x00ffcc : 0xffffff, 1);
+    this.minimapDot.fillCircle(px, py, 2);
+
+    // Draw enemy dots (red, smaller)
+    const enemies: any[] = gs.enemyInstances;
+    if (enemies) {
+      for (const e of enemies) {
+        if (!e.sprite?.active) continue;
+        const ex = mapX + (e.sprite.x / (levelW * TILE_SIZE)) * mapW;
+        const ey = mapY + (e.sprite.y / (levelH * TILE_SIZE)) * mapH;
+        this.minimapDot.fillStyle(0xff4444, 0.7);
+        this.minimapDot.fillCircle(ex, ey, 1);
+      }
+    }
   }
 }

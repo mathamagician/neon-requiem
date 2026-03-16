@@ -13,11 +13,14 @@ import { createTestLevel, LEVEL_WIDTH_TILES, LEVEL_HEIGHT_TILES } from '../level
 import { createCryptvaultLevel } from '../levels/cryptvaultLevel';
 import { createHubLevel } from '../levels/hubLevel';
 import { getBlightedGardenTiles } from '../levels/blightedGardenLevel';
+import { getNeonCitadelTiles } from '../levels/neonCitadelLevel';
+import { getBossArenaTiles } from '../levels/bossArenaLevel';
 import { getZone, type ZoneDef } from '../levels/zones';
 import { renderZoneBackground } from '../art/backgroundRenderer';
 import { Boss } from '../entities/Boss';
 import { HollowKing } from '../entities/HollowKing';
 import { LadyHemlock } from '../entities/LadyHemlock';
+import { Overclock } from '../entities/Overclock';
 import type { AnyPlayer } from '../entities/PlayerTypes';
 import { getDefaultBranch } from '../../shared/data/skillTrees';
 import { buildSaveData, writeSave, restoreInventory, type SaveData } from '../systems/SaveSystem';
@@ -47,6 +50,8 @@ export class GameScene extends Phaser.Scene {
   private boss2Triggered = false;
   private boss3: LadyHemlock | null = null;
   private boss3Triggered = false;
+  private boss4: Overclock | null = null;
+  private boss4Triggered = false;
   bossesDefeated: string[] = [];
   gold = 0;
 
@@ -57,7 +62,7 @@ export class GameScene extends Phaser.Scene {
   // Zone system
   currentZone: string = 'foundry';
   private zoneDef!: ZoneDef;
-  private zoneExits: { x: number; targetZone: string; targetSpawnX: number }[] = [];
+  private zoneExits: { x: number; y: number; targetZone: string; targetSpawnX: number }[] = [];
 
   // Save system
   private pendingSave: SaveData | null = null;
@@ -96,9 +101,11 @@ export class GameScene extends Phaser.Scene {
     this.boss = null;
     this.boss2 = null;
     this.boss3 = null;
+    this.boss4 = null;
     this.bossTriggered = false;
     this.boss2Triggered = false;
     this.boss3Triggered = false;
+    this.boss4Triggered = false;
     this.zoneExits = [];
 
     // -- Restore from save if present --
@@ -194,6 +201,11 @@ export class GameScene extends Phaser.Scene {
       this.boss3 = new LadyHemlock(this, bossX, bossFloorY);
       this.physics.add.collider(this.boss3.sprite, this.groundLayer);
     }
+    if (this.zoneDef.bossId === 'overclock' && !this.bossesDefeated.includes('overclock')) {
+      const bossX = (this.zoneDef.bossSpawnTileX ?? 110) * TILE_SIZE;
+      this.boss4 = new Overclock(this, bossX, bossFloorY);
+      this.physics.add.collider(this.boss4.sprite, this.groundLayer);
+    }
 
     // -- Zone exits --
     this.setupZoneExits(levelH);
@@ -207,7 +219,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, worldWidth, worldHeight);
     this.cameras.main.startFollow(this.player.sprite, true, 0.1, 0.1);
     this.cameras.main.setDeadzone(40, 20);
-    initCameraFX(this.cameras.main);
+    initCameraFX(this.cameras.main, this);
     this.physics.world.setBounds(0, 0, worldWidth, worldHeight);
 
     // -- HUD --
@@ -314,10 +326,19 @@ export class GameScene extends Phaser.Scene {
       this.boss3.update(time, delta);
     }
 
+    if (this.boss4 && !this.boss4Triggered && this.player.sprite.x > bossTriggerX) {
+      this.boss4Triggered = true;
+      this.boss4.activate();
+    }
+    if (this.boss4?.isActive) {
+      this.boss4.update(time, delta);
+    }
+
     // Post-processing FX
     const anyBossActive = (this.boss?.isActive && this.boss.state !== 'dead')
       || (this.boss2?.isActive && this.boss2.state !== 'dead')
-      || (this.boss3?.isActive && this.boss3.state !== 'dead');
+      || (this.boss3?.isActive && this.boss3.state !== 'dead')
+      || (this.boss4?.isActive && this.boss4.state !== 'dead');
     updateFX(delta, !!anyBossActive, this.player.hp / this.player.maxHp);
 
     // Pit hazard check
@@ -349,7 +370,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Returns the first active boss (for combat system hit detection) */
-  getBoss(): Boss | HollowKing | LadyHemlock | null {
+  getBoss(): Boss | HollowKing | LadyHemlock | Overclock | null {
+    if (this.boss4?.isActive && this.boss4.state !== 'dead') return this.boss4;
     if (this.boss3?.isActive && this.boss3.state !== 'dead') return this.boss3;
     if (this.boss2?.isActive && this.boss2.state !== 'dead') return this.boss2;
     if (this.boss?.isActive && this.boss.state !== 'dead') return this.boss;
@@ -357,11 +379,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Returns all active bosses for systems that need to check both */
-  getAllActiveBosses(): (Boss | HollowKing | LadyHemlock)[] {
-    const bosses: (Boss | HollowKing | LadyHemlock)[] = [];
+  getAllActiveBosses(): (Boss | HollowKing | LadyHemlock | Overclock)[] {
+    const bosses: (Boss | HollowKing | LadyHemlock | Overclock)[] = [];
     if (this.boss?.isActive && this.boss.state !== 'dead') bosses.push(this.boss);
     if (this.boss2?.isActive && this.boss2.state !== 'dead') bosses.push(this.boss2);
     if (this.boss3?.isActive && this.boss3.state !== 'dead') bosses.push(this.boss3);
+    if (this.boss4?.isActive && this.boss4.state !== 'dead') bosses.push(this.boss4);
     return bosses;
   }
 
@@ -552,10 +575,13 @@ export class GameScene extends Phaser.Scene {
   // -- Zone System Helpers --
 
   private getLevelData(): number[][] {
+    // Boss practice zones use generic arena
+    if (this.currentZone.endsWith('_boss')) return getBossArenaTiles();
     switch (this.currentZone) {
       case 'cryptvault': return createCryptvaultLevel();
       case 'hub': return createHubLevel();
       case 'garden': return getBlightedGardenTiles();
+      case 'citadel': return getNeonCitadelTiles();
       default: return createTestLevel();
     }
   }
@@ -634,7 +660,8 @@ export class GameScene extends Phaser.Scene {
           gfx.fillRect(px, py + ts * 0.6, ts, ts * 0.4);
 
           // Draw 3 spike triangles
-          const spikeColor = this.currentZone === 'cryptvault' ? 0x8844cc : 0xff4422;
+          const spikeColor = this.currentZone === 'cryptvault' ? 0x8844cc
+            : this.currentZone.startsWith('citadel') ? 0x44ccff : 0xff4422;
           gfx.fillStyle(spikeColor);
           for (let s = 0; s < 3; s++) {
             const sx = px + 1 + s * 5;
@@ -656,7 +683,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private spawnZoneEnemies() {
-    if (this.currentZone === 'hub') return; // No enemies in hub
+    if (this.currentZone === 'hub' || this.zoneDef.bossOnly) return; // No enemies in hub or boss practice zones
 
     const types = this.zoneDef.enemyTypes as EnemyType[];
     if (types.length === 0) return;
@@ -689,9 +716,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   private setupZoneExits(levelH: number) {
-    const groundY = levelH * TILE_SIZE - 48;
+    const defaultGroundY = levelH * TILE_SIZE - 48;
     for (const exit of this.zoneDef.exits) {
       const worldX = exit.tileX * TILE_SIZE;
+
+      // Find actual ground Y at this tile column (portal sits on first solid/platform tile)
+      const portalY = this.findGroundY(worldX) ?? defaultGroundY;
+      const exitY = portalY - 16; // Center portal above ground
 
       // Visual: glowing portal
       const g = this.add.graphics();
@@ -703,7 +734,7 @@ export class GameScene extends Phaser.Scene {
       g.generateTexture(key, 16, 32);
       g.destroy();
 
-      const sprite = this.add.sprite(worldX, groundY, key).setDepth(5);
+      const sprite = this.add.sprite(worldX, exitY, key).setDepth(5);
       this.tweens.add({
         targets: sprite,
         alpha: { from: 0.5, to: 1 },
@@ -712,14 +743,16 @@ export class GameScene extends Phaser.Scene {
         repeat: -1,
       });
 
-      // Zone name label
-      this.add.text(worldX, groundY - 22, exit.targetZone === 'hub' ? 'HUB' : getZone(exit.targetZone).name.toUpperCase(), {
+      // Zone name label — use explicit label if provided, else derive from zone name
+      const labelText = exit.label ?? (exit.targetZone === 'hub' ? 'HUB' : getZone(exit.targetZone).name.toUpperCase());
+      this.add.text(worldX, exitY - 22, labelText, {
         fontSize: '10px', fontFamily: 'Consolas, monospace', color: '#00ffcc',
         stroke: '#000000', strokeThickness: 1,
       }).setOrigin(0.5).setDepth(5);
 
       this.zoneExits.push({
         x: worldX,
+        y: exitY,
         targetZone: exit.targetZone,
         targetSpawnX: exit.targetSpawnTileX,
       });
@@ -731,7 +764,7 @@ export class GameScene extends Phaser.Scene {
     const py = this.player.sprite.y;
 
     for (const exit of this.zoneExits) {
-      if (Math.abs(px - exit.x) < 16 && py > (this.zoneDef.height - 6) * TILE_SIZE) {
+      if (Math.abs(px - exit.x) < 16 && Math.abs(py - exit.y) < 32) {
         // Save before transitioning
         playSound('zoneTransit');
         this.saveGame();
@@ -775,15 +808,28 @@ export class GameScene extends Phaser.Scene {
 
     // Zone-specific crystal positions
     let crystalPositions: { x: number; y: number }[];
-    if (this.currentZone === 'hub') {
-      crystalPositions = [
-        { x: 20 * TILE_SIZE, y: groundY }, // Hub center
-      ];
+    if (this.zoneDef.bossOnly) {
+      // Boss practice zones: single crystal at spawn
+      crystalPositions = [{ x: 4 * TILE_SIZE, y: groundY }];
+    } else if (this.currentZone === 'hub') {
+      crystalPositions = [{ x: 30 * TILE_SIZE, y: groundY }];
     } else if (this.currentZone === 'cryptvault') {
       crystalPositions = [
         { x: 4 * TILE_SIZE, y: groundY },
         { x: 40 * TILE_SIZE, y: groundY },
         { x: 76 * TILE_SIZE, y: groundY },
+      ];
+    } else if (this.currentZone === 'garden') {
+      crystalPositions = [
+        { x: 4 * TILE_SIZE, y: groundY },
+        { x: 45 * TILE_SIZE, y: groundY },
+        { x: 85 * TILE_SIZE, y: groundY },
+      ];
+    } else if (this.currentZone === 'citadel') {
+      crystalPositions = [
+        { x: 4 * TILE_SIZE, y: groundY },
+        { x: 42 * TILE_SIZE, y: groundY },
+        { x: 78 * TILE_SIZE, y: groundY },
       ];
     } else {
       // Foundry (default)

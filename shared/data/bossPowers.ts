@@ -51,6 +51,16 @@ export const BOSS_POWERS: Record<string, BossPowerDef> = {
     color: 0x44cc44,
     durationMs: 3000,
   },
+  plasma_surge: {
+    id: 'plasma_surge',
+    name: 'Plasma Surge',
+    bossName: 'Overclock',
+    description: 'Rapid-fire plasma bolts',
+    energyCost: 16,
+    cooldownMs: 900,
+    baseDamage: 16,
+    color: 0x44ccff,
+  },
   mortar_burst: {
     id: 'mortar_burst',
     name: 'Mortar Burst',

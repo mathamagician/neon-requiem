@@ -1,11 +1,23 @@
 /**
- * The Threshold — hub town.
- * A neon-lit sanctuary carved into ancient circuitry.
- * Safe zone with save crystal, shop NPC, and exits to zones.
+ * The Threshold — hub town (redesigned).
+ * A neon-lit sanctuary with clearly labeled zone portals.
+ * Each zone has TWO doors: a zone entrance (full level) and a boss practice door.
+ * Layout: 60 tiles wide × 18 tiles tall
+ *
+ * Structure (left to right):
+ *   [0-3]   Left wall
+ *   [4-12]  Cryptvault wing — zone door at 6, boss door at 10
+ *   [13-17] Garden wing — zone door at 15, boss door at 19  (on upper platform)
+ *   [18-22] Save crystal area
+ *   [23-37] Central plaza — shop, save crystal, upper walkway
+ *   [38-42] Citadel wing — zone door at 41, boss door at 45 (on upper platform)
+ *   [43-55] Foundry wing — zone door at 51, boss door at 55
+ *   [56-59] Right wall
+ *
  * Tile indices: 0=air, 1=solid, 2=platform, 3=accent wall
  */
 
-const W = 40;
+const W = 60;
 const H = 18;
 
 export function createHubLevel(): number[][] {
@@ -14,16 +26,11 @@ export function createHubLevel(): number[][] {
     level[y] = new Array(W).fill(0);
   }
 
+  // ========== FLOOR & BOUNDARIES ==========
   // Ground floor (bottom 2 rows)
   for (let x = 0; x < W; x++) {
     level[H - 1][x] = 1;
     level[H - 2][x] = 1;
-  }
-
-  // Boundary walls (full height)
-  for (let y = 0; y < H - 2; y++) {
-    level[y][0] = 3;
-    level[y][W - 1] = 3;
   }
 
   // Ceiling
@@ -31,66 +38,80 @@ export function createHubLevel(): number[][] {
     level[0][x] = 1;
   }
 
-  // === Left wing — Cryptvault exit area ===
-  // Stepped platform approach to left exit
-  for (let x = 2; x < 5; x++) level[H - 4][x] = 2;   // low step
-  for (let x = 5; x < 8; x++) level[H - 5][x] = 2;   // mid step
-  // Neon archway framing the left exit — only upper portion to avoid trapping player
-  for (let y = 2; y < H - 8; y++) level[y][1] = 3;
-  level[2][2] = 3;
-  level[2][3] = 3;
-
-  // === Right wing — Foundry exit area ===
-  // Stepped platform approach to right exit
-  for (let x = 35; x < 38; x++) level[H - 4][x] = 2;  // low step
-  for (let x = 32; x < 35; x++) level[H - 5][x] = 2;  // mid step
-  // Neon archway framing the right exit — only upper portion to avoid trapping player
-  for (let y = 2; y < H - 8; y++) level[y][W - 2] = 3;
-  level[2][W - 3] = 3;
-  level[2][W - 4] = 3;
-
-  // === Central plaza — shop area (ground level) ===
-  // Raised shop platform (solid) — shopkeeper stands here
-  for (let x = 17; x < 23; x++) {
-    level[H - 3][x] = 1;
+  // Boundary walls
+  for (let y = 0; y < H - 2; y++) {
+    level[y][0] = 3;
+    level[y][W - 1] = 3;
   }
-  // Accent trim on shop platform edges — use platforms (2) so player can jump through
-  level[H - 4][17] = 2;
-  level[H - 4][22] = 2;
 
-  // === Upper walkway — spans the center for vertical exploration ===
-  for (let x = 10; x < 30; x++) {
-    level[H - 7][x] = 2;
-  }
-  // Access platforms to reach upper walkway
-  for (let x = 7; x < 10; x++) level[H - 5][x] = 2;   // left ladder
-  for (let x = 30; x < 33; x++) level[H - 5][x] = 2;  // right ladder
+  // ========== CRYPTVAULT WING (left) ==========
+  // Archway frame for zone door (tileX ~6)
+  for (let y = 2; y < H - 6; y++) level[y][3] = 3;
+  level[2][4] = 3; level[2][5] = 3; level[2][6] = 3; level[2][7] = 3;
+  for (let y = 2; y < H - 6; y++) level[y][8] = 3;
+  // Stepped approach
+  for (let x = 4; x < 9; x++) level[H - 4][x] = 2;
 
-  // === Decorative pillars flanking the plaza ===
-  // Only 2 tiles tall so player can easily jump over them
-  const pillarPositions = [9, 12, 27, 30];
-  for (const px of pillarPositions) {
+  // Boss practice door area (tileX ~10)
+  for (let y = 4; y < H - 6; y++) level[y][9] = 3;
+  level[4][10] = 3; level[4][11] = 3;
+  for (let y = 4; y < H - 6; y++) level[y][12] = 3;
+
+  // ========== GARDEN WING (center-left, upper platform) ==========
+  // Raised platform for garden doors
+  for (let x = 14; x < 21; x++) level[H - 5][x] = 2;
+  // Archway frame
+  level[H - 8][14] = 3; level[H - 8][20] = 3;
+  level[H - 7][14] = 3; level[H - 7][20] = 3;
+  level[H - 6][14] = 3; level[H - 6][20] = 3;
+
+  // ========== CENTRAL PLAZA ==========
+  // Raised shop platform
+  for (let x = 26; x < 34; x++) level[H - 3][x] = 1;
+  level[H - 4][26] = 2; level[H - 4][33] = 2;
+
+  // Upper walkway
+  for (let x = 16; x < 44; x++) level[H - 7][x] = 2;
+
+  // Access ramps to upper walkway
+  for (let x = 12; x < 16; x++) level[H - 5][x] = 2;
+  for (let x = 44; x < 48; x++) level[H - 5][x] = 2;
+
+  // Decorative pillars
+  for (const px of [13, 22, 37, 46]) {
     level[H - 3][px] = 3;
     level[H - 4][px] = 3;
   }
 
-  // === Upper alcove — hidden nook above the shop ===
-  // Small platform accessible from the upper walkway
-  for (let x = 18; x < 22; x++) {
-    level[H - 10][x] = 2;
-  }
-  // Accent frame around the alcove
-  level[H - 10][17] = 3;
-  level[H - 10][22] = 3;
-  level[H - 11][17] = 3;
-  level[H - 11][22] = 3;
+  // Upper alcove (above shop)
+  for (let x = 27; x < 33; x++) level[H - 10][x] = 2;
+  level[H - 10][26] = 3; level[H - 10][33] = 3;
+  level[H - 11][26] = 3; level[H - 11][33] = 3;
 
-  // === Ceiling detail — vaulted arch effect ===
-  // Indented ceiling gives a cathedral feel
-  level[1][10] = 1;
-  level[1][11] = 1;
-  level[1][28] = 1;
-  level[1][29] = 1;
+  // Ceiling arches
+  level[1][15] = 1; level[1][16] = 1;
+  level[1][43] = 1; level[1][44] = 1;
+
+  // ========== CITADEL WING (center-right, upper platform) ==========
+  // Raised platform for citadel doors
+  for (let x = 39; x < 46; x++) level[H - 5][x] = 2;
+  // Archway frame
+  level[H - 8][39] = 3; level[H - 8][45] = 3;
+  level[H - 7][39] = 3; level[H - 7][45] = 3;
+  level[H - 6][39] = 3; level[H - 6][45] = 3;
+
+  // ========== FOUNDRY WING (right) ==========
+  // Archway frame for zone door (tileX ~51)
+  for (let y = 2; y < H - 6; y++) level[y][49] = 3;
+  level[2][50] = 3; level[2][51] = 3; level[2][52] = 3; level[2][53] = 3;
+  for (let y = 2; y < H - 6; y++) level[y][54] = 3;
+  // Stepped approach
+  for (let x = 49; x < 55; x++) level[H - 4][x] = 2;
+
+  // Boss practice door area (tileX ~55)
+  for (let y = 4; y < H - 6; y++) level[y][47] = 3;
+  level[4][48] = 3; level[4][47] = 3;
+  for (let y = 4; y < H - 6; y++) level[y][56] = 3;
 
   return level;
 }

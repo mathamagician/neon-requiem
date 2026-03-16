@@ -73,6 +73,15 @@ const ZONE_MUSIC: Record<string, ZoneMusic> = {
     arpRelease: 1.8,
     padDetune: 7,
   },
+  citadel: {
+    // B minor add9 — cold, digital, relentless precision
+    padNotes: [NOTE.B3, NOTE.D4, NOTE.Gb4, NOTE.A4],
+    arpNotes: [NOTE.Gb4, NOTE.B4, NOTE.D5, NOTE.Gb4, NOTE.E4, NOTE.B3, NOTE.D4, NOTE.A4],
+    arpSpeed: 1600,
+    arpAttack: 0.2,
+    arpRelease: 1.2,
+    padDetune: 4,
+  },
 };
 
 
@@ -141,7 +150,9 @@ function playArpNote(ctx: AudioContext, freq: number, attack: number, release: n
 export function startMusic(zone: string): void {
   if (zone === currentZone && isPlaying) return;
 
-  const config = ZONE_MUSIC[zone];
+  // Boss practice zones use parent zone music
+  const musicZone = zone.replace(/_boss$/, '');
+  const config = ZONE_MUSIC[musicZone];
   if (!config) return;
 
   // Stop any existing music

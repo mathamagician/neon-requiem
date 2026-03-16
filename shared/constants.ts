@@ -40,7 +40,7 @@ export const COLORS = {
   enemy: 0xff4444,
   ground: 0x334455,
   platform: 0x445566,
-  background: 0x0a0a1a,
+  background: 0x121225,
   hpBar: 0x44ff44,
   hpBarBg: 0x442222,
   energyBar: 0x4488ff,
