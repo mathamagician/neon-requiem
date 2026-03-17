@@ -27,6 +27,7 @@ import { buildSaveData, writeSave, restoreInventory, type SaveData } from '../sy
 import { playSound } from '../systems/SoundManager';
 import { initCameraFX, updateFX, destroyFX } from '../systems/FXManager';
 import { startMusic, stopMusic } from '../systems/MusicManager';
+import { NetManager, type NetPlayerState } from '../systems/NetManager';
 
 export type ClassName = 'vanguard' | 'gunner' | 'wraith';
 
@@ -77,6 +78,13 @@ export class GameScene extends Phaser.Scene {
   // Level data (stored for pit/spike detection)
   private levelData: number[][] = [];
   private lastSpikeDamageTime = 0;
+
+  // Multiplayer ghost sprites
+  private ghostSprites: Map<string, Phaser.GameObjects.Sprite> = new Map();
+  private ghostLabels: Map<string, Phaser.GameObjects.Text> = new Map();
+  private netHudText: Phaser.GameObjects.Text | null = null;
+  private netSendTimer = 0;
+  private readonly NET_SEND_INTERVAL = 50; // ms between state broadcasts
 
   constructor() {
     super({ key: 'GameScene' });
@@ -277,6 +285,14 @@ export class GameScene extends Phaser.Scene {
       this.spawnHubNPCs();
     }
 
+    // -- Multiplayer ghost sprites --
+    this.ghostSprites = new Map();
+    this.ghostLabels = new Map();
+    this.netSendTimer = 0;
+    if (NetManager.isOnline()) {
+      this.setupMultiplayer();
+    }
+
     // -- Show load notification --
     if (save) {
       this.showNotification('Save loaded');
@@ -300,6 +316,11 @@ export class GameScene extends Phaser.Scene {
   shutdown() {
     stopMusic();
     destroyFX();
+    // Clean up ghost sprites (don't disconnect NetManager — it persists across zones)
+    for (const [id] of this.ghostSprites) {
+      this.removeGhostSprite(id);
+    }
+    this.netHudText = null;
   }
 
   update(time: number, delta: number) {
@@ -361,8 +382,165 @@ export class GameScene extends Phaser.Scene {
     // NPC interaction
     this.checkNPCProximity();
 
+    // Multiplayer sync
+    if (NetManager.isOnline()) {
+      this.updateMultiplayer(time, delta);
+    }
+
     // Zone exit checking
     this.checkZoneExits();
+  }
+
+  // -- Multiplayer --
+
+  private setupMultiplayer() {
+    const roomCode = NetManager.getRoomCode();
+    const peerCount = NetManager.getPeerCount() + 1;
+
+    // HUD indicator
+    this.netHudText = this.add.text(GAME_WIDTH - 8, 6, `ROOM: ${roomCode} (${peerCount}P)`, {
+      fontSize: '10px', fontFamily: 'Consolas, monospace', color: '#00ffcc',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(1, 0).setScrollFactor(0).setDepth(100);
+
+    // Create ghost sprites for any peers that already exist
+    for (const [peerId, peerState] of NetManager.peers) {
+      this.createGhostSprite(peerId, peerState);
+    }
+
+    // Listen for state updates
+    NetManager.onPeerState((state: NetPlayerState) => {
+      this.updateGhostFromState(state);
+    });
+
+    // Listen for new peers joining mid-game
+    NetManager.onPeerJoin((peerId: string) => {
+      const state = NetManager.peers.get(peerId);
+      if (state) this.createGhostSprite(peerId, state);
+      this.updateNetHud();
+    });
+
+    // Listen for peers leaving
+    NetManager.onPeerLeave((peerId: string) => {
+      this.removeGhostSprite(peerId);
+      this.updateNetHud();
+    });
+  }
+
+  private getClassTextureKey(className: string): string {
+    switch (className) {
+      case 'gunner': return 'player-gunner';
+      case 'wraith': return 'player-wraith';
+      default: return 'player';
+    }
+  }
+
+  private createGhostSprite(peerId: string, state: NetPlayerState) {
+    if (this.ghostSprites.has(peerId)) return;
+
+    const textureKey = this.getClassTextureKey(state.className);
+    const ghost = this.add.sprite(state.x, state.y, textureKey);
+    ghost.setAlpha(0.5);
+    ghost.setTint(0x00ffcc);
+    ghost.setDepth(8);
+    this.ghostSprites.set(peerId, ghost);
+
+    // Name label above ghost
+    const shortId = peerId.substring(0, 8);
+    const label = this.add.text(state.x, state.y - 20, shortId, {
+      fontSize: '8px', fontFamily: 'Consolas, monospace', color: '#00ffcc',
+      stroke: '#000000', strokeThickness: 1,
+    }).setOrigin(0.5).setDepth(8).setAlpha(0.6);
+    this.ghostLabels.set(peerId, label);
+  }
+
+  private removeGhostSprite(peerId: string) {
+    const ghost = this.ghostSprites.get(peerId);
+    if (ghost) {
+      ghost.destroy();
+      this.ghostSprites.delete(peerId);
+    }
+    const label = this.ghostLabels.get(peerId);
+    if (label) {
+      label.destroy();
+      this.ghostLabels.delete(peerId);
+    }
+  }
+
+  private updateGhostFromState(state: NetPlayerState) {
+    // Create ghost if it doesn't exist yet
+    if (!this.ghostSprites.has(state.id)) {
+      this.createGhostSprite(state.id, state);
+    }
+
+    const ghost = this.ghostSprites.get(state.id);
+    if (ghost) {
+      ghost.setPosition(state.x, state.y);
+      ghost.setFlipX(state.flipX);
+
+      // Swap texture if class changed
+      const expectedKey = this.getClassTextureKey(state.className);
+      if (ghost.texture.key !== expectedKey) {
+        ghost.setTexture(expectedKey);
+      }
+
+      // Visual feedback for attacking/dashing
+      if (state.isAttacking) {
+        ghost.setTint(0xffffff);
+      } else if (state.isDashing) {
+        ghost.setTint(0x88ffff);
+      } else {
+        ghost.setTint(0x00ffcc);
+      }
+    }
+
+    // Update label position
+    const label = this.ghostLabels.get(state.id);
+    if (label) {
+      label.setPosition(state.x, state.y - 20);
+    }
+  }
+
+  private updateMultiplayer(time: number, delta: number) {
+    // Throttle state sends
+    this.netSendTimer += delta;
+    if (this.netSendTimer >= this.NET_SEND_INTERVAL) {
+      this.netSendTimer = 0;
+      const p = this.player;
+      const body = p.sprite.body as Phaser.Physics.Arcade.Body;
+      const state: NetPlayerState = {
+        id: NetManager.playerId,
+        x: p.sprite.x,
+        y: p.sprite.y,
+        velX: body.velocity.x,
+        velY: body.velocity.y,
+        flipX: p.sprite.flipX,
+        hp: p.hp,
+        maxHp: p.maxHp,
+        className: this.currentClass,
+        isAttacking: p.isAttacking,
+        isDashing: 'isDashing' in p ? !!(p as any).isDashing : false,
+        facingRight: p.facingRight,
+      };
+      NetManager.sendState(state);
+    }
+
+    // Interpolate ghost positions toward their target (smoother than snapping)
+    for (const [peerId, peerState] of NetManager.peers) {
+      const ghost = this.ghostSprites.get(peerId);
+      if (ghost) {
+        const lerpFactor = 0.3;
+        ghost.x = Phaser.Math.Linear(ghost.x, peerState.x, lerpFactor);
+        ghost.y = Phaser.Math.Linear(ghost.y, peerState.y, lerpFactor);
+      }
+    }
+  }
+
+  private updateNetHud() {
+    if (this.netHudText) {
+      const peerCount = NetManager.getPeerCount() + 1;
+      this.netHudText.setText(`ROOM: ${NetManager.getRoomCode()} (${peerCount}P)`);
+    }
   }
 
   private handleBossPowerInput(time: number) {

@@ -79,7 +79,12 @@ export class TitleScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5));
 
-    this.menuItems.push(this.add.text(GAME_WIDTH / 2, newGameY + spacing, 'SETTINGS', {
+    this.menuItems.push(this.add.text(GAME_WIDTH / 2, newGameY + spacing, 'MULTIPLAYER', {
+      fontSize: '16px', fontFamily: MONO, color: '#00ccaa',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5));
+
+    this.menuItems.push(this.add.text(GAME_WIDTH / 2, newGameY + spacing * 2, 'SETTINGS', {
       fontSize: '16px', fontFamily: MONO, color: '#888899',
       stroke: '#000000', strokeThickness: 2,
     }).setOrigin(0.5));
@@ -138,9 +143,17 @@ export class TitleScene extends Phaser.Scene {
     const isContinue = this.hasSaveData && this.selectedIndex === 0;
     const settingsIndex = this.menuItems.length - 1; // Settings is always last
     const isSettings = this.selectedIndex === settingsIndex;
+    const multiplayerIndex = settingsIndex - 1; // Multiplayer is second-to-last
+    const isMultiplayer = this.selectedIndex === multiplayerIndex;
 
     if (isSettings) {
       this.scene.start('SettingsScene', { from: 'TitleScene' });
+      return;
+    }
+
+    if (isMultiplayer) {
+      playSound('menuConfirm');
+      this.scene.start('LobbyScene');
       return;
     }
 
