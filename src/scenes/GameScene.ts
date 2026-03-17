@@ -879,7 +879,9 @@ export class GameScene extends Phaser.Scene {
 
     // Generate enemy positions spread across the level
     const levelW = this.zoneDef.width;
-    const count = this.currentZone === 'cryptvault' ? 12 : 10;
+    // Scale enemy count with level length — ~1 enemy per 10 tiles of playable area
+    const endTileForCount = (this.zoneDef.bossTriggerTileX ?? levelW - 5) - 3;
+    const count = Math.max(10, Math.floor((endTileForCount - 8) / 10));
     const startTile = 8;
     const endTile = (this.zoneDef.bossTriggerTileX ?? levelW - 5) - 3;
     const spacing = Math.floor((endTile - startTile) / count);
@@ -1031,25 +1033,29 @@ export class GameScene extends Phaser.Scene {
         { x: 4 * TILE_SIZE, y: groundY },
         { x: 40 * TILE_SIZE, y: groundY },
         { x: 76 * TILE_SIZE, y: groundY },
+        { x: 110 * TILE_SIZE, y: groundY },
       ];
     } else if (this.currentZone === 'garden') {
       crystalPositions = [
         { x: 4 * TILE_SIZE, y: groundY },
         { x: 45 * TILE_SIZE, y: groundY },
         { x: 85 * TILE_SIZE, y: groundY },
+        { x: 120 * TILE_SIZE, y: groundY },
       ];
     } else if (this.currentZone === 'citadel') {
       crystalPositions = [
         { x: 4 * TILE_SIZE, y: groundY },
         { x: 42 * TILE_SIZE, y: groundY },
         { x: 78 * TILE_SIZE, y: groundY },
+        { x: 115 * TILE_SIZE, y: groundY },
       ];
     } else {
       // Foundry (default)
       crystalPositions = [
-        { x: 48, y: groundY },
-        { x: 800, y: groundY },
+        { x: 4 * TILE_SIZE, y: groundY },
+        { x: 50 * TILE_SIZE, y: groundY },
         { x: 80 * TILE_SIZE, y: groundY },
+        { x: 120 * TILE_SIZE, y: groundY },
       ];
     }
 

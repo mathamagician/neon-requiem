@@ -1,11 +1,13 @@
 /**
  * Blighted Garden — overgrown toxic garden.
  * Nature has reclaimed a tech facility: poison vines, toxic pools,
- * bioluminescent spores, and corrupted flora dominate the landscape.
+ * bioluminescent spores, corrupted flora, and procedural mid-sections.
  * Tile indices: 0=air, 1=solid, 2=platform, 3=accent wall, 4=spikes
  */
 
-const W = 110;
+import { generateSection, pickSectionTypes } from './proceduralGen';
+
+const W = 150;
 const H = 22;
 
 export function getBlightedGardenTiles(): number[][] {
@@ -270,51 +272,70 @@ export function getBlightedGardenTiles(): number[][] {
   level[2][83] = 3;
   level[2][87] = 3;
 
-  // ===== SECTION 7: Boss arena (tiles 90-108) =====
+  // ===== PROCEDURAL SECTIONS (tiles 90-130) =====
+  const procTypes = pickSectionTypes(2, 55);
+  generateSection(level, { H, startX: 90, endX: 110, type: procTypes[0], seed: 5501 });
+  generateSection(level, { H, startX: 110, endX: 130, type: procTypes[1], seed: 5502 });
+
+  // ===== BOSS ARENA (tiles 130-148) =====
   // Walled arena — entrance gate, platforms for dodging, edge spikes
 
   // Boss arena entrance wall (vine gate)
   for (let y = 0; y < H - 4; y++) {
-    level[y][90] = 3;
+    level[y][130] = 3;
   }
   // Solid block at bottom of gate to seal it
   for (let y = H - 4; y < H - 2; y++) {
-    level[y][90] = 1;
+    level[y][130] = 1;
   }
 
   // Boss arena ceiling
-  for (let x = 91; x < W - 1; x++) {
+  for (let x = 131; x < W - 1; x++) {
     level[1][x] = 1;
   }
 
   // Boss arena platforms — staggered for dodging boss attacks
   const bossPlats: { x: number; y: number; w: number }[] = [
-    { x: 94, y: H - 6, w: 4 },    // left combat platform
-    { x: 103, y: H - 6, w: 4 },   // right combat platform
-    { x: 99, y: H - 10, w: 4 },   // center high platform
+    { x: 134, y: H - 6, w: 4 },    // left combat platform
+    { x: 143, y: H - 6, w: 4 },    // right combat platform
+    { x: 139, y: H - 10, w: 4 },   // center high platform
     // Small escape ledges on arena edges
-    { x: 92, y: H - 9, w: 2 },
-    { x: 107, y: H - 9, w: 2 },
+    { x: 132, y: H - 9, w: 2 },
+    { x: 147, y: H - 9, w: 2 },
     // Mid-height side platforms for ranged attacks
-    { x: 93, y: H - 13, w: 3 },
-    { x: 105, y: H - 13, w: 3 },
+    { x: 133, y: H - 13, w: 3 },
+    { x: 145, y: H - 13, w: 3 },
   ];
 
   // Boss arena accent pillars
-  level[H - 3][93] = 3;
-  level[H - 4][93] = 3;
-  level[H - 3][108] = 3;
-  level[H - 4][108] = 3;
+  level[H - 3][133] = 3;
+  level[H - 4][133] = 3;
+  level[H - 3][148] = 3;
+  level[H - 4][148] = 3;
 
   // Central root structure in arena
-  level[H - 3][100] = 1;
-  level[H - 4][100] = 1;
-  level[H - 5][100] = 3;
+  level[H - 3][140] = 1;
+  level[H - 4][140] = 1;
+  level[H - 5][140] = 3;
+
+  // ===== Flow bridges — fill gaps between hand-crafted sections =====
+  const bridges: { x: number; y: number; w: number }[] = [
+    // Bridge into poison pits (tile 15-16)
+    { x: 14, y: H - 4, w: 2 },
+    // Bridge from poison section to vertical shaft (tiles 29-31)
+    { x: 29, y: H - 5, w: 3 },
+    // Extra stepping stone in vertical shaft
+    { x: 43, y: H - 6, w: 3 },
+    // Bridge from canopy to greenhouse (tiles 59-61)
+    { x: 59, y: H - 5, w: 3 },
+    // Bridge from greenhouse to gauntlet (tiles 75-76)
+    { x: 75, y: H - 4, w: 3 },
+  ];
 
   // ==== Place all platforms ====
   const allPlatforms = [
     ...s1Platforms, ...s2Platforms, ...s3Platforms, ...s4Platforms,
-    ...s5Platforms, ...s6Platforms, ...bossPlats,
+    ...s5Platforms, ...s6Platforms, ...bridges, ...bossPlats,
   ];
 
   for (const plat of allPlatforms) {
@@ -344,8 +365,8 @@ export function getBlightedGardenTiles(): number[][] {
     { x: 83, y: H - 3 },
     { x: 85, y: H - 3 }, { x: 89, y: H - 3 },
     // Boss arena edge spikes
-    { x: 91, y: H - 3 }, { x: 92, y: H - 3 },
-    { x: 107, y: H - 3 }, { x: 108, y: H - 3 },
+    { x: 131, y: H - 3 }, { x: 132, y: H - 3 },
+    { x: 147, y: H - 3 }, { x: 148, y: H - 3 },
   ];
 
   for (const sp of spikePositions) {

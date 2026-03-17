@@ -1,11 +1,13 @@
 /**
  * Neon Citadel — high-tech cyber fortress (Zone 4).
  * Neon-lit corridors, data streams, holographic barriers,
- * server racks, and a fortified command center.
+ * server racks, fortified command center, and procedural mid-sections.
  * Tile indices: 0=air, 1=solid, 2=platform, 3=accent wall, 4=spikes
  */
 
-const W = 120;
+import { generateSection, pickSectionTypes } from './proceduralGen';
+
+const W = 160;
 const H = 22;
 
 export function getNeonCitadelTiles(): number[][] {
@@ -300,60 +302,79 @@ export function getNeonCitadelTiles(): number[][] {
   level[2][87] = 0;
   level[2][88] = 0;
 
-  // ===== SECTION 7: Boss arena (tiles 95-118) =====
+  // ===== PROCEDURAL SECTIONS (tiles 95-135) =====
+  const procTypes = pickSectionTypes(2, 99);
+  generateSection(level, { H, startX: 95, endX: 115, type: procTypes[0], seed: 9901 });
+  generateSection(level, { H, startX: 115, endX: 135, type: procTypes[1], seed: 9902 });
+
+  // ===== BOSS ARENA (tiles 135-158) =====
   // Large open arena with side platforms, center platform, accent wall gate
 
   // Boss gate — accent wall entrance
   for (let y = 0; y < H - 4; y++) {
-    level[y][95] = 3;
+    level[y][135] = 3;
   }
   // Solid block at bottom of gate
   for (let y = H - 4; y < H - 2; y++) {
-    level[y][95] = 1;
+    level[y][135] = 1;
   }
 
   // Boss arena ceiling — high, giving room for the fight
-  for (let x = 96; x < W - 1; x++) {
+  for (let x = 136; x < W - 1; x++) {
     level[1][x] = 1;
   }
 
   // Slight raised floor at arena edges for containment
-  for (let x = 96; x < 99; x++) level[H - 3][x] = 1;
-  for (let x = 115; x < 118; x++) level[H - 3][x] = 1;
+  for (let x = 136; x < 139; x++) level[H - 3][x] = 1;
+  for (let x = 155; x < 158; x++) level[H - 3][x] = 1;
 
   const bossPlats: { x: number; y: number; w: number }[] = [
     // Left elevated combat platform
-    { x: 97, y: H - 7, w: 5 },
+    { x: 137, y: H - 7, w: 5 },
     // Right elevated combat platform
-    { x: 112, y: H - 7, w: 5 },
+    { x: 152, y: H - 7, w: 5 },
     // Center platform — main fighting stage
-    { x: 104, y: H - 5, w: 6 },
+    { x: 144, y: H - 5, w: 6 },
     // High center platform — for aerial dodging
-    { x: 105, y: H - 11, w: 4 },
+    { x: 145, y: H - 11, w: 4 },
     // Left wall escape ledge
-    { x: 96, y: H - 11, w: 3 },
+    { x: 136, y: H - 11, w: 3 },
     // Right wall escape ledge
-    { x: 115, y: H - 11, w: 3 },
+    { x: 155, y: H - 11, w: 3 },
     // Upper side perches — for ranged attacks
-    { x: 97, y: H - 15, w: 3 },
-    { x: 114, y: H - 15, w: 3 },
+    { x: 137, y: H - 15, w: 3 },
+    { x: 154, y: H - 15, w: 3 },
   ];
 
   // Boss arena accent pillars
-  level[H - 3][98] = 3;
-  level[H - 4][98] = 3;
-  level[H - 3][116] = 3;
-  level[H - 4][116] = 3;
+  level[H - 3][138] = 3;
+  level[H - 4][138] = 3;
+  level[H - 3][156] = 3;
+  level[H - 4][156] = 3;
 
   // Central holographic pedestal
-  level[H - 3][107] = 1;
-  level[H - 4][107] = 1;
-  level[H - 5][107] = 3;
+  level[H - 3][147] = 1;
+  level[H - 4][147] = 1;
+  level[H - 5][147] = 3;
+
+  // ===== Flow bridges — fill gaps between hand-crafted sections =====
+  const bridges: { x: number; y: number; w: number }[] = [
+    // Bridge from entrance to server room (tiles 14-16)
+    { x: 14, y: H - 5, w: 3 },
+    // Bridge from server room to data shaft (tiles 28-30)
+    { x: 28, y: H - 4, w: 3 },
+    // Bridge from neon highway to control center (tiles 64-66)
+    { x: 64, y: H - 5, w: 3 },
+    // Bridge from control center to firewall (tiles 79-81)
+    { x: 79, y: H - 4, w: 3 },
+    // Extra mid-height in firewall for flow
+    { x: 93, y: H - 7, w: 3 },
+  ];
 
   // ==== Place all platforms ====
   const allPlatforms = [
     ...s1Platforms, ...s2Platforms, ...s3Platforms, ...s4Platforms,
-    ...s5Platforms, ...s6Platforms, ...bossPlats,
+    ...s5Platforms, ...s6Platforms, ...bridges, ...bossPlats,
   ];
 
   for (const plat of allPlatforms) {
@@ -389,8 +410,8 @@ export function getNeonCitadelTiles(): number[][] {
     { x: 93, y: H - 3 },
     // Ceiling spikes in gauntlet
     { x: 82, y: 3 }, { x: 87, y: 3 }, { x: 92, y: 3 },
-    // Section 7: Boss arena edge spikes
-    { x: 96, y: H - 3 }, { x: 117, y: H - 3 },
+    // Boss arena edge spikes
+    { x: 136, y: H - 3 }, { x: 157, y: H - 3 },
   ];
 
   for (const sp of spikePositions) {

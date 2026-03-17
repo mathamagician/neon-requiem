@@ -1,11 +1,13 @@
 /**
  * Cryptvault — undead gothic catacombs.
  * Dark, atmospheric level with vertical shafts, burial alcoves,
- * hidden passages, and claustrophobic corridors.
+ * hidden passages, claustrophobic corridors, and procedural mid-sections.
  * Tile indices: 0=air, 1=solid, 2=platform, 3=accent wall, 4=spikes
  */
 
-const W = 100;
+import { generateSection, pickSectionTypes } from './proceduralGen';
+
+const W = 140;
 const H = 22;
 
 export function createCryptvaultLevel(): number[][] {
@@ -199,47 +201,66 @@ export function createCryptvaultLevel(): number[][] {
   for (let y = H - 8; y >= H - 14; y--) level[y][73] = 3;
   for (let y = H - 8; y >= H - 14; y--) level[y][80] = 3;
 
-  // ===== BOSS ARENA (tiles 82-98) =====
+  // ===== PROCEDURAL SECTIONS (tiles 82-122) =====
+  const procTypes = pickSectionTypes(2, 77);
+  generateSection(level, { H, startX: 82, endX: 102, type: procTypes[0], seed: 7701 });
+  generateSection(level, { H, startX: 102, endX: 122, type: procTypes[1], seed: 7702 });
+
+  // ===== BOSS ARENA (tiles 122-138) =====
   // Boss arena entrance wall (accent gate)
   for (let y = 0; y < H - 5; y++) {
-    level[y][82] = 3;
+    level[y][122] = 3;
   }
 
   // Boss arena ceiling
-  for (let x = 83; x < W - 1; x++) {
+  for (let x = 123; x < W - 1; x++) {
     level[1][x] = 1;
   }
 
   // Boss arena platforms — symmetrical for fair boss fight
   const bossPlats: { x: number; y: number; w: number }[] = [
-    { x: 85, y: H - 6, w: 4 },
-    { x: 93, y: H - 6, w: 4 },
-    { x: 89, y: H - 10, w: 4 },
+    { x: 125, y: H - 6, w: 4 },
+    { x: 133, y: H - 6, w: 4 },
+    { x: 129, y: H - 10, w: 4 },
     // Escape ledges on arena edges
-    { x: 83, y: H - 8, w: 2 },
-    { x: 97, y: H - 8, w: 2 },
+    { x: 123, y: H - 8, w: 2 },
+    { x: 137, y: H - 8, w: 2 },
   ];
 
   // Boss arena pillars (atmospheric, also tactical cover)
-  level[H - 3][84] = 3;
-  level[H - 4][84] = 3;
-  level[H - 5][84] = 3;
-  level[H - 3][97] = 3;
-  level[H - 4][97] = 3;
-  level[H - 5][97] = 3;
+  level[H - 3][124] = 3;
+  level[H - 4][124] = 3;
+  level[H - 5][124] = 3;
+  level[H - 3][137] = 3;
+  level[H - 4][137] = 3;
+  level[H - 5][137] = 3;
 
   // Throne platform — where Hollow King stands
-  for (let x = 88; x < 93; x++) {
+  for (let x = 128; x < 133; x++) {
     level[H - 3][x] = 1;
   }
   // Accent trim on throne
-  level[H - 4][88] = 3;
-  level[H - 4][92] = 3;
+  level[H - 4][128] = 3;
+  level[H - 4][132] = 3;
+
+  // ===== Flow bridges — fill gaps between hand-crafted sections =====
+  const bridges: { x: number; y: number; w: number }[] = [
+    // Bridge from section 1 to section 2 (tiles 13-15)
+    { x: 13, y: H - 4, w: 3 },
+    // Bridge from section 2 to section 3 (tiles 31-33)
+    { x: 31, y: H - 5, w: 3 },
+    // Bridge from section 3 to section 4 (tiles 40-42)
+    { x: 40, y: H - 4, w: 3 },
+    // Bridge from section 5 to section 6 (tiles 71-73)
+    { x: 71, y: H - 4, w: 3 },
+    // Extra mid-height platforms in ghost gallery for flow
+    { x: 54, y: H - 9, w: 3 },
+  ];
 
   // ==== Place all platforms ====
   const allPlatforms = [
     ...s1Platforms, ...s2Platforms, ...s3Platforms, ...s4Platforms,
-    ...s5Platforms, ...s6Platforms, ...bossPlats,
+    ...s5Platforms, ...s6Platforms, ...bridges, ...bossPlats,
   ];
 
   for (const plat of allPlatforms) {
@@ -265,7 +286,7 @@ export function createCryptvaultLevel(): number[][] {
     // Catacomb descent (section 6)
     { x: 78, y: H - 3 }, { x: 79, y: H - 3 },
     // Boss arena edges
-    { x: 85, y: H - 3 }, { x: 97, y: H - 3 },
+    { x: 125, y: H - 3 }, { x: 137, y: H - 3 },
   ];
   for (const sp of spikePositions) {
     if (sp.x >= 0 && sp.x < W && sp.y >= 0 && sp.y < H) {

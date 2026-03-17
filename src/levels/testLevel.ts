@@ -1,7 +1,8 @@
 /**
  * Neon Foundry — industrial cyber-forge.
  * Zone 1 of the game. Features varied terrain, vertical sections,
- * secret alcoves, multi-level platforming, and a sealed boss arena.
+ * secret alcoves, multi-level platforming, procedural mid-sections,
+ * and a sealed boss arena.
  * Tile indices:
  *   0 = empty (air)
  *   1 = solid ground
@@ -10,7 +11,9 @@
  *   4 = spikes (hazard, deals damage)
  */
 
-export const LEVEL_WIDTH_TILES = 120;
+import { generateSection, pickSectionTypes } from './proceduralGen';
+
+export const LEVEL_WIDTH_TILES = 160;
 export const LEVEL_HEIGHT_TILES = 22;
 
 export function createTestLevel(): number[][] {
@@ -199,37 +202,57 @@ export function createTestLevel(): number[][] {
   for (let y = 2; y < H - 8; y++) level[y][83] = 1;
   for (let y = 2; y < H - 6; y++) level[y][90] = 1;
 
-  // ===== BOSS ARENA (tiles 99-118) =====
+  // ===== PROCEDURAL SECTIONS (tiles 98-138) =====
+  // Two generated sections between the gauntlet and boss arena
+  const procTypes = pickSectionTypes(2, 42);
+  generateSection(level, { H, startX: 98, endX: 118, type: procTypes[0], seed: 4201 });
+  generateSection(level, { H, startX: 118, endX: 138, type: procTypes[1], seed: 4202 });
+
+  // ===== BOSS ARENA (tiles 139-158) =====
   // Boss arena entrance wall (neon gate)
   for (let y = 0; y < H - 5; y++) {
-    level[y][99] = 3;
+    level[y][139] = 3;
   }
 
   // Boss arena ceiling
-  for (let x = 100; x < W - 1; x++) {
+  for (let x = 140; x < W - 1; x++) {
     level[1][x] = 1;
   }
 
   // Boss arena platforms — staggered for dodging
   const bossPlats: { x: number; y: number; w: number }[] = [
-    { x: 103, y: H - 6, w: 4 },
-    { x: 111, y: H - 6, w: 4 },
-    { x: 107, y: H - 10, w: 4 },
+    { x: 143, y: H - 6, w: 4 },
+    { x: 151, y: H - 6, w: 4 },
+    { x: 147, y: H - 10, w: 4 },
     // Small escape platforms on edges
-    { x: 101, y: H - 9, w: 2 },
-    { x: 116, y: H - 9, w: 2 },
+    { x: 141, y: H - 9, w: 2 },
+    { x: 156, y: H - 9, w: 2 },
   ];
 
   // Boss arena pillars
-  level[H - 3][102] = 3;
-  level[H - 4][102] = 3;
-  level[H - 3][117] = 3;
-  level[H - 4][117] = 3;
+  level[H - 3][142] = 3;
+  level[H - 4][142] = 3;
+  level[H - 3][157] = 3;
+  level[H - 4][157] = 3;
+
+  // ===== Flow bridges — fill gaps between hand-crafted sections =====
+  const bridges: { x: number; y: number; w: number }[] = [
+    // Bridge from section 1 to section 2 (flat zone around tile 18-20)
+    { x: 18, y: H - 4, w: 3 },
+    // Bridge from section 2 to section 3 (tiles 33-35)
+    { x: 33, y: H - 6, w: 3 },
+    // Bridge from section 3 to section 4 (tiles 50-52)
+    { x: 50, y: H - 4, w: 3 },
+    // Bridge from section 5 to section 6 (tile 80)
+    { x: 79, y: H - 4, w: 3 },
+    // Extra mid-section platforms for flow in section 6
+    { x: 96, y: H - 7, w: 3 },
+  ];
 
   // ==== Place all platforms ====
   const allPlatforms = [
     ...s1Platforms, ...s2Platforms, ...s3Platforms, ...s4Platforms,
-    ...s5Platforms, ...s6Platforms, ...bossPlats,
+    ...s5Platforms, ...s6Platforms, ...bridges, ...bossPlats,
   ];
 
   for (const plat of allPlatforms) {
@@ -254,7 +277,7 @@ export function createTestLevel(): number[][] {
     { x: 84, y: H - 3 }, { x: 85, y: H - 3 },
     { x: 91, y: H - 3 }, { x: 92, y: H - 3 },
     // Boss arena edge spikes
-    { x: 100, y: H - 3 }, { x: 118, y: H - 3 },
+    { x: 140, y: H - 3 }, { x: 158, y: H - 3 },
   ];
   for (const sp of spikePositions) {
     if (sp.x >= 0 && sp.x < W && sp.y >= 0 && sp.y < H) {
@@ -265,9 +288,3 @@ export function createTestLevel(): number[][] {
   return level;
 }
 
-export const BOSS_SPAWN_X = 110 * 16;
-export const BOSS_TRIGGER_X = 101 * 16;
-
-// Second boss (Hollow King) — placed mid-level before the wall obstacle
-export const BOSS2_SPAWN_X = 60 * 16;
-export const BOSS2_TRIGGER_X = 52 * 16;
