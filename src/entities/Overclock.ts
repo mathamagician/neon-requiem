@@ -56,6 +56,10 @@ export class Overclock {
   // Rage mode — triggers at 30% HP
   private enraged = false;
 
+  // Poison debuff
+  private poisonTimer = 0;
+  private poisonSlowMult = 1;
+
   // Overclock Mode (Phase 3 charge attack)
   private overclockChargesLeft = 0;
   private overclockSpeedTimer = 0;
@@ -175,9 +179,18 @@ export class Overclock {
       });
     }
 
+    // Poison tick
+    if (this.poisonTimer > 0) {
+      this.poisonTimer -= delta;
+      if (this.poisonTimer <= 0) {
+        this.poisonSlowMult = 1;
+        this.sprite.setTint(this.enraged ? 0xff4444 : 0x44ccff);
+      }
+    }
+
     switch (this.state) {
       case 'idle':
-        this.actionCooldown -= delta;
+        this.actionCooldown -= delta * this.poisonSlowMult;
         if (this.actionCooldown <= 0) this.chooseAttack();
         // Mechanical hover bob
         this.sprite.y = this.arenaFloor + Math.sin(time * 0.003) * 2;
@@ -218,6 +231,12 @@ export class Overclock {
 
     this.drawHpBar();
     this.checkHazardHits(player, time);
+  }
+
+  applyPoison(duration: number, slowAmount: number) {
+    this.poisonTimer = duration;
+    this.poisonSlowMult = slowAmount;
+    this.sprite.setTint(0x88ff88);
   }
 
   takeDamage(amount: number, _sourceX: number, time: number, powerId?: string) {

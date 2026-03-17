@@ -949,6 +949,66 @@ function drawOverclock(ctx: CanvasRenderingContext2D, ox: number, oy: number): v
 }
 
 // ---------------------------------------------------------------------------
+// Hub NPC sprites
+// ---------------------------------------------------------------------------
+
+function drawLoreNPC(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Robed scholar with purple accents — holds a glowing tome
+  // Hood
+  fillRect(ctx, x + 3, y + 0, 8, 3, '#2a2040');
+  fillRect(ctx, x + 2, y + 3, 10, 3, '#3a3060');
+  fillRect(ctx, x + 3, y + 4, 8, 2, '#4a4070');
+  // Face shadow
+  fillRect(ctx, x + 4, y + 4, 6, 2, '#110022');
+  px(ctx, x + 5, y + 4, '#aa66ff'); // left eye glow
+  px(ctx, x + 8, y + 4, '#aa66ff'); // right eye glow
+  // Robe body
+  fillRect(ctx, x + 2, y + 6, 10, 10, '#2a2040');
+  fillRect(ctx, x + 3, y + 7, 8, 8, '#3a3060');
+  // Purple trim
+  px(ctx, x + 2, y + 6, '#8844cc');
+  px(ctx, x + 11, y + 6, '#8844cc');
+  fillRect(ctx, x + 5, y + 8, 4, 1, '#8844cc');
+  // Tome (glowing book in hand)
+  fillRect(ctx, x + 10, y + 8, 3, 4, '#6644aa');
+  px(ctx, x + 11, y + 9, '#cc88ff'); // glow
+  // Feet
+  fillRect(ctx, x + 3, y + 16, 3, 2, '#2a2040');
+  fillRect(ctx, x + 8, y + 16, 3, 2, '#2a2040');
+}
+
+function drawTrainingNPC(ctx: CanvasRenderingContext2D, ox: number, oy: number): void {
+  const x = ox, y = oy;
+  // Armored warrior with teal accents — battle-scarred trainer
+  // Head (helmet)
+  fillRect(ctx, x + 3, y + 0, 8, 4, '#556677');
+  fillRect(ctx, x + 4, y + 1, 6, 3, '#667788');
+  // Visor slit
+  fillRect(ctx, x + 4, y + 2, 6, 1, '#112233');
+  px(ctx, x + 5, y + 2, '#00ffcc'); // left eye
+  px(ctx, x + 8, y + 2, '#00ffcc'); // right eye
+  // Neck
+  fillRect(ctx, x + 5, y + 4, 4, 1, '#445566');
+  // Chest plate
+  fillRect(ctx, x + 2, y + 5, 10, 6, '#445566');
+  fillRect(ctx, x + 3, y + 6, 8, 4, '#556677');
+  // Teal trim / scar
+  fillRect(ctx, x + 5, y + 6, 4, 1, '#00ccaa');
+  px(ctx, x + 3, y + 7, '#00ccaa');
+  px(ctx, x + 10, y + 7, '#00ccaa');
+  // Sword (on back)
+  fillRect(ctx, x + 11, y + 2, 2, 10, '#889999');
+  px(ctx, x + 11, y + 1, '#aabbcc'); // pommel
+  // Legs
+  fillRect(ctx, x + 3, y + 11, 3, 5, '#445566');
+  fillRect(ctx, x + 8, y + 11, 3, 5, '#445566');
+  // Boots
+  fillRect(ctx, x + 3, y + 16, 3, 2, '#334455');
+  fillRect(ctx, x + 8, y + 16, 3, 2, '#334455');
+}
+
+// ---------------------------------------------------------------------------
 // Canvas creation helper
 // ---------------------------------------------------------------------------
 
@@ -1085,6 +1145,20 @@ export function generateUpgradedSprites(scene: Phaser.Scene): void {
     const [canvas, ctx] = createCanvas(14, 18);
     drawShopkeeper(ctx, 0, 0);
     scene.textures.addCanvas('npc-shopkeeper', canvas);
+  }
+
+  // Lore NPC: 14x18
+  {
+    const [canvas, ctx] = createCanvas(14, 18);
+    drawLoreNPC(ctx, 0, 0);
+    scene.textures.addCanvas('npc-lore', canvas);
+  }
+
+  // Training NPC: 14x18
+  {
+    const [canvas, ctx] = createCanvas(14, 18);
+    drawTrainingNPC(ctx, 0, 0);
+    scene.textures.addCanvas('npc-training', canvas);
   }
 
   // Save Crystal: 12x12

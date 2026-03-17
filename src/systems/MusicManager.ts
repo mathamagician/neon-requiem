@@ -51,8 +51,8 @@ function mtof(midi: number): number {
 }
 
 // MIDI note names for readability
-const C3 = 48, D3 = 50, Eb3 = 51, E3 = 52, F3 = 53, G3 = 55, Ab3 = 56, A3 = 57, Bb3 = 58, B3 = 59;
-const C4 = 60, D4 = 62, Eb4 = 63, E4 = 64, F4 = 65, Gb4 = 66, G4 = 67, B4 = 71;
+const C3 = 48, Eb3 = 51, E3 = 52, F3 = 53, G3 = 55, Ab3 = 56, B3 = 59;
+const C4 = 60, D4 = 62, E4 = 64, F4 = 65, G4 = 67;
 const C5 = 72;
 
 // ---------------------------------------------------------------------------
@@ -133,6 +133,17 @@ const ZONE_TONES: Record<string, ZoneTone> = {
     voiceVol: 0.04, // square is harsh, keep it low
     arpNotes: [mtof(G4), mtof(D4), mtof(C5), mtof(G4)],
     arpSpeed: 1600,
+  },
+  voidnexus: {
+    // Tritone drone — dissonant, ominous, pulsing void
+    chord: [mtof(C3), mtof(F3 + 1), mtof(B3)], // C + F# + B = tritone tension
+    type: 'sawtooth',
+    lfoRate: 0.25,
+    lfoDepth: 0.35,
+    detune: 15,
+    voiceVol: 0.06,
+    arpNotes: [mtof(B3 + 12), mtof(F4 + 1), mtof(C5), mtof(F4 + 1)],
+    arpSpeed: 2000,
   },
 };
 

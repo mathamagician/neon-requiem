@@ -23,14 +23,16 @@ import { Boss } from '../entities/Boss';
 import { HollowKing } from '../entities/HollowKing';
 import { LadyHemlock } from '../entities/LadyHemlock';
 import { Overclock } from '../entities/Overclock';
+import { NexusCore } from '../entities/NexusCore';
 import type { AnyPlayer } from '../entities/PlayerTypes';
 import { getDefaultBranch } from '../../shared/data/skillTrees';
-import { buildSaveData, writeSave, restoreInventory, getNGPlusMultiplier, type SaveData } from '../systems/SaveSystem';
+import { buildSaveData, writeSave, restoreInventory, getNGPlusMultiplier, buildNGPlusSave, type SaveData } from '../systems/SaveSystem';
 import { getZoneModifiers, mergeModifiers } from '../systems/ZoneModifiers';
 import { playSound } from '../systems/SoundManager';
 import { initCameraFX, updateFX, destroyFX } from '../systems/FXManager';
 import { startZoneMusic, stopMusic, fadeOutMusic, setCombatActive, setBossActive } from '../systems/MusicManager';
 import { NetManager, type NetPlayerState } from '../systems/NetManager';
+import { DialogueSystem, type DialogueLine } from '../systems/DialogueSystem';
 
 export type ClassName = 'vanguard' | 'gunner' | 'wraith';
 
@@ -57,6 +59,8 @@ export class GameScene extends Phaser.Scene {
   private boss3Triggered = false;
   private boss4: Overclock | null = null;
   private boss4Triggered = false;
+  private boss5: NexusCore | null = null;
+  private boss5Triggered = false;
   bossesDefeated: string[] = [];
   gold = 0;
   ngPlusLevel = 0;
@@ -64,6 +68,10 @@ export class GameScene extends Phaser.Scene {
   // NPCs
   private npcs: { sprite: Phaser.GameObjects.Sprite; type: string; label: Phaser.GameObjects.Text }[] = [];
   private npcPrompt: Phaser.GameObjects.Text | null = null;
+
+  // Dialogue system
+  private dialogue!: DialogueSystem;
+  private bossIntroPlayed: Set<string> = new Set();
 
   // Zone system
   currentZone: string = 'foundry';
@@ -84,12 +92,29 @@ export class GameScene extends Phaser.Scene {
   private levelData: number[][] = [];
   private lastSpikeDamageTime = 0;
 
+  // NG+ prompt
+  private ngPlusPrompt: Phaser.GameObjects.Text | null = null;
+
   // Multiplayer ghost sprites
   private ghostSprites: Map<string, Phaser.GameObjects.Sprite> = new Map();
   private ghostLabels: Map<string, Phaser.GameObjects.Text> = new Map();
+  private ghostDownedLabels: Map<string, Phaser.GameObjects.Text> = new Map();
+  private ghostReviveBars: Map<string, Phaser.GameObjects.Graphics> = new Map();
   private netHudText: Phaser.GameObjects.Text | null = null;
   private netSendTimer = 0;
   private readonly NET_SEND_INTERVAL = 50; // ms between state broadcasts
+
+  // Downed/revive state (multiplayer only)
+  private isDowned = false;
+  private downedTimer = 0;
+  private readonly DOWNED_DURATION = 10000; // 10s before death
+  private readonly REVIVE_DURATION = 3000; // 3s proximity to revive
+  private readonly REVIVE_PROXIMITY = 50; // pixels
+  private downedOverlay: Phaser.GameObjects.Text | null = null;
+  private downedTimerText: Phaser.GameObjects.Text | null = null;
+  private invincibleUntilTime = 0;
+  private reviveProgress: Map<string, number> = new Map();
+  private downedPeers: Set<string> = new Set();
 
   constructor() {
     super({ key: 'GameScene' });
@@ -115,10 +140,12 @@ export class GameScene extends Phaser.Scene {
     this.boss2 = null;
     this.boss3 = null;
     this.boss4 = null;
+    this.boss5 = null;
     this.bossTriggered = false;
     this.boss2Triggered = false;
     this.boss3Triggered = false;
     this.boss4Triggered = false;
+    this.boss5Triggered = false;
     this.zoneExits = [];
 
     // -- Restore from save if present --
@@ -220,6 +247,11 @@ export class GameScene extends Phaser.Scene {
       this.boss4 = new Overclock(this, bossX, bossFloorY);
       this.physics.add.collider(this.boss4.sprite, this.groundLayer);
     }
+    if (this.zoneDef.bossId === 'nexus_core' && !this.bossesDefeated.includes('nexus_core')) {
+      const bossX = (this.zoneDef.bossSpawnTileX ?? 110) * TILE_SIZE;
+      this.boss5 = new NexusCore(this, bossX, bossFloorY);
+      this.physics.add.collider(this.boss5.sprite, this.groundLayer);
+    }
 
     // -- Zone exits --
     this.setupZoneExits(levelH);
@@ -297,15 +329,31 @@ export class GameScene extends Phaser.Scene {
     // -- Multiplayer ghost sprites --
     this.ghostSprites = new Map();
     this.ghostLabels = new Map();
+    this.ghostDownedLabels = new Map();
+    this.ghostReviveBars = new Map();
     this.netSendTimer = 0;
+    this.isDowned = false;
+    this.downedTimer = 0;
+    this.invincibleUntilTime = 0;
+    this.reviveProgress = new Map();
+    this.downedPeers = new Set();
+    this.downedOverlay = null;
+    this.downedTimerText = null;
     if (NetManager.isOnline()) {
       this.setupMultiplayer();
     }
+
+    // -- Dialogue system --
+    this.dialogue = new DialogueSystem(this);
+    this.bossIntroPlayed = new Set();
 
     // -- Show load notification --
     if (save) {
       this.showNotification('Save loaded');
     }
+
+    // -- Zone title cinematic --
+    this.showZoneTitle();
 
     // -- Fade in on zone entry --
     this.cameras.main.fadeIn(300, 0, 0, 0);
@@ -330,9 +378,22 @@ export class GameScene extends Phaser.Scene {
       this.removeGhostSprite(id);
     }
     this.netHudText = null;
+    this.downedOverlay?.destroy();
+    this.downedOverlay = null;
+    this.downedTimerText?.destroy();
+    this.downedTimerText = null;
   }
 
   update(time: number, delta: number) {
+    // Dialogue system always updates (handles its own input)
+    this.dialogue.update(time, delta);
+
+    // While dialogue is active, freeze the player and skip most gameplay logic
+    if (this.dialogue.dialogueActive) {
+      (this.player.sprite.body as Phaser.Physics.Arcade.Body)?.setVelocityX(0);
+      return;
+    }
+
     this.player.update(time, delta);
     for (const enemy of this.enemyInstances) enemy.update(time, delta);
     this.combat.update(time, delta);
@@ -346,8 +407,7 @@ export class GameScene extends Phaser.Scene {
     const bossTriggerX = (this.zoneDef.bossTriggerTileX ?? 999) * TILE_SIZE;
     if (this.boss && !this.bossTriggered && this.player.sprite.x > bossTriggerX) {
       this.bossTriggered = true;
-      this.boss.activate();
-      setBossActive(true);
+      this.showBossIntroThenActivate('voltrexx', this.boss);
     }
     if (this.boss?.isActive) {
       this.boss.update(time, delta);
@@ -355,8 +415,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.boss2 && !this.boss2Triggered && this.player.sprite.x > bossTriggerX) {
       this.boss2Triggered = true;
-      this.boss2.activate();
-      setBossActive(true);
+      this.showBossIntroThenActivate('hollow_king', this.boss2);
     }
     if (this.boss2?.isActive) {
       this.boss2.update(time, delta);
@@ -364,8 +423,7 @@ export class GameScene extends Phaser.Scene {
 
     if (this.boss3 && !this.boss3Triggered && this.player.sprite.x > bossTriggerX) {
       this.boss3Triggered = true;
-      this.boss3.activate();
-      setBossActive(true);
+      this.showBossIntroThenActivate('hemlock', this.boss3);
     }
     if (this.boss3?.isActive) {
       this.boss3.update(time, delta);
@@ -373,18 +431,26 @@ export class GameScene extends Phaser.Scene {
 
     if (this.boss4 && !this.boss4Triggered && this.player.sprite.x > bossTriggerX) {
       this.boss4Triggered = true;
-      this.boss4.activate();
-      setBossActive(true);
+      this.showBossIntroThenActivate('overclock', this.boss4);
     }
     if (this.boss4?.isActive) {
       this.boss4.update(time, delta);
+    }
+
+    if (this.boss5 && !this.boss5Triggered && this.player.sprite.x > bossTriggerX) {
+      this.boss5Triggered = true;
+      this.showBossIntroThenActivate('nexus_core', this.boss5);
+    }
+    if (this.boss5?.isActive) {
+      this.boss5.update(time, delta);
     }
 
     // Post-processing FX
     const anyBossActive = (this.boss?.isActive && this.boss.state !== 'dead')
       || (this.boss2?.isActive && this.boss2.state !== 'dead')
       || (this.boss3?.isActive && this.boss3.state !== 'dead')
-      || (this.boss4?.isActive && this.boss4.state !== 'dead');
+      || (this.boss4?.isActive && this.boss4.state !== 'dead')
+      || (this.boss5?.isActive && this.boss5.state !== 'dead');
     updateFX(delta, !!anyBossActive, this.player.hp / this.player.maxHp);
 
     // Music layers — boss overrides combat
@@ -457,7 +523,19 @@ export class GameScene extends Phaser.Scene {
     // Listen for peers leaving
     NetManager.onPeerLeave((peerId: string) => {
       this.removeGhostSprite(peerId);
+      this.downedPeers.delete(peerId);
+      this.reviveProgress.delete(peerId);
       this.updateNetHud();
+    });
+
+    // Listen for game events (revive signals)
+    NetManager.onEvent((event: string, data: unknown) => {
+      if (event === 'revived' && typeof data === 'object' && data !== null) {
+        const d = data as { targetId: string };
+        if (d.targetId === NetManager.playerId && this.isDowned) {
+          this.handleRevived();
+        }
+      }
     });
   }
 
@@ -499,6 +577,16 @@ export class GameScene extends Phaser.Scene {
       label.destroy();
       this.ghostLabels.delete(peerId);
     }
+    const downedLabel = this.ghostDownedLabels.get(peerId);
+    if (downedLabel) {
+      downedLabel.destroy();
+      this.ghostDownedLabels.delete(peerId);
+    }
+    const reviveBar = this.ghostReviveBars.get(peerId);
+    if (reviveBar) {
+      reviveBar.destroy();
+      this.ghostReviveBars.delete(peerId);
+    }
   }
 
   private updateGhostFromState(state: NetPlayerState) {
@@ -518,13 +606,22 @@ export class GameScene extends Phaser.Scene {
         ghost.setTexture(expectedKey);
       }
 
-      // Visual feedback for attacking/dashing
-      if (state.isAttacking) {
+      // Visual feedback for attacking/dashing/ultimate/downed
+      if (state.isDowned) {
+        ghost.setTint(0xff4444);
+        ghost.setAlpha(0.7);
+      } else if (state.isUsingUltimate) {
+        ghost.setTint(0xffff00);
+        ghost.setAlpha(0.8);
+      } else if (state.isAttacking) {
         ghost.setTint(0xffffff);
+        ghost.setAlpha(0.5);
       } else if (state.isDashing) {
         ghost.setTint(0x88ffff);
+        ghost.setAlpha(0.5);
       } else {
         ghost.setTint(0x00ffcc);
+        ghost.setAlpha(0.5);
       }
     }
 
@@ -532,6 +629,51 @@ export class GameScene extends Phaser.Scene {
     const label = this.ghostLabels.get(state.id);
     if (label) {
       label.setPosition(state.x, state.y - 20);
+    }
+
+    // Downed state tracking for remote peers
+    if (state.isDowned) {
+      if (!this.downedPeers.has(state.id)) {
+        this.downedPeers.add(state.id);
+        this.reviveProgress.set(state.id, 0);
+      }
+      // Show/update DOWNED label above ghost
+      let downedLabel = this.ghostDownedLabels.get(state.id);
+      if (!downedLabel) {
+        downedLabel = this.add.text(state.x, state.y - 32, 'DOWNED', {
+          fontSize: '10px', fontFamily: 'Consolas, monospace', color: '#ff4444',
+          fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
+        }).setOrigin(0.5).setDepth(10);
+        this.ghostDownedLabels.set(state.id, downedLabel);
+      }
+      downedLabel.setPosition(state.x, state.y - 32);
+
+      // Show/update revive progress bar
+      let reviveBar = this.ghostReviveBars.get(state.id);
+      if (!reviveBar) {
+        reviveBar = this.add.graphics().setDepth(10);
+        this.ghostReviveBars.set(state.id, reviveBar);
+      }
+      const progress = this.reviveProgress.get(state.id) ?? 0;
+      const barW = 30;
+      const barH = 4;
+      const barX = state.x - barW / 2;
+      const barY = state.y - 40;
+      reviveBar.clear();
+      reviveBar.fillStyle(0x222222, 0.8);
+      reviveBar.fillRect(barX, barY, barW, barH);
+      reviveBar.fillStyle(0x00ff88, 1);
+      reviveBar.fillRect(barX, barY, barW * (progress / this.REVIVE_DURATION), barH);
+    } else {
+      // Peer is no longer downed - clean up
+      if (this.downedPeers.has(state.id)) {
+        this.downedPeers.delete(state.id);
+        this.reviveProgress.delete(state.id);
+        const downedLabel = this.ghostDownedLabels.get(state.id);
+        if (downedLabel) { downedLabel.destroy(); this.ghostDownedLabels.delete(state.id); }
+        const reviveBar = this.ghostReviveBars.get(state.id);
+        if (reviveBar) { reviveBar.destroy(); this.ghostReviveBars.delete(state.id); }
+      }
     }
   }
 
@@ -554,6 +696,8 @@ export class GameScene extends Phaser.Scene {
         className: this.currentClass,
         isAttacking: p.isAttacking,
         isDashing: 'isDashing' in p ? !!(p as any).isDashing : false,
+        isUsingUltimate: 'isUsingUltimate' in p ? !!(p as any).isUsingUltimate : false,
+        isDowned: this.isDowned,
         facingRight: p.facingRight,
       };
       NetManager.sendState(state);
@@ -567,6 +711,59 @@ export class GameScene extends Phaser.Scene {
         ghost.x = Phaser.Math.Linear(ghost.x, peerState.x, lerpFactor);
         ghost.y = Phaser.Math.Linear(ghost.y, peerState.y, lerpFactor);
       }
+    }
+
+    // Downed state countdown for local player
+    if (this.isDowned) {
+      this.downedTimer -= delta;
+      if (this.downedTimerText) {
+        const secs = Math.max(0, Math.ceil(this.downedTimer / 1000));
+        this.downedTimerText.setText('DOWNED  ' + secs + 's');
+      }
+      if (this.downedTimer <= 0) {
+        this.isDowned = false;
+        this.cleanupDownedUI();
+        this.proceedToDeath();
+      }
+    }
+
+    // Revive proximity check: if local player is near a downed peer, accumulate revive progress
+    if (!this.isDowned) {
+      const px = this.player.sprite.x;
+      const py = this.player.sprite.y;
+      for (const peerId of this.downedPeers) {
+        const peerState = NetManager.peers.get(peerId);
+        if (!peerState) continue;
+        const dx = peerState.x - px;
+        const dy = peerState.y - py;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist <= this.REVIVE_PROXIMITY) {
+          const progress = (this.reviveProgress.get(peerId) ?? 0) + delta;
+          this.reviveProgress.set(peerId, progress);
+          if (progress >= this.REVIVE_DURATION) {
+            NetManager.sendEvent('revived', { targetId: peerId });
+            this.downedPeers.delete(peerId);
+            this.reviveProgress.delete(peerId);
+            const downedLabel = this.ghostDownedLabels.get(peerId);
+            if (downedLabel) { downedLabel.destroy(); this.ghostDownedLabels.delete(peerId); }
+            const reviveBar = this.ghostReviveBars.get(peerId);
+            if (reviveBar) { reviveBar.destroy(); this.ghostReviveBars.delete(peerId); }
+            this.showNotification('Ally revived!', '#00ff88');
+          }
+        } else {
+          this.reviveProgress.set(peerId, 0);
+        }
+      }
+    }
+
+    // Invincibility flash (post-revive)
+    if (this.invincibleUntilTime > 0 && time >= this.invincibleUntilTime) {
+      this.invincibleUntilTime = 0;
+      this.player.sprite.clearTint();
+      this.player.sprite.setAlpha(1);
+    } else if (this.invincibleUntilTime > 0) {
+      const flash = Math.floor(time / 100) % 2 === 0;
+      this.player.sprite.setAlpha(flash ? 1 : 0.4);
     }
   }
 
@@ -593,7 +790,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Returns the first active boss (for combat system hit detection) */
-  getBoss(): Boss | HollowKing | LadyHemlock | Overclock | null {
+  getBoss(): Boss | HollowKing | LadyHemlock | Overclock | NexusCore | null {
+    if (this.boss5?.isActive && this.boss5.state !== 'dead') return this.boss5;
     if (this.boss4?.isActive && this.boss4.state !== 'dead') return this.boss4;
     if (this.boss3?.isActive && this.boss3.state !== 'dead') return this.boss3;
     if (this.boss2?.isActive && this.boss2.state !== 'dead') return this.boss2;
@@ -602,12 +800,13 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** Returns all active bosses for systems that need to check both */
-  getAllActiveBosses(): (Boss | HollowKing | LadyHemlock | Overclock)[] {
-    const bosses: (Boss | HollowKing | LadyHemlock | Overclock)[] = [];
+  getAllActiveBosses(): (Boss | HollowKing | LadyHemlock | Overclock | NexusCore)[] {
+    const bosses: (Boss | HollowKing | LadyHemlock | Overclock | NexusCore)[] = [];
     if (this.boss?.isActive && this.boss.state !== 'dead') bosses.push(this.boss);
     if (this.boss2?.isActive && this.boss2.state !== 'dead') bosses.push(this.boss2);
     if (this.boss3?.isActive && this.boss3.state !== 'dead') bosses.push(this.boss3);
     if (this.boss4?.isActive && this.boss4.state !== 'dead') bosses.push(this.boss4);
+    if (this.boss5?.isActive && this.boss5.state !== 'dead') bosses.push(this.boss5);
     return bosses;
   }
 
@@ -1157,9 +1356,64 @@ export class GameScene extends Phaser.Scene {
         this.player.energy = Math.min(this.player.maxEnergy, this.player.energy + Math.floor(this.player.maxEnergy * 0.15));
 
         this.showNotification('Game saved');
+
+        // Show NG+ prompt in hub when all 4 bosses defeated
+        if (this.currentZone === 'hub' && this.bossesDefeated.length >= 4 && !this.ngPlusPrompt) {
+          const nextNg = this.ngPlusLevel + 1;
+          this.ngPlusPrompt = this.add.text(sp.x, sp.y - 40, `[E] NEW GAME+ ${nextNg}`, {
+            fontSize: '11px', fontFamily: 'Consolas, monospace', color: '#ffcc44',
+            fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
+          }).setOrigin(0.5).setDepth(10);
+          this.tweens.add({
+            targets: this.ngPlusPrompt,
+            alpha: { from: 0.6, to: 1 },
+            duration: 800,
+            yoyo: true,
+            repeat: -1,
+          });
+        }
         break;
       }
     }
+
+    // NG+ trigger — press E near save crystal in hub
+    if (this.ngPlusPrompt && Phaser.Input.Keyboard.JustDown(this.interactKey)) {
+      const px = this.player.sprite.x;
+      const py = this.player.sprite.y;
+      for (const sp of this.savePoints) {
+        if (Phaser.Math.Distance.Between(px, py, sp.x, sp.y) < 32) {
+          this.startNewGamePlus();
+          break;
+        }
+      }
+    }
+  }
+
+  private startNewGamePlus() {
+    const currentSave = buildSaveData(
+      this.currentClass, this.player, this.inventory,
+      this.bossesDefeated, this.currentZone, this.gold, this.ngPlusLevel
+    );
+    const ngSave = buildNGPlusSave(currentSave);
+    writeSave(ngSave);
+    playSound('powerAbsorb');
+
+    // Flash and transition
+    this.cameras.main.flash(500, 255, 200, 50);
+    this.showNotification(`NEW GAME+ ${ngSave.ngPlusLevel} — enemies are stronger!`);
+
+    this.time.delayedCall(1500, () => {
+      this.cameras.main.fadeOut(500, 0, 0, 0);
+      this.cameras.main.once('camerafadeoutcomplete', () => {
+        fadeOutMusic();
+        this.scene.stop('HUDScene');
+        this.scene.start('GameScene', {
+          selectedClass: this.currentClass,
+          saveData: ngSave,
+          zoneId: 'hub',
+        });
+      });
+    });
   }
 
   // -- Pit Hazard --
@@ -1229,26 +1483,28 @@ export class GameScene extends Phaser.Scene {
   private spawnHubNPCs() {
     const groundY = this.zoneDef.height * TILE_SIZE - 48;
 
-    // Shopkeeper at center of hub
-    const shopX = 20 * TILE_SIZE;
-    const sprite = this.add.sprite(shopX, groundY, 'npc-shopkeeper').setOrigin(0.5, 1).setDepth(5);
+    const spawnNPC = (tileX: number, texture: string, labelText: string, labelColor: string, type: string) => {
+      const x = tileX * TILE_SIZE;
+      const spr = this.add.sprite(x, groundY, texture).setOrigin(0.5, 1).setDepth(5);
+      const lbl = this.add.text(x, groundY - 28, labelText, {
+        fontSize: '10px', fontFamily: 'Consolas, monospace', color: labelColor,
+        stroke: '#000000', strokeThickness: 1,
+      }).setOrigin(0.5).setDepth(5);
+      this.tweens.add({
+        targets: spr, y: groundY - 2,
+        duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
+      });
+      this.npcs.push({ sprite: spr, type, label: lbl });
+    };
 
-    const label = this.add.text(shopX, groundY - 28, 'SHOP', {
-      fontSize: '10px', fontFamily: 'Consolas, monospace', color: '#ccaa66',
-      stroke: '#000000', strokeThickness: 1,
-    }).setOrigin(0.5).setDepth(5);
-
-    // Gentle bobbing
-    this.tweens.add({
-      targets: sprite, y: groundY - 2,
-      duration: 1500, yoyo: true, repeat: -1, ease: 'Sine.easeInOut',
-    });
-
-    this.npcs.push({ sprite, type: 'shop', label });
+    spawnNPC(20, 'npc-shopkeeper', 'SHOP', '#ccaa66', 'shop');
+    spawnNPC(25, 'npc-lore', 'LORE', '#aa66ff', 'lore');
+    spawnNPC(35, 'npc-training', 'TRAINING', '#00ccaa', 'training');
   }
 
   private checkNPCProximity() {
     if (this.npcs.length === 0) return;
+    if (this.dialogue.dialogueActive) return;
 
     const px = this.player.sprite.x;
     const py = this.player.sprite.y;
@@ -1263,15 +1519,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     if (nearNpc) {
-      // Show interaction prompt
       if (!this.npcPrompt) {
         this.npcPrompt = this.add.text(nearNpc.sprite.x, nearNpc.sprite.y - 40, 'Press E to interact', {
           fontSize: '10px', fontFamily: 'Consolas, monospace', color: '#ffffff',
           stroke: '#000000', strokeThickness: 1,
         }).setOrigin(0.5).setDepth(50);
       }
-
-      // Check for interaction key
       if (Phaser.Input.Keyboard.JustDown(this.interactKey)) {
         this.openNPCInteraction(nearNpc.type);
       }
@@ -1283,19 +1536,261 @@ export class GameScene extends Phaser.Scene {
 
   private openNPCInteraction(type: string) {
     if (type === 'shop') {
-      this.scene.pause('GameScene');
-      this.scene.launch('ShopScene', { gameScene: this });
+      this.dialogue.show(this.getShopDialogue());
+    } else if (type === 'lore') {
+      this.dialogue.show(this.getLoreDialogue());
+    } else if (type === 'training') {
+      this.dialogue.show(this.getTrainingDialogue());
     }
   }
 
-  /** Called by player entity on death — pauses game and shows death overlay */
+  private getShopDialogue(): DialogueLine[] {
+    const sets: DialogueLine[][] = [
+      [
+        { speaker: 'MERCHANT', text: 'Welcome, warrior. My wares are the finest in the Threshold.', color: '#ccaa66' },
+        { speaker: 'MERCHANT', text: 'Looking to upgrade? I have blades tempered in neon fire.', color: '#ccaa66' },
+        { speaker: 'MERCHANT', text: "A tip for free: Voltrexx is weak to sustained pressure. Don't let him charge up.", color: '#ccaa66' },
+      ],
+      [
+        { speaker: 'MERCHANT', text: "Back again? Good. You'll need better gear for what lies ahead.", color: '#ccaa66' },
+        { speaker: 'MERCHANT', text: 'The bosses grow stronger the deeper you go. Equip wisely.', color: '#ccaa66' },
+      ],
+      [
+        { speaker: 'MERCHANT', text: "Hemlock's poison lingers. If you find antidote charms, buy them.", color: '#ccaa66' },
+        { speaker: 'MERCHANT', text: 'Overclock has no patience. He telegraphs every big attack.', color: '#ccaa66' },
+      ],
+    ];
+    return sets[Math.floor(Math.random() * sets.length)];
+  }
+
+  private getLoreDialogue(): DialogueLine[] {
+    const sets: DialogueLine[][] = [
+      [
+        { speaker: 'ARCHIVIST', text: 'This world was not always broken. The corruption came from the Void Nexus.', color: '#aa66ff' },
+        { speaker: 'ARCHIVIST', text: "Each zone was once a thriving district. The Foundry forged the city's lifeblood.", color: '#aa66ff' },
+        { speaker: 'ARCHIVIST', text: 'The Cryptvault held the memories of the dead. Now they walk freely.', color: '#aa66ff' },
+      ],
+      [
+        { speaker: 'ARCHIVIST', text: 'The Blighted Garden was a paradise, before Hemlock twisted nature itself.', color: '#aa66ff' },
+        { speaker: 'ARCHIVIST', text: "The Neon Citadel housed the city's brain. Overclock seized control.", color: '#aa66ff' },
+        { speaker: 'ARCHIVIST', text: 'Defeat all four bosses and the path to the Void Nexus will open.', color: '#aa66ff' },
+      ],
+      [
+        { speaker: 'ARCHIVIST', text: 'The Nexus Core pulses with void energy. It is the source of all corruption.', color: '#aa66ff' },
+        { speaker: 'ARCHIVIST', text: 'Some say if you destroy it, the world will heal. Others say it will collapse entirely.', color: '#aa66ff' },
+      ],
+    ];
+    return sets[Math.floor(Math.random() * sets.length)];
+  }
+
+  private getTrainingDialogue(): DialogueLine[] {
+    const sets: DialogueLine[][] = [
+      [
+        { speaker: 'COMMANDER', text: 'Listen up. Your attack combo cycles through three weapons. Use all three.', color: '#00ccaa' },
+        { speaker: 'COMMANDER', text: "Dash with X to dodge through attacks. Time it with the enemy's wind-up.", color: '#00ccaa' },
+        { speaker: 'COMMANDER', text: 'In the air, try a downward pogo attack. It keeps you safe from ground hazards.', color: '#00ccaa' },
+      ],
+      [
+        { speaker: 'COMMANDER', text: 'Boss patterns repeat. Learn the rhythm. Dodge, punish, repeat.', color: '#00ccaa' },
+        { speaker: 'COMMANDER', text: 'The Hollow King telegraphs his scythe sweep with a long wind-up. Jump over it.', color: '#00ccaa' },
+        { speaker: 'COMMANDER', text: "Don't forget your boss powers. Press C to use them. S to swap.", color: '#00ccaa' },
+      ],
+      [
+        { speaker: 'COMMANDER', text: 'Energy regenerates slowly. Land hits to restore it faster.', color: '#00ccaa' },
+        { speaker: 'COMMANDER', text: 'Higher combo counts deal bonus damage. Keep the pressure on.', color: '#00ccaa' },
+      ],
+    ];
+    return sets[Math.floor(Math.random() * sets.length)];
+  }
+
+  // -- Boss intro dialogues --
+
+  private readonly BOSS_INTRO_LINES: Record<string, DialogueLine[]> = {
+    voltrexx: [
+      { speaker: 'VOLTREXX', text: "You dare enter my forge? I'll turn you to ash.", color: '#00ffcc' },
+      { speaker: 'VOLTREXX', text: 'Feel the lightning surge through every circuit. There is no escape.', color: '#00ffcc' },
+      { speaker: 'VOLTREXX', text: 'Come then. Let the current decide your fate.', color: '#00ffcc' },
+    ],
+    hollow_king: [
+      { speaker: 'HOLLOW KING', text: '...Another soul wanders into the crypt.', color: '#6644aa' },
+      { speaker: 'HOLLOW KING', text: 'Death is not an ending here. It is a beginning.', color: '#6644aa' },
+      { speaker: 'HOLLOW KING', text: 'Join the echoes. You will learn to love the silence.', color: '#6644aa' },
+    ],
+    hemlock: [
+      { speaker: 'LADY HEMLOCK', text: 'How delightful. A visitor to my garden.', color: '#44cc44' },
+      { speaker: 'LADY HEMLOCK', text: "Every petal here drips with venom. Beautiful, isn't it?", color: '#44cc44' },
+      { speaker: 'LADY HEMLOCK', text: 'Let me show you how nature reclaims what was taken.', color: '#44cc44' },
+    ],
+    overclock: [
+      { speaker: 'OVERCLOCK', text: 'INTRUDER DETECTED. THREAT LEVEL: NEGLIGIBLE.', color: '#44ccff' },
+      { speaker: 'OVERCLOCK', text: 'Processing power at 400%. Your reaction time is insufficient.', color: '#44ccff' },
+      { speaker: 'OVERCLOCK', text: 'INITIATING TERMINATION PROTOCOL.', color: '#44ccff' },
+    ],
+    nexus_core: [
+      { speaker: 'NEXUS CORE', text: 'You have reached the heart of the void.', color: '#ff44ff' },
+      { speaker: 'NEXUS CORE', text: 'I am the corruption. I am the source. I am everything.', color: '#ff44ff' },
+      { speaker: 'NEXUS CORE', text: 'All will be consumed. Starting with you.', color: '#ff44ff' },
+    ],
+  };
+
+  private showBossIntroThenActivate(bossId: string, boss: { activate: () => void }) {
+    const introLines = this.BOSS_INTRO_LINES[bossId];
+    if (!introLines || this.bossIntroPlayed.has(bossId)) {
+      boss.activate();
+      setBossActive(true);
+      return;
+    }
+    this.bossIntroPlayed.add(bossId);
+    this.dialogue.show(introLines);
+    const checkDone = this.time.addEvent({
+      delay: 100,
+      loop: true,
+      callback: () => {
+        if (!this.dialogue.isActive()) {
+          checkDone.destroy();
+          boss.activate();
+          setBossActive(true);
+        }
+      },
+    });
+  }
+
+  // -- Zone title cinematic --
+
+  private showZoneTitle() {
+    const zoneTitles: Record<string, { title: string; subtitle: string }> = {
+      hub: { title: 'THE THRESHOLD', subtitle: 'A Moment of Respite' },
+      foundry: { title: 'NEON FOUNDRY', subtitle: 'Where Metal Burns' },
+      cryptvault: { title: 'CRYPTVAULT', subtitle: 'Echoes of the Dead' },
+      garden: { title: 'BLIGHTED GARDEN', subtitle: "Nature's Decay" },
+      citadel: { title: 'NEON CITADEL', subtitle: 'Heart of the Machine' },
+      voidnexus: { title: 'THE VOID NEXUS', subtitle: 'Source of the Corruption' },
+    };
+    const baseZone = this.currentZone.replace(/_boss$/, '');
+    const entry = zoneTitles[baseZone];
+    if (!entry) return;
+
+    const accentColor = '#' + this.zoneDef.palette.accent.toString(16).padStart(6, '0');
+
+    const titleText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 12, entry.title, {
+      fontSize: '24px', fontFamily: 'Arial, sans-serif', fontStyle: 'bold',
+      color: accentColor, stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(400).setAlpha(0);
+
+    const subtitleText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 14, entry.subtitle, {
+      fontSize: '12px', fontFamily: 'Arial, sans-serif',
+      color: '#aaaaaa', stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(400).setAlpha(0);
+
+    // Fade in 0.5s, hold 2s, fade out 0.5s = ~3s total
+    this.tweens.add({
+      targets: [titleText, subtitleText],
+      alpha: 1,
+      duration: 500,
+      onComplete: () => {
+        this.time.delayedCall(2000, () => {
+          this.tweens.add({
+            targets: [titleText, subtitleText],
+            alpha: 0,
+            duration: 500,
+            onComplete: () => {
+              titleText.destroy();
+              subtitleText.destroy();
+            },
+          });
+        });
+      },
+    });
+  }
+
+  /** Called by player entity on death - enters downed state in multiplayer, or dies in solo */
   onPlayerDeath() {
+    // In multiplayer with peers connected, enter downed state instead of dying immediately
+    if (NetManager.isOnline() && NetManager.getPeerCount() > 0 && !this.isDowned) {
+      this.enterDownedState();
+      return;
+    }
+    this.proceedToDeath();
+  }
+
+  /** Actually proceed to the death screen (solo, or downed timer expired) */
+  private proceedToDeath() {
     this.scene.pause('GameScene');
     this.scene.launch('DeathScene', {
       zoneName: this.zoneDef.name,
       className: this.currentClass,
       zoneId: this.currentZone,
     });
+  }
+
+  /** Enter the downed state - player is incapacitated but can be revived */
+  private enterDownedState() {
+    this.isDowned = true;
+    this.downedTimer = this.DOWNED_DURATION;
+    this.player.hp = 0;
+
+    // Disable player movement
+    const body = this.player.sprite.body as Phaser.Physics.Arcade.Body;
+    body.setVelocity(0, 0);
+
+    // Visual: red tint on player sprite
+    this.player.sprite.setTint(0xff4444);
+    this.player.sprite.setAlpha(0.7);
+
+    // HUD overlay for downed state
+    this.downedOverlay = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 40, 'DOWNED', {
+      fontSize: '28px', fontFamily: 'Consolas, monospace', color: '#ff4444',
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+
+    this.downedTimerText = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 10, 'DOWNED  10s', {
+      fontSize: '14px', fontFamily: 'Consolas, monospace', color: '#ff8888',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(200);
+
+    // Pulse the overlay
+    this.tweens.add({
+      targets: this.downedOverlay,
+      alpha: { from: 0.6, to: 1 },
+      duration: 600,
+      yoyo: true,
+      repeat: -1,
+    });
+  }
+
+  /** Handle being revived by a peer */
+  private handleRevived() {
+    this.isDowned = false;
+    this.cleanupDownedUI();
+
+    // Restore to 30% HP
+    this.player.hp = Math.floor(this.player.maxHp * 0.3);
+
+    // Brief invincibility (2s)
+    this.invincibleUntilTime = this.time.now + 2000;
+    this.player.invincibleUntil = this.time.now + 2000;
+
+    // Clear tint and restore alpha
+    this.player.sprite.clearTint();
+    this.player.sprite.setAlpha(1);
+
+    this.showNotification('REVIVED!', '#00ff88');
+    playSound('levelUp');
+  }
+
+  /** Remove downed UI elements */
+  private cleanupDownedUI() {
+    if (this.downedOverlay) {
+      this.tweens.killTweensOf(this.downedOverlay);
+      this.downedOverlay.destroy();
+      this.downedOverlay = null;
+    }
+    if (this.downedTimerText) {
+      this.downedTimerText.destroy();
+      this.downedTimerText = null;
+    }
+    this.player.sprite.clearTint();
+    this.player.sprite.setAlpha(1);
   }
 
   /** Show a brief notification at the top of the screen */

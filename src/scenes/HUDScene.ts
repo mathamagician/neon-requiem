@@ -305,7 +305,7 @@ export class HUDScene extends Phaser.Scene {
     }
 
     // Draw boss dot (large, purple, pulsing)
-    const boss = gs.boss ?? gs.boss2 ?? gs.boss3 ?? gs.boss4;
+    const boss = gs.boss ?? gs.boss2 ?? gs.boss3 ?? gs.boss4 ?? gs.boss5;
     if (boss?.sprite?.active) {
       const bx = mapX + (boss.sprite.x / (levelW * TILE_SIZE)) * mapW;
       const by = mapY + (boss.sprite.y / (levelH * TILE_SIZE)) * mapH;

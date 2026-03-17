@@ -20,6 +20,13 @@ export class LobbyScene extends Phaser.Scene {
   private startButton: Phaser.GameObjects.Text | null = null;
   private statusText: Phaser.GameObjects.Text | null = null;
 
+  // Player list UI
+  private playerListTexts: Phaser.GameObjects.Text[] = [];
+
+  // Ready button
+  private readyButton: Phaser.GameObjects.Text | null = null;
+  private isReady = false;
+
   // Joining UI
   private joinInput = '';
   private joinInputDisplay: Phaser.GameObjects.Text | null = null;
@@ -37,6 +44,8 @@ export class LobbyScene extends Phaser.Scene {
     this.selectedIndex = 0;
     this.joinInput = '';
     this.dynamicObjects = [];
+    this.playerListTexts = [];
+    this.isReady = false;
 
     // Background
     const bg = this.add.graphics();
@@ -82,6 +91,7 @@ export class LobbyScene extends Phaser.Scene {
     this.input.keyboard!.on('keydown-ENTER', () => this.onConfirm());
     this.input.keyboard!.on('keydown-ESC', () => this.onBack());
     this.input.keyboard!.on('keydown-BACKSPACE', () => this.onBackspace());
+    this.input.keyboard!.on('keydown-R', () => this.onToggleReady());
 
     // Typing handler for join code
     this.input.keyboard!.on('keydown', (e: KeyboardEvent) => {
@@ -158,9 +168,9 @@ export class LobbyScene extends Phaser.Scene {
       }
     } else if (this.lobbyState === 'joining' && this.joinInput.length === 4) {
       this.connectToRoom();
-    } else if (this.lobbyState === 'hosting' || this.lobbyState === 'waiting') {
-      // Start the game if host and peers connected
-      if (NetManager.mode === 'host' && NetManager.getPeerCount() > 0) {
+    } else if (this.lobbyState === 'hosting') {
+      // Start the game if host and all peers ready
+      if (NetManager.mode === 'host' && NetManager.getPeerCount() > 0 && NetManager.allPeersReady() && this.isReady) {
         this.launchGame();
       }
     }
@@ -177,6 +187,7 @@ export class LobbyScene extends Phaser.Scene {
       }
       this.clearDynamic();
       this.lobbyState = 'menu';
+      this.isReady = false;
       this.cursor.setVisible(true);
       this.updateMenuHighlight();
     }
@@ -189,21 +200,46 @@ export class LobbyScene extends Phaser.Scene {
     }
   }
 
+  private onToggleReady() {
+    if (this.lobbyState !== 'hosting' && this.lobbyState !== 'waiting') return;
+    if (!NetManager.isOnline()) return;
+
+    this.isReady = !this.isReady;
+    playSound('menuSelect');
+    NetManager.sendLobbyReady(this.isReady, NetManager.getLocalClassName());
+    this.updateReadyButton();
+    this.updatePlayerList();
+    this.updateStartButton();
+  }
+
   // -- Hosting --
 
   private startHosting() {
     this.lobbyState = 'hosting';
     this.cursor.setVisible(false);
     this.clearDynamic();
+    this.isReady = false;
 
     const code = NetManager.generateRoomCode();
     NetManager.hostLocal(code);
 
     // Listen for peer events to update display
-    NetManager.onPeerJoin(() => this.updateHostDisplay());
-    NetManager.onPeerLeave(() => this.updateHostDisplay());
+    NetManager.onPeerJoin(() => {
+      this.updateHostDisplay();
+      this.updatePlayerList();
+      this.updateStartButton();
+    });
+    NetManager.onPeerLeave(() => {
+      this.updateHostDisplay();
+      this.updatePlayerList();
+      this.updateStartButton();
+    });
+    NetManager.onLobbyUpdate(() => {
+      this.updatePlayerList();
+      this.updateStartButton();
+    });
 
-    const labelY = 160;
+    const labelY = 140;
 
     const label = this.add.text(GAME_WIDTH / 2, labelY, 'ROOM CODE:', {
       fontSize: '14px', fontFamily: MONO, color: '#888899',
@@ -211,7 +247,7 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.dynamicObjects.push(label);
 
-    this.roomCodeText = this.add.text(GAME_WIDTH / 2, labelY + 30, code, {
+    this.roomCodeText = this.add.text(GAME_WIDTH / 2, labelY + 26, code, {
       fontSize: '36px', fontFamily: MONO, color: '#00ffcc',
       fontStyle: 'bold', stroke: '#003333', strokeThickness: 4,
     }).setOrigin(0.5);
@@ -226,23 +262,38 @@ export class LobbyScene extends Phaser.Scene {
       repeat: -1,
     });
 
-    this.peerCountText = this.add.text(GAME_WIDTH / 2, labelY + 70, 'Waiting for players...', {
+    this.peerCountText = this.add.text(GAME_WIDTH / 2, labelY + 58, 'Waiting for players...', {
       fontSize: '12px', fontFamily: MONO, color: '#667788',
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
     this.dynamicObjects.push(this.peerCountText);
 
-    this.statusText = this.add.text(GAME_WIDTH / 2, labelY + 90, 'Share this code — open another tab and JOIN', {
+    this.statusText = this.add.text(GAME_WIDTH / 2, labelY + 76, 'Share this code — open another tab and JOIN', {
       fontSize: '11px', fontFamily: FONT, color: '#556677',
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
     this.dynamicObjects.push(this.statusText);
 
-    this.startButton = this.add.text(GAME_WIDTH / 2, labelY + 130, 'START GAME', {
-      fontSize: '16px', fontFamily: MONO, color: '#00ffcc',
+    // Ready button
+    this.readyButton = this.add.text(GAME_WIDTH / 2 - 70, GAME_HEIGHT - 80, '[R] READY', {
+      fontSize: '14px', fontFamily: MONO, color: '#667788',
       stroke: '#000000', strokeThickness: 2,
+      backgroundColor: '#111122',
+      padding: { x: 8, y: 4 },
+    }).setOrigin(0.5);
+    this.dynamicObjects.push(this.readyButton);
+
+    // Start button (host only)
+    this.startButton = this.add.text(GAME_WIDTH / 2 + 70, GAME_HEIGHT - 80, 'START GAME', {
+      fontSize: '14px', fontFamily: MONO, color: '#00ffcc',
+      stroke: '#000000', strokeThickness: 2,
+      backgroundColor: '#111122',
+      padding: { x: 8, y: 4 },
     }).setOrigin(0.5).setAlpha(0.3);
     this.dynamicObjects.push(this.startButton);
+
+    // Initial player list
+    this.updatePlayerList();
   }
 
   private updateHostDisplay() {
@@ -252,8 +303,71 @@ export class LobbyScene extends Phaser.Scene {
       this.peerCountText.setText(`${total} player${total > 1 ? 's' : ''} connected`);
       this.peerCountText.setColor(count > 0 ? '#00ffcc' : '#667788');
     }
-    if (this.startButton) {
-      this.startButton.setAlpha(count > 0 ? 1 : 0.3);
+  }
+
+  private updateReadyButton() {
+    if (!this.readyButton) return;
+    if (this.isReady) {
+      this.readyButton.setText('[R] READY!');
+      this.readyButton.setColor('#00ff88');
+      this.readyButton.setBackgroundColor('#003322');
+    } else {
+      this.readyButton.setText('[R] READY');
+      this.readyButton.setColor('#667788');
+      this.readyButton.setBackgroundColor('#111122');
+    }
+  }
+
+  private updateStartButton() {
+    if (!this.startButton) return;
+    const canStart = NetManager.getPeerCount() > 0 && NetManager.allPeersReady() && this.isReady;
+    this.startButton.setAlpha(canStart ? 1 : 0.3);
+  }
+
+  private updatePlayerList() {
+    // Clear existing player list
+    for (const t of this.playerListTexts) t.destroy();
+    this.playerListTexts = [];
+
+    const listY = 228;
+    const lineH = 18;
+    let idx = 0;
+
+    // Header
+    const header = this.add.text(GAME_WIDTH / 2, listY, '— PLAYERS —', {
+      fontSize: '10px', fontFamily: MONO, color: '#556677',
+      stroke: '#000000', strokeThickness: 1,
+    }).setOrigin(0.5);
+    this.playerListTexts.push(header);
+    this.dynamicObjects.push(header);
+    idx++;
+
+    // Local player (self)
+    const selfReady = this.isReady ? ' [READY]' : '';
+    const selfClass = NetManager.getLocalClassName().toUpperCase();
+    const selfLabel = NetManager.mode === 'host' ? 'YOU (HOST)' : 'YOU';
+    const selfText = this.add.text(GAME_WIDTH / 2, listY + lineH * idx, `${selfLabel} — ${selfClass}${selfReady}`, {
+      fontSize: '11px', fontFamily: MONO,
+      color: this.isReady ? '#00ff88' : '#cccccc',
+      stroke: '#000000', strokeThickness: 1,
+    }).setOrigin(0.5);
+    this.playerListTexts.push(selfText);
+    this.dynamicObjects.push(selfText);
+    idx++;
+
+    // Remote peers
+    for (const [peerId, info] of NetManager.lobbyPeers) {
+      const peerReady = info.ready ? ' [READY]' : '';
+      const peerClass = info.className.toUpperCase();
+      const shortId = peerId.substring(0, 8);
+      const peerText = this.add.text(GAME_WIDTH / 2, listY + lineH * idx, `${shortId} — ${peerClass}${peerReady}`, {
+        fontSize: '11px', fontFamily: MONO,
+        color: info.ready ? '#00ff88' : '#888899',
+        stroke: '#000000', strokeThickness: 1,
+      }).setOrigin(0.5);
+      this.playerListTexts.push(peerText);
+      this.dynamicObjects.push(peerText);
+      idx++;
     }
   }
 
@@ -305,6 +419,7 @@ export class LobbyScene extends Phaser.Scene {
   private connectToRoom() {
     NetManager.joinLocal(this.joinInput);
     this.lobbyState = 'waiting';
+    this.isReady = false;
 
     // Listen for start signal
     NetManager.onStart((data) => {
@@ -314,10 +429,26 @@ export class LobbyScene extends Phaser.Scene {
       });
     });
 
+    // Listen for lobby updates
+    NetManager.onLobbyUpdate(() => {
+      this.updatePlayerList();
+    });
+
+    NetManager.onPeerJoin(() => {
+      this.updatePlayerList();
+    });
+
+    NetManager.onPeerLeave(() => {
+      this.updatePlayerList();
+    });
+
+    // Request lobby info from existing peers
+    NetManager.sendLobbyInfoRequest();
+
     // Update display
     this.clearDynamic();
 
-    const labelY = 160;
+    const labelY = 140;
 
     const connectedLabel = this.add.text(GAME_WIDTH / 2, labelY, `JOINED ROOM: ${this.joinInput}`, {
       fontSize: '14px', fontFamily: MONO, color: '#00ffcc',
@@ -325,11 +456,20 @@ export class LobbyScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.dynamicObjects.push(connectedLabel);
 
-    this.statusText = this.add.text(GAME_WIDTH / 2, labelY + 35, 'Waiting for host to start...', {
+    this.statusText = this.add.text(GAME_WIDTH / 2, labelY + 30, 'Waiting for host to start...', {
       fontSize: '12px', fontFamily: MONO, color: '#667788',
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
     this.dynamicObjects.push(this.statusText);
+
+    // Ready button
+    this.readyButton = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 80, '[R] READY', {
+      fontSize: '14px', fontFamily: MONO, color: '#667788',
+      stroke: '#000000', strokeThickness: 2,
+      backgroundColor: '#111122',
+      padding: { x: 8, y: 4 },
+    }).setOrigin(0.5);
+    this.dynamicObjects.push(this.readyButton);
 
     // Pulsing dots animation
     let dots = 0;
@@ -343,6 +483,9 @@ export class LobbyScene extends Phaser.Scene {
         }
       },
     });
+
+    // Initial player list
+    this.updatePlayerList();
   }
 
   // -- Game Launch --
@@ -369,11 +512,13 @@ export class LobbyScene extends Phaser.Scene {
       obj.destroy();
     }
     this.dynamicObjects = [];
+    this.playerListTexts = [];
     this.roomCodeText = null;
     this.peerCountText = null;
     this.startButton = null;
     this.statusText = null;
     this.joinInputDisplay = null;
     this.joinPrompt = null;
+    this.readyButton = null;
   }
 }
