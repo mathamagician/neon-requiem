@@ -46,9 +46,8 @@ export function createTestLevel(): number[][] {
     // High secret ledge near ceiling with accent frame
     { x: 6, y: H - 12, w: 3 },
   ];
-  // Entry archway accent
-  for (let y = 3; y < H - 5; y++) level[y][2] = 3;
-  level[3][3] = 3;
+  // Entry archway accent — high only (non-blocking)
+  for (let y = 3; y < H - 8; y++) level[y][2] = 3;
   // Ceiling overhang — gives a tunnel feel to the entry
   for (let x = 2; x < 8; x++) level[2][x] = 1;
   // Small pipe structures on ceiling
@@ -66,10 +65,8 @@ export function createTestLevel(): number[][] {
     { x: 30, y: H - 5, w: 4 },
     { x: 32, y: H - 9, w: 3 },
   ];
-  // Low wall barrier between sections — jumpable
-  for (let wy = H - 4; wy < H - 2; wy++) {
-    level[wy][20] = 1;
-  }
+  // Section divider — one-way platform, not a wall
+  level[H - 4][20] = 2;
   // Overhead machinery (solid blocks)
   level[3][26] = 1;
   level[3][27] = 1;
@@ -80,14 +77,10 @@ export function createTestLevel(): number[][] {
   // This is the signature section — a vertical shaft with platforms
   // going both up and across, rewarding exploration
 
-  // Ground rises into a raised plateau (tiles 38-48)
+  // Raised plateau (tiles 38-48) — one-way so ground path stays open
   for (let x = 38; x < 48; x++) {
-    level[H - 3][x] = 1;
-    level[H - 4][x] = 1;
+    level[H - 4][x] = 2;
   }
-  // Accent trim on plateau edges
-  level[H - 5][38] = 3;
-  level[H - 5][47] = 3;
 
   // Vertical shaft pit (deep, tiles 35-37)
   for (let px = 35; px < 38; px++) {
@@ -105,11 +98,9 @@ export function createTestLevel(): number[][] {
     { x: 36, y: H - 13, w: 3 },  // connects to high route
     { x: 49, y: H - 5, w: 3 },   // descent from plateau
   ];
-  // Accent pillars on the plateau
-  level[H - 5][41] = 3;
-  level[H - 6][41] = 3;
-  level[H - 5][45] = 3;
-  level[H - 6][45] = 3;
+  // Accent trim on ceiling above plateau (non-blocking)
+  level[2][41] = 3;
+  level[2][45] = 3;
 
   // Ceiling structures over vertical section
   for (let x = 38; x < 48; x++) level[1][x] = 1;
@@ -149,9 +140,9 @@ export function createTestLevel(): number[][] {
 
   // ===== SECTION 5: Forge chamber (tiles 65-80) =====
   // Large open chamber with multi-level platforms
-  // Raised floor sections
+  // Raised floor — one-way platform so ground path stays open
   for (let x = 70; x < 75; x++) {
-    level[H - 3][x] = 1;
+    level[H - 4][x] = 2;
   }
   // Pit 5 — wider, more dangerous
   for (let px = 77; px < 81; px++) {
@@ -168,11 +159,9 @@ export function createTestLevel(): number[][] {
     // Upper secret area — reward for climbing
     { x: 69, y: H - 14, w: 5 },
   ];
-  // Forge pillars
-  const forgePillars = [68, 74];
-  for (const px of forgePillars) {
-    for (let y = H - 5; y >= H - 8; y--) level[y][px] = 3;
-  }
+  // Forge accent trim on ceiling (non-blocking)
+  level[2][68] = 3;
+  level[2][74] = 3;
   // Ceiling detail — forge hood
   for (let x = 68; x < 76; x++) level[1][x] = 1;
   for (let x = 70; x < 74; x++) level[2][x] = 1;
@@ -198,9 +187,9 @@ export function createTestLevel(): number[][] {
     { x: 95, y: H - 5, w: 4 },
     { x: 93, y: H - 9, w: 3 },
   ];
-  // Gauntlet walls — creates tight corridors
-  for (let y = 2; y < H - 8; y++) level[y][83] = 1;
-  for (let y = 2; y < H - 6; y++) level[y][90] = 1;
+  // Gauntlet walls — upper walls only, ground path stays open
+  for (let y = 2; y < H - 10; y++) level[y][83] = 1;
+  for (let y = 2; y < H - 10; y++) level[y][90] = 1;
 
   // ===== PROCEDURAL SECTIONS (tiles 98-138) =====
   // Two generated sections between the gauntlet and boss arena

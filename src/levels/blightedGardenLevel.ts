@@ -35,12 +35,11 @@ export function getBlightedGardenTiles(): number[][] {
   for (let x = 2; x < 10; x++) level[2][x] = 1;
   for (let x = 2; x < 6; x++) level[3][x] = 1;
 
-  // Vine-covered archway accent at entrance
-  for (let y = 3; y < H - 4; y++) level[y][2] = 3;
-  level[4][3] = 3;
+  // Vine archway accent — upper only (non-blocking)
+  for (let y = 3; y < H - 8; y++) level[y][2] = 3;
 
-  // Raised mossy mound (ground bump)
-  for (let x = 8; x < 12; x++) level[H - 3][x] = 1;
+  // Mossy mound — one-way platform, doesn't block ground
+  for (let x = 8; x < 12; x++) level[H - 4][x] = 2;
 
   const s1Platforms: { x: number; y: number; w: number }[] = [
     { x: 4, y: H - 5, w: 4 },
@@ -58,9 +57,8 @@ export function getBlightedGardenTiles(): number[][] {
   // ===== SECTION 2: Poison pit section (tiles 15-30) =====
   // Toxic pits with spikes, narrow platforms above — punishing but fair
 
-  // Divider vine wall (jumpable)
-  for (let wy = H - 4; wy < H - 2; wy++) level[wy][15] = 1;
-  level[H - 5][15] = 3;
+  // Section divider — one-way platform
+  level[H - 4][15] = 2;
 
   // Toxic pit 1 (wide)
   for (let px = 17; px < 21; px++) {
@@ -99,9 +97,9 @@ export function getBlightedGardenTiles(): number[][] {
   // ===== SECTION 3: Vertical garden shaft (tiles 30-45) =====
   // Tall climbing section — vine platforms going up, rewarding exploration
 
-  // Shaft walls — partial walls create a vertical corridor
-  for (let y = 4; y < H - 4; y++) level[y][30] = 1;
-  for (let y = 6; y < H - 2; y++) level[y][45] = 1;
+  // Shaft walls — upper only, ground passage stays open
+  for (let y = 4; y < H - 8; y++) level[y][30] = 1;
+  for (let y = 6; y < H - 8; y++) level[y][45] = 1;
 
   // Ground drops away in the shaft — deep pit
   for (let px = 31; px < 35; px++) {
@@ -109,10 +107,9 @@ export function getBlightedGardenTiles(): number[][] {
     level[H - 2][px] = 0;
   }
 
-  // Raised earth on right side of shaft
+  // Raised earth — one-way platform, doesn't block ground
   for (let x = 40; x < 45; x++) {
-    level[H - 3][x] = 1;
-    level[H - 4][x] = 1;
+    level[H - 4][x] = 2;
   }
 
   const s3Platforms: { x: number; y: number; w: number }[] = [
@@ -128,13 +125,11 @@ export function getBlightedGardenTiles(): number[][] {
     { x: 39, y: H - 14, w: 3 },   // connects to exit at top
   ];
 
-  // Accent vines on shaft walls
-  level[6][30] = 3;
-  level[8][30] = 3;
-  level[10][30] = 3;
+  // Accent vines on shaft walls — high only
+  level[5][30] = 3;
+  level[7][30] = 3;
+  level[5][45] = 3;
   level[7][45] = 3;
-  level[9][45] = 3;
-  level[12][45] = 3;
 
   // Ceiling structures — canopy above the shaft
   for (let x = 31; x < 44; x++) level[1][x] = 1;
@@ -150,25 +145,17 @@ export function getBlightedGardenTiles(): number[][] {
   // Open the shaft exit at upper levels
   for (let y = 2; y < 6; y++) level[y][45] = 0;
 
-  // Canopy — elevated ground, gaps create danger
+  // Canopy — elevated one-way platform, ground stays passable
   for (let x = 46; x < 60; x++) {
-    level[H - 3][x] = 1;
+    level[H - 4][x] = 2;
   }
-  // Gaps in the canopy floor
-  for (let gx = 49; gx < 51; gx++) {
-    level[H - 3][gx] = 0;
-    level[H - 2][gx] = 0;
-    level[H - 1][gx] = 0;
-  }
-  for (let gx = 54; gx < 56; gx++) {
-    level[H - 3][gx] = 0;
-    level[H - 2][gx] = 0;
-    level[H - 1][gx] = 0;
-  }
-  for (let gx = 58; gx < 60; gx++) {
-    level[H - 3][gx] = 0;
-    level[H - 2][gx] = 0;
-    level[H - 1][gx] = 0;
+  // Gaps in the canopy and ground
+  for (const [start, end] of [[49, 51], [54, 56], [58, 60]]) {
+    for (let gx = start; gx < end; gx++) {
+      level[H - 4][gx] = 0; // remove canopy platform
+      level[H - 2][gx] = 0; // remove ground
+      level[H - 1][gx] = 0;
+    }
   }
 
   const s4Platforms: { x: number; y: number; w: number }[] = [
@@ -200,9 +187,9 @@ export function getBlightedGardenTiles(): number[][] {
     level[H - 2][px] = 0;
   }
 
-  // Raised earth on sides of the chamber
-  for (let x = 60; x < 64; x++) level[H - 3][x] = 1;
-  for (let x = 72; x < 76; x++) level[H - 3][x] = 1;
+  // Raised earth — one-way platforms, ground stays open
+  for (let x = 60; x < 64; x++) level[H - 4][x] = 2;
+  for (let x = 72; x < 76; x++) level[H - 4][x] = 2;
 
   const s5Platforms: { x: number; y: number; w: number }[] = [
     { x: 61, y: H - 6, w: 4 },    // left lower
@@ -222,11 +209,9 @@ export function getBlightedGardenTiles(): number[][] {
   for (let x = 61; x < 75; x++) level[1][x] = 1;
   for (let x = 63; x < 73; x++) level[2][x] = 1;
 
-  // Greenhouse pillars — structural supports
-  const ghPillars = [62, 74];
-  for (const px of ghPillars) {
-    for (let y = H - 6; y >= H - 9; y--) level[y][px] = 3;
-  }
+  // Greenhouse accent on ceiling (non-blocking)
+  level[2][62] = 3;
+  level[2][74] = 3;
 
   // Center chandelier / hanging garden
   level[3][67] = 3;
@@ -237,12 +222,9 @@ export function getBlightedGardenTiles(): number[][] {
   // ===== SECTION 6: Pre-boss gauntlet (tiles 75-90) =====
   // Tight corridors, spike traps, thorn walls — intense
 
-  // Gauntlet walls — creates tight corridors to navigate
-  for (let y = 2; y < H - 6; y++) level[y][78] = 1;
-  for (let y = 4; y < H - 4; y++) level[y][84] = 1;
-  // Gaps in gauntlet walls for passage
-  for (let y = H - 9; y < H - 6; y++) level[y][78] = 0;
-  for (let y = H - 7; y < H - 4; y++) level[y][84] = 0;
+  // Gauntlet walls — upper only, ground passage stays open
+  for (let y = 2; y < H - 10; y++) level[y][78] = 1;
+  for (let y = 4; y < H - 10; y++) level[y][84] = 1;
 
   // Gauntlet pits
   for (let px = 80; px < 83; px++) {

@@ -35,18 +35,14 @@ export function getNeonCitadelTiles(): number[][] {
   for (let x = 2; x < 15; x++) level[3][x] = 1;
   for (let x = 2; x < 10; x++) level[4][x] = 1;
 
-  // Data conduit accent walls along corridor
-  for (let y = 5; y < H - 4; y++) level[y][2] = 3;
-  for (let y = 5; y < H - 4; y++) level[y][8] = 3;
-  for (let y = 5; y < H - 4; y++) level[y][14] = 3;
+  // Data conduit accent walls — upper only (non-blocking)
+  for (let y = 5; y < H - 8; y++) level[y][2] = 3;
+  for (let y = 5; y < H - 8; y++) level[y][8] = 3;
+  for (let y = 5; y < H - 8; y++) level[y][14] = 3;
 
-  // Passage gaps in conduit walls
-  for (let y = H - 7; y < H - 4; y++) level[y][8] = 0;
-  for (let y = H - 7; y < H - 4; y++) level[y][14] = 0;
-
-  // Raised floor segments (security checkpoints)
-  for (let x = 5; x < 8; x++) level[H - 3][x] = 1;
-  for (let x = 11; x < 14; x++) level[H - 3][x] = 1;
+  // Security checkpoints — one-way platforms, ground stays open
+  for (let x = 5; x < 8; x++) level[H - 4][x] = 2;
+  for (let x = 11; x < 14; x++) level[H - 4][x] = 2;
 
   const s1Platforms: { x: number; y: number; w: number }[] = [
     { x: 3, y: H - 6, w: 4 },
@@ -66,10 +62,10 @@ export function getNeonCitadelTiles(): number[][] {
   // Ceiling opens up for the tall room
   for (let x = 16; x < 30; x++) level[1][x] = 1;
 
-  // Server rack columns (accent walls with platforms between)
-  const rackColumns = [17, 21, 25, 29];
-  for (const col of rackColumns) {
-    for (let y = H - 8; y < H - 2; y++) level[y][col] = 3;
+  // Server rack accents — ceiling only (non-blocking)
+  for (const col of [17, 21, 25, 29]) {
+    level[2][col] = 3;
+    level[3][col] = 3;
   }
 
   const s2Platforms: { x: number; y: number; w: number }[] = [
@@ -99,13 +95,9 @@ export function getNeonCitadelTiles(): number[][] {
   // ===== SECTION 3: Vertical data shaft (tiles 30-45) =====
   // Tall shaft with zigzag platforms, spike walls on sides
 
-  // Shaft walls
-  for (let y = 2; y < H - 2; y++) level[y][30] = 1;
-  for (let y = 2; y < H - 2; y++) level[y][45] = 1;
-
-  // Passage openings in shaft walls
-  for (let y = H - 5; y < H - 2; y++) level[y][30] = 0;
-  for (let y = 3; y < 6; y++) level[y][45] = 0;
+  // Shaft walls — upper only, ground passage stays open
+  for (let y = 2; y < H - 8; y++) level[y][30] = 1;
+  for (let y = 2; y < H - 8; y++) level[y][45] = 1;
 
   // Remove ground inside shaft to create deep pit
   for (let px = 31; px < 45; px++) {
@@ -143,15 +135,11 @@ export function getNeonCitadelTiles(): number[][] {
     { x: 31, y: 4, w: 3 },
   ];
 
-  // Accent data stream lines on shaft walls
+  // Accent data stream lines — high only (non-blocking)
+  level[4][30] = 3;
   level[6][30] = 3;
-  level[9][30] = 3;
-  level[12][30] = 3;
-  level[15][30] = 3;
-  level[5][45] = 3;
-  level[8][45] = 3;
-  level[11][45] = 3;
-  level[14][45] = 3;
+  level[4][45] = 3;
+  level[6][45] = 3;
 
   // ===== SECTION 4: Neon highway (tiles 45-65) =====
   // Long horizontal run with gaps and varied-height platforms
@@ -159,19 +147,14 @@ export function getNeonCitadelTiles(): number[][] {
   // Open the shaft exit at top for passage into highway
   // (already handled by passage openings above)
 
-  // Highway elevated road surface
-  for (let x = 46; x < 65; x++) level[H - 3][x] = 1;
+  // Highway elevated road — one-way platform, ground stays passable
+  for (let x = 46; x < 65; x++) level[H - 4][x] = 2;
 
-  // Gaps in the highway — must jump across
-  const highwayGaps = [
-    { start: 49, end: 51 },
-    { start: 54, end: 56 },
-    { start: 59, end: 62 },
-  ];
-  for (const gap of highwayGaps) {
-    for (let gx = gap.start; gx < gap.end; gx++) {
-      level[H - 3][gx] = 0;
-      level[H - 2][gx] = 0;
+  // Gaps in the highway and ground
+  for (const [start, end] of [[49, 51], [54, 56], [59, 62]]) {
+    for (let gx = start; gx < end; gx++) {
+      level[H - 4][gx] = 0; // remove highway platform
+      level[H - 2][gx] = 0; // remove ground
       level[H - 1][gx] = 0;
     }
   }
@@ -212,13 +195,8 @@ export function getNeonCitadelTiles(): number[][] {
   // Control center ceiling
   for (let x = 66; x < 80; x++) level[1][x] = 1;
 
-  // Central command pillar base
-  for (let x = 70; x < 75; x++) level[H - 3][x] = 1;
-  for (let x = 71; x < 74; x++) level[H - 4][x] = 1;
-
-  // Side structural walls (partial height)
-  for (let y = H - 8; y < H - 3; y++) level[y][66] = 3;
-  for (let y = H - 8; y < H - 3; y++) level[y][79] = 3;
+  // Central command platform — one-way, ground stays open
+  for (let x = 70; x < 75; x++) level[H - 4][x] = 2;
 
   const s5Platforms: { x: number; y: number; w: number }[] = [
     // Ground-level side platforms
@@ -238,10 +216,9 @@ export function getNeonCitadelTiles(): number[][] {
     { x: 66, y: 3, w: 3 },
   ];
 
-  // Holographic display accents in center
-  level[H - 5][72] = 3;
-  level[H - 6][72] = 3;
-  level[H - 5][73] = 3;
+  // Holographic display accent on ceiling (non-blocking)
+  level[3][72] = 3;
+  level[3][73] = 3;
 
   // Ceiling hanging accent (chandelier / hologram projector)
   level[2][72] = 3;
@@ -255,13 +232,9 @@ export function getNeonCitadelTiles(): number[][] {
   // Gauntlet ceiling — low and oppressive
   for (let x = 80; x < 95; x++) level[2][x] = 1;
 
-  // Internal walls creating narrow corridors
-  for (let y = 5; y < H - 4; y++) level[y][84] = 1;
-  for (let y = 5; y < H - 6; y++) level[y][89] = 1;
-
-  // Passage gaps through internal walls
-  for (let y = H - 7; y < H - 4; y++) level[y][84] = 0;
-  for (let y = H - 9; y < H - 6; y++) level[y][89] = 0;
+  // Gauntlet walls — upper only, ground passage stays open
+  for (let y = 5; y < H - 10; y++) level[y][84] = 1;
+  for (let y = 5; y < H - 10; y++) level[y][89] = 1;
 
   // Pits in gauntlet floor
   for (let px = 81; px < 84; px++) {
@@ -324,9 +297,9 @@ export function getNeonCitadelTiles(): number[][] {
     level[1][x] = 1;
   }
 
-  // Slight raised floor at arena edges for containment
-  for (let x = 136; x < 139; x++) level[H - 3][x] = 1;
-  for (let x = 155; x < 158; x++) level[H - 3][x] = 1;
+  // Arena edge platforms — one-way, ground stays passable
+  for (let x = 136; x < 139; x++) level[H - 4][x] = 2;
+  for (let x = 155; x < 158; x++) level[H - 4][x] = 2;
 
   const bossPlats: { x: number; y: number; w: number }[] = [
     // Left elevated combat platform
@@ -352,10 +325,8 @@ export function getNeonCitadelTiles(): number[][] {
   level[H - 3][156] = 3;
   level[H - 4][156] = 3;
 
-  // Central holographic pedestal
-  level[H - 3][147] = 1;
-  level[H - 4][147] = 1;
-  level[H - 5][147] = 3;
+  // Central pedestal accent (ceiling detail)
+  level[2][147] = 3;
 
   // ===== Flow bridges — fill gaps between hand-crafted sections =====
   const bridges: { x: number; y: number; w: number }[] = [

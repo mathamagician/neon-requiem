@@ -33,9 +33,8 @@ export function createCryptvaultLevel(): number[][] {
   for (let x = 2; x < 12; x++) level[2][x] = 1;
   for (let x = 4; x < 10; x++) level[3][x] = 1;
 
-  // Entry archway accent
-  for (let y = 3; y < H - 3; y++) level[y][1] = 3;
-  level[3][2] = 3;
+  // Entry archway accent — high only (non-blocking)
+  for (let y = 3; y < H - 8; y++) level[y][1] = 3;
 
   const s1Platforms: { x: number; y: number; w: number }[] = [
     { x: 4, y: H - 5, w: 4 },
@@ -43,12 +42,8 @@ export function createCryptvaultLevel(): number[][] {
     { x: 5, y: H - 9, w: 3 },  // leads up to coffin shelf
   ];
 
-  // Coffin shelves — solid blocks in the walls (burial alcoves)
+  // Coffin shelf — upper alcove only, doesn't block ground
   for (let y = H - 9; y <= H - 7; y++) {
-    level[y][1] = 1;
-    level[y][2] = 1;
-  }
-  for (let y = H - 6; y <= H - 4; y++) {
     level[y][1] = 1;
     level[y][2] = 1;
   }
@@ -60,10 +55,8 @@ export function createCryptvaultLevel(): number[][] {
     level[H - 2][px] = 0;
   }
 
-  // Low wall barrier
-  for (let wy = H - 4; wy < H - 2; wy++) {
-    level[wy][15] = 1;
-  }
+  // Section divider — one-way platform
+  level[H - 4][15] = 2;
 
   const s2Platforms: { x: number; y: number; w: number }[] = [
     { x: 19, y: H - 5, w: 5 },
@@ -75,12 +68,9 @@ export function createCryptvaultLevel(): number[][] {
     { x: 28, y: H - 14, w: 4 },
   ];
 
-  // Gothic pillars throughout the corridor
-  const corridorPillars = [16, 24, 31];
-  for (const px of corridorPillars) {
-    level[H - 3][px] = 1;
-    level[H - 4][px] = 1;
-    level[H - 5][px] = 1;
+  // Gothic accent trim on ceiling (non-blocking)
+  for (const px of [16, 24, 31]) {
+    level[2][px] = 3;
   }
 
   // Overhead stone arches (ceiling detail)
@@ -101,21 +91,18 @@ export function createCryptvaultLevel(): number[][] {
     { x: 39, y: H - 8, w: 3 },
   ];
 
-  // Burial chamber walls — creates a sunken tomb feel
-  for (let y = H - 8; y < H - 2; y++) {
+  // Burial chamber wall — upper only, ground passage stays open
+  for (let y = 2; y < H - 8; y++) {
     level[y][33] = 1;
   }
-  // Accent on chamber wall
-  level[H - 9][33] = 3;
 
   // ===== SECTION 4: Ghost gallery (tiles 42-58) =====
   // Vertical platforming showcase — climb up through the gallery
   // This is where ghosts float — lots of vertical space
 
-  // Raised floor sections
+  // Raised floor — one-way platform so ground path stays open
   for (let x = 45; x < 50; x++) {
-    level[H - 3][x] = 1;
-    level[H - 4][x] = 1;
+    level[H - 4][x] = 2;
   }
 
   // Pit in gallery
@@ -138,11 +125,9 @@ export function createCryptvaultLevel(): number[][] {
     { x: 56, y: H - 5, w: 3 },
   ];
 
-  // Gallery pillars — tall, atmospheric
-  const galleryPillars = [42, 51];
-  for (const px of galleryPillars) {
-    for (let y = H - 7; y >= H - 12; y--) level[y][px] = 3;
-  }
+  // Gallery accent trim on ceiling (non-blocking)
+  level[2][42] = 3;
+  level[2][51] = 3;
 
   // Ceiling vaults over gallery
   for (let x = 43; x < 52; x++) level[1][x] = 1;
@@ -176,9 +161,9 @@ export function createCryptvaultLevel(): number[][] {
     { x: 72, y: H - 6, w: 3 },
   ];
 
-  // Bone piles — solid blocks scattered on ground
-  level[H - 3][60] = 1;
-  level[H - 3][67] = 1;
+  // Bone pile accent (ceiling detail only)
+  level[2][60] = 3;
+  level[2][67] = 3;
 
   // ===== SECTION 6: Catacomb descent (tiles 72-82) =====
   // Opens up again before boss — multi-level with wall structures
@@ -190,16 +175,12 @@ export function createCryptvaultLevel(): number[][] {
     { x: 73, y: H - 13, w: 3 },  // high secret alcove
   ];
 
-  // Catacomb wall structures
-  for (let y = 3; y < H - 8; y++) level[y][75] = 1;
-  // Opening in the wall (player can pass through gap)
-  level[H - 6][75] = 0;
-  level[H - 7][75] = 0;
-  level[H - 8][75] = 0;
+  // Catacomb wall — upper only, ground passage stays open
+  for (let y = 3; y < H - 10; y++) level[y][75] = 1;
 
-  // Tall accent pillars flanking catacomb
-  for (let y = H - 8; y >= H - 14; y--) level[y][73] = 3;
-  for (let y = H - 8; y >= H - 14; y--) level[y][80] = 3;
+  // Catacomb accent trim on ceiling (non-blocking)
+  level[2][73] = 3;
+  level[2][80] = 3;
 
   // ===== PROCEDURAL SECTIONS (tiles 82-122) =====
   const procTypes = pickSectionTypes(2, 77);
