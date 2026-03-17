@@ -114,6 +114,26 @@ export class Boss {
     playSound('bossRoar');
     safeShake(this.scene.cameras.main, 300, 0.015);
     this.scene.cameras.main.flash(200, 0, 100, 200);
+
+    // Boss intro card
+    this.scene.physics.pause();
+    const nameCard = this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 20, 'VOLTREXX', {
+      fontSize: '28px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#00ffcc',
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 4,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(300).setAlpha(0);
+
+    const subtitle = this.scene.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 15, 'The Living Circuit', {
+      fontSize: '14px', fontFamily: 'Consolas, "Courier New", monospace', color: '#888899',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setScrollFactor(0).setDepth(300).setAlpha(0);
+
+    // Fade in
+    this.scene.tweens.add({ targets: [nameCard, subtitle], alpha: 1, duration: 400 });
+    // Hold then fade out and resume
+    this.scene.time.delayedCall(1500, () => {
+      this.scene.tweens.add({ targets: [nameCard, subtitle], alpha: 0, duration: 400, onComplete: () => { nameCard.destroy(); subtitle.destroy(); }});
+      this.scene.physics.resume();
+    });
   }
 
   update(time: number, delta: number) {

@@ -274,6 +274,9 @@ export class GameScene extends Phaser.Scene {
       this.showNotification('Save loaded');
     }
 
+    // -- Fade in on zone entry --
+    this.cameras.main.fadeIn(300, 0, 0, 0);
+
     // -- Background music --
     // Start on first user interaction (AudioContext requires gesture)
     const startZoneMusic = () => {
@@ -774,16 +777,20 @@ export class GameScene extends Phaser.Scene {
           this.currentClass, this.player, this.inventory, this.bossesDefeated, exit.targetZone, this.gold
         );
 
-        // Stop music before transitioning (prevents oscillator leak)
-        stopMusic(true);
+        // Fade out before transitioning
+        this.cameras.main.fadeOut(300, 0, 0, 0);
+        this.cameras.main.once('camerafadeoutcomplete', () => {
+          // Stop music before transitioning (prevents oscillator leak)
+          stopMusic(true);
 
-        // Transition to new zone
-        this.scene.stop('HUDScene');
-        this.scene.restart({
-          selectedClass: this.currentClass,
-          saveData: transitionSave,
-          zoneId: exit.targetZone,
-          spawnX: exit.targetSpawnX,
+          // Transition to new zone
+          this.scene.stop('HUDScene');
+          this.scene.restart({
+            selectedClass: this.currentClass,
+            saveData: transitionSave,
+            zoneId: exit.targetZone,
+            spawnX: exit.targetSpawnX,
+          });
         });
         return;
       }
@@ -1010,6 +1017,16 @@ export class GameScene extends Phaser.Scene {
       this.scene.pause('GameScene');
       this.scene.launch('ShopScene', { gameScene: this });
     }
+  }
+
+  /** Called by player entity on death — pauses game and shows death overlay */
+  onPlayerDeath() {
+    this.scene.pause('GameScene');
+    this.scene.launch('DeathScene', {
+      zoneName: this.zoneDef.name,
+      className: this.currentClass,
+      zoneId: this.currentZone,
+    });
   }
 
   /** Show a brief notification at the top of the screen */

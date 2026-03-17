@@ -576,14 +576,10 @@ export class Gunner {
   }
 
   private die() {
-    const gs = this.scene as any;
-    const spawnX = gs.zoneDef?.exits?.[0] ? (gs.zoneDef.exits[0].tileX + 1) * 16 : 48;
-    const spawnY = (gs.zoneDef?.height ?? 22) * 16 - 80;
-    this.sprite.setPosition(spawnX, spawnY);
-    this.hp = this.maxHp;
-    this.energy = this.maxEnergy;
-    this.updateGunBarrel(); // Snap barrel to respawn position
-    this.scene.cameras.main.flash(300, 255, 50, 50);
+    const gameScene = this.scene as any;
+    if (gameScene.onPlayerDeath) {
+      gameScene.onPlayerDeath();
+    }
   }
 
   getAttackHitbox(): Phaser.Geom.Rectangle | null { return null; } // Gunner uses projectiles

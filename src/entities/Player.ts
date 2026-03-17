@@ -723,17 +723,10 @@ export class Player {
   }
 
   private die() {
-    // Respawn at zone spawn point
-    const gs = this.scene as any;
-    const spawnX = gs.zoneDef?.exits?.[0] ? (gs.zoneDef.exits[0].tileX + 1) * 16 : 48;
-    const spawnY = (gs.zoneDef?.height ?? 22) * 16 - 80;
-    this.sprite.setPosition(spawnX, spawnY);
-    this.hp = this.maxHp;
-    this.energy = this.maxEnergy;
-    this.shieldHp = this.maxShieldHp;
-    this.shieldRegenDelay = 0;
-    this.shieldGraphic.clear();
-    this.scene.cameras.main.flash(300, 255, 50, 50);
+    const gameScene = this.scene as any;
+    if (gameScene.onPlayerDeath) {
+      gameScene.onPlayerDeath();
+    }
   }
 
   private emitDust(count: number) {
