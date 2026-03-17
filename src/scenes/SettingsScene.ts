@@ -308,7 +308,10 @@ export class SettingsScene extends Phaser.Scene {
   }
 
   private closeSettings() {
-    if (this.calledFrom === 'GameScene') {
+    if (this.calledFrom === 'PauseScene') {
+      this.scene.stop('SettingsScene');
+      this.scene.launch('PauseScene', { gameScene: (this.scene.get('GameScene') as any) });
+    } else if (this.calledFrom === 'GameScene') {
       this.scene.stop('SettingsScene');
       this.scene.resume('GameScene');
     } else {

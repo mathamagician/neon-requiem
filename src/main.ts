@@ -10,6 +10,7 @@ import { ShopScene } from './scenes/ShopScene';
 import { SettingsScene } from './scenes/SettingsScene';
 import { LoreScene } from './scenes/LoreScene';
 import { DeathScene } from './scenes/DeathScene';
+import { PauseScene } from './scenes/PauseScene';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.WEBGL,
@@ -28,7 +29,7 @@ const config: Phaser.Types.Core.GameConfig = {
       debug: false, // Toggle with F1 in-game
     },
   },
-  scene: [BootScene, TitleScene, LoreScene, ClassSelectScene, GameScene, HUDScene, InventoryScene, ShopScene, SettingsScene, DeathScene],
+  scene: [BootScene, TitleScene, LoreScene, ClassSelectScene, GameScene, HUDScene, InventoryScene, ShopScene, SettingsScene, DeathScene, PauseScene],
   parent: document.body,
 };
 

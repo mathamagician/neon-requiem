@@ -232,6 +232,14 @@ export class GameScene extends Phaser.Scene {
       if (this.debugMode) this.physics.world.createDebugGraphic();
     });
 
+    // Pause menu
+    this.input.keyboard!.on('keydown-ESC', () => {
+      if (!this.scene.isPaused('GameScene')) {
+        this.scene.pause('GameScene');
+        this.scene.launch('PauseScene', { gameScene: this });
+      }
+    });
+
     // Inventory toggle
     this.input.keyboard!.on('keydown-TAB', (e: KeyboardEvent) => {
       e.preventDefault();
@@ -723,15 +731,23 @@ export class GameScene extends Phaser.Scene {
     for (const exit of this.zoneDef.exits) {
       const worldX = exit.tileX * TILE_SIZE;
 
+      // Check if this is a locked boss practice door
+      const isBossZone = exit.targetZone.endsWith('_boss');
+      const targetZoneDef = getZone(exit.targetZone);
+      const bossDefeated = !isBossZone || !targetZoneDef.bossId || this.bossesDefeated.includes(targetZoneDef.bossId);
+
+      // Portal color: green if accessible, red if locked
+      const portalColor = bossDefeated ? 0x00ffcc : 0xff4444;
+
       // Find actual ground Y at this tile column (portal sits on first solid/platform tile)
       const portalY = this.findGroundY(worldX) ?? defaultGroundY;
       const exitY = portalY - 16; // Center portal above ground
 
       // Visual: glowing portal
       const g = this.add.graphics();
-      g.fillStyle(0x00ffcc, 0.3);
+      g.fillStyle(portalColor, 0.3);
       g.fillRect(0, 0, 16, 32);
-      g.lineStyle(2, 0x00ffcc, 0.7);
+      g.lineStyle(2, portalColor, 0.7);
       g.strokeRect(0, 0, 16, 32);
       const key = `exit-${exit.tileX}-${exit.targetZone}`;
       g.generateTexture(key, 16, 32);
@@ -748,17 +764,29 @@ export class GameScene extends Phaser.Scene {
 
       // Zone name label — use explicit label if provided, else derive from zone name
       const labelText = exit.label ?? (exit.targetZone === 'hub' ? 'HUB' : getZone(exit.targetZone).name.toUpperCase());
+      const labelColor = bossDefeated ? '#00ffcc' : '#ff4444';
       this.add.text(worldX, exitY - 22, labelText, {
-        fontSize: '10px', fontFamily: 'Consolas, monospace', color: '#00ffcc',
+        fontSize: '10px', fontFamily: 'Consolas, monospace', color: labelColor,
         stroke: '#000000', strokeThickness: 1,
       }).setOrigin(0.5).setDepth(5);
 
-      this.zoneExits.push({
-        x: worldX,
-        y: exitY,
-        targetZone: exit.targetZone,
-        targetSpawnX: exit.targetSpawnTileX,
-      });
+      // Show "LOCKED" below label for locked boss doors
+      if (!bossDefeated) {
+        this.add.text(worldX, exitY - 12, 'LOCKED', {
+          fontSize: '9px', fontFamily: 'Consolas, monospace', color: '#ff4444',
+          stroke: '#000000', strokeThickness: 1,
+        }).setOrigin(0.5).setDepth(5);
+      }
+
+      // Only add to zoneExits if accessible (locked doors can't be entered)
+      if (bossDefeated) {
+        this.zoneExits.push({
+          x: worldX,
+          y: exitY,
+          targetZone: exit.targetZone,
+          targetSpawnX: exit.targetSpawnTileX,
+        });
+      }
     }
   }
 

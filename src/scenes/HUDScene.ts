@@ -20,6 +20,9 @@ export class HUDScene extends Phaser.Scene {
   private minimapDot!: Phaser.GameObjects.Graphics;
   private minimapBuilt = false;
 
+  // Completion tracker
+  private bossTrackerText!: Phaser.GameObjects.Text;
+
   constructor() {
     super({ key: 'HUDScene' });
   }
@@ -66,6 +69,12 @@ export class HUDScene extends Phaser.Scene {
     this.time.delayedCall(12000, () => {
       this.tweens.add({ targets: this.controlsText, alpha: 0, duration: 2000 });
     });
+
+    // Boss completion tracker (bottom-right, hub only)
+    this.bossTrackerText = this.add.text(GAME_WIDTH - 8, GAME_HEIGHT - 12, '', {
+      fontSize: '10px', fontFamily: 'Consolas, monospace', color: '#00ffcc',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(1, 1).setAlpha(0);
 
     // Minimap
     this.minimapGfx = this.add.graphics();
@@ -164,6 +173,17 @@ export class HUDScene extends Phaser.Scene {
     this.stateText.setText(
       `${p.state} | HP:${p.hp}/${p.maxHp} | EN:${p.energy}/${p.maxEnergy} | XP:${p.xp}/${p.xpToNext}`
     );
+
+    // Boss completion tracker (hub only)
+    if (this.gameScene.currentZone === 'hub') {
+      const totalBosses = 4;
+      const defeated = this.gameScene.bossesDefeated.length;
+      this.bossTrackerText.setText(`${defeated}/${totalBosses} BOSSES`);
+      this.bossTrackerText.setAlpha(1);
+      this.bossTrackerText.setColor(defeated >= totalBosses ? '#ffcc44' : '#00ffcc');
+    } else {
+      this.bossTrackerText.setAlpha(0);
+    }
 
     // Minimap
     this.updateMinimap();
