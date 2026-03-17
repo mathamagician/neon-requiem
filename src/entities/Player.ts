@@ -82,6 +82,11 @@ export class Player {
   private readonly POGO_DAMAGE = 14;
   private readonly POGO_FALL_BOOST = 100; // extra downward speed during pogo
 
+  // Ultimate ability — Aegis Slam
+  protected ultimateCooldownUntil = 0;
+  protected readonly ULTIMATE_COOLDOWN = 8000;
+  protected readonly ULTIMATE_ENERGY_COST = 40;
+
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: {
@@ -89,6 +94,7 @@ export class Player {
     dash: Phaser.Input.Keyboard.Key;
     up: Phaser.Input.Keyboard.Key;
     shield: Phaser.Input.Keyboard.Key;
+    ultimate: Phaser.Input.Keyboard.Key;
   };
 
   // Particles
@@ -122,6 +128,7 @@ export class Player {
       dash: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.X),
       up: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
       shield: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.A),
+      ultimate: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.V),
     };
 
     // Shield visual
@@ -240,6 +247,7 @@ export class Player {
     this.handleAttack(time);
     this.handlePogo(onFloor, time);
     this.handleDash(time);
+    this.handleUltimate(time);
 
     // Update state
     this.updateState(onFloor);
@@ -368,6 +376,73 @@ export class Player {
 
     // Dash burst particles
     this.emitDust(6);
+  }
+
+  /** Ultimate: Aegis Slam — shockwave that damages and knocks back all enemies in 120px radius */
+  protected handleUltimate(time: number) {
+    if (!Phaser.Input.Keyboard.JustDown(this.keys.ultimate)) return;
+    if (time < this.ultimateCooldownUntil) return;
+    if (this.energy < this.ULTIMATE_ENERGY_COST) return;
+    if (this.isDashing) return;
+
+    this.energy -= this.ULTIMATE_ENERGY_COST;
+    this.ultimateCooldownUntil = time + this.ULTIMATE_COOLDOWN;
+
+    playSound('powerAbsorb');
+    safeShake(this.scene.cameras.main, 200, 0.02);
+    this.scene.cameras.main.flash(100, 100, 200, 255);
+
+    // Shockwave visual — expanding ring
+    const ring = this.scene.add.graphics().setDepth(50);
+    let radius = 0;
+    const maxRadius = 120;
+    const expandEvent = this.scene.time.addEvent({
+      delay: 16,
+      repeat: 20,
+      callback: () => {
+        radius += 6;
+        ring.clear();
+        ring.lineStyle(3, COLORS.vanguard, Math.max(0, 1 - radius / maxRadius));
+        ring.strokeCircle(this.sprite.x, this.sprite.y - 16, radius);
+      },
+    });
+    this.scene.time.delayedCall(400, () => { ring.destroy(); expandEvent.destroy(); });
+
+    // Damage all enemies within radius
+    const gameScene = this.scene as any;
+    const enemies = gameScene.enemies as any[] | undefined;
+    if (enemies) {
+      for (const enemy of enemies) {
+        if (!enemy?.sprite?.active) continue;
+        const dist = Phaser.Math.Distance.Between(
+          this.sprite.x, this.sprite.y - 16,
+          enemy.sprite.x, enemy.sprite.y - 12
+        );
+        if (dist < maxRadius) {
+          if (enemy.takeDamage) enemy.takeDamage(30, this.sprite.x, time);
+          // Knockback away from player
+          if (enemy.body) {
+            const dx = enemy.sprite.x - this.sprite.x;
+            const dy = (enemy.sprite.y - 12) - (this.sprite.y - 16);
+            const d = Math.max(1, Math.sqrt(dx * dx + dy * dy));
+            enemy.body.setVelocityX((dx / d) * 200);
+            enemy.body.setVelocityY((dy / d) * 150 - 80);
+          }
+        }
+      }
+    }
+
+    // Also hit bosses
+    const boss = gameScene.boss;
+    if (boss?.sprite?.active && boss.state !== 'dead') {
+      const dist = Phaser.Math.Distance.Between(
+        this.sprite.x, this.sprite.y - 16,
+        boss.sprite.x, boss.sprite.y - 16
+      );
+      if (dist < maxRadius) {
+        if (boss.takeDamage) boss.takeDamage(30, this.sprite.x, time);
+      }
+    }
   }
 
   /** Pogo attack: hold attack + down while airborne → plunge downward with spear */

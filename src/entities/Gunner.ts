@@ -63,12 +63,18 @@ export class Gunner {
   private readonly DASH_SPEED = 280;
   private readonly DASH_COOLDOWN = 700;
 
+  // Ultimate ability — Barrage
+  private ultimateCooldownUntil = 0;
+  private readonly ULTIMATE_COOLDOWN = 8000;
+  private readonly ULTIMATE_ENERGY_COST = 40;
+
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: {
     attack: Phaser.Input.Keyboard.Key;
     dash: Phaser.Input.Keyboard.Key;
     up: Phaser.Input.Keyboard.Key;
+    ultimate: Phaser.Input.Keyboard.Key;
   };
 
   // Particles
@@ -118,6 +124,7 @@ export class Gunner {
       attack: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z),
       dash: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.X),
       up: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+      ultimate: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.V),
     };
 
     this.dustEmitter = scene.add.particles(0, 0, 'particle', {
@@ -216,6 +223,7 @@ export class Gunner {
     this.handleJump(onFloor);
     this.handleShooting(time, delta);
     this.handleDash(time);
+    this.handleUltimate(time);
     this.updateState(onFloor);
 
     // Shoot cooldown
@@ -459,6 +467,64 @@ export class Gunner {
     this.dashTimer = this.DASH_DURATION;
     this.dashCooldown = this.DASH_COOLDOWN;
     this.invincibleUntil = Math.max(this.invincibleUntil, time + this.DASH_DURATION);
+  }
+
+  /** Ultimate: Barrage — fire 8 rapid shots in a fan spread over 0.5s */
+  private handleUltimate(time: number) {
+    if (!Phaser.Input.Keyboard.JustDown(this.keys.ultimate)) return;
+    if (time < this.ultimateCooldownUntil) return;
+    if (this.energy < this.ULTIMATE_ENERGY_COST) return;
+    if (this.isDashing) return;
+
+    this.energy -= this.ULTIMATE_ENERGY_COST;
+    this.ultimateCooldownUntil = time + this.ULTIMATE_COOLDOWN;
+
+    playSound('powerAbsorb');
+    safeShake(this.scene.cameras.main, 100, 0.01);
+    this.scene.cameras.main.flash(80, 0, 255, 100);
+
+    const dir = this.facingRight ? 1 : -1;
+    const spreadAngles = [-0.5, -0.35, -0.2, -0.07, 0.07, 0.2, 0.35, 0.5]; // radians
+
+    for (let i = 0; i < 8; i++) {
+      this.scene.time.delayedCall(i * 60, () => {
+        const projKey = this.scene.textures.exists('weapon-gunshot') ? 'weapon-gunshot' : 'projectile-player';
+        const proj = this.projectiles.get(
+          this.sprite.x + dir * 12,
+          this.sprite.y - 16,
+          projKey
+        ) as Phaser.Physics.Arcade.Sprite;
+        if (!proj) return;
+
+        proj.setActive(true).setVisible(true);
+        proj.body!.enable = true;
+        proj.setDisplaySize(8, 4);
+        proj.setTint(0x44ff88);
+
+        const projBody = proj.body as Phaser.Physics.Arcade.Body;
+        projBody.setAllowGravity(false);
+
+        const angle = spreadAngles[i];
+        const speed = 240;
+        const vx = dir * Math.cos(angle) * speed;
+        const vy = Math.sin(angle) * speed;
+        projBody.setVelocity(vx, vy);
+        proj.setRotation(Math.atan2(vy, vx));
+
+        (proj as any).damage = 10;
+        (proj as any).isPlayerProjectile = true;
+        (proj as any).piercing = false;
+
+        playSound('gunShot');
+
+        this.scene.time.delayedCall(1500, () => {
+          if (proj.active) {
+            proj.setActive(false).setVisible(false);
+            proj.body!.enable = false;
+          }
+        });
+      });
+    }
   }
 
   private updateChargeVisual() {

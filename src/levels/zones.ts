@@ -44,6 +44,8 @@ export const ZONES: Record<string, ZoneDef> = {
       { tileX: 19, targetZone: 'garden_boss', targetSpawnTileX: 2, label: 'BOSS: Hemlock' },
       { tileX: 44, targetZone: 'citadel_boss', targetSpawnTileX: 2, label: 'BOSS: Overclock' },
       { tileX: 55, targetZone: 'foundry_boss', targetSpawnTileX: 2, label: 'BOSS: Voltrexx' },
+      // Void Nexus (center, unlocks after all 4 bosses)
+      { tileX: 30, targetZone: 'voidnexus', targetSpawnTileX: 2, label: 'VOID NEXUS' },
     ],
   },
 
@@ -168,6 +170,20 @@ export const ZONES: Record<string, ZoneDef> = {
     bossOnly: true,
     exits: [
       { tileX: 1, targetZone: 'hub', targetSpawnTileX: 44 },
+    ],
+  },
+  voidnexus: {
+    id: 'voidnexus',
+    name: 'The Void Nexus',
+    width: 180,
+    height: 22,
+    palette: { ground: 0x1a1a2e, platform: 0x2a2a4e, accent: 0xff44ff, bg1: 0x080818, bg2: 0x0e0e28 },
+    enemyTypes: ['grunt', 'ranged', 'flyer', 'charger', 'skeleton', 'ghost', 'shade'],
+    bossId: 'nexus_core',
+    bossSpawnTileX: 168,
+    bossTriggerTileX: 156,
+    exits: [
+      { tileX: 1, targetZone: 'hub', targetSpawnTileX: 30 },
     ],
   },
 };

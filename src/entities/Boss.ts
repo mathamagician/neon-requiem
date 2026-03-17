@@ -54,6 +54,9 @@ export class Boss {
   // Attack projectiles/hazards
   private hazards: Phaser.GameObjects.GameObject[] = [];
 
+  // Rage mode — triggers at 30% HP
+  private enraged = false;
+
   // Poison debuff — slows boss attack rate
   private poisonTimer = 0;
   private poisonSlowMult = 1;
@@ -147,7 +150,7 @@ export class Boss {
       this.poisonTimer -= delta;
       if (this.poisonTimer <= 0) {
         this.poisonSlowMult = 1;
-        this.sprite.clearTint();
+        if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
       }
     }
 
@@ -169,6 +172,23 @@ export class Boss {
       this.onPhaseChange();
     }
 
+    // Rage mode at 30% HP
+    if (!this.enraged && this.hp <= this.maxHp * 0.3) {
+      this.enraged = true;
+      this.sprite.setTint(0xff4444);
+      playSound('bossRoar');
+      safeShake(this.scene.cameras.main, 300, 0.02);
+
+      const enrageText = this.scene.add.text(this.sprite.x, this.sprite.y - 50, 'ENRAGED!', {
+        fontSize: '16px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#ff4444',
+        fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(100);
+      this.scene.tweens.add({
+        targets: enrageText, y: enrageText.y - 24, alpha: 0, duration: 1200,
+        onComplete: () => enrageText.destroy(),
+      });
+    }
+
     // State machine
     switch (this.state) {
       case 'idle':
@@ -185,7 +205,7 @@ export class Boss {
         // Flash during telegraph
         this.sprite.setTint(time % 200 > 100 ? 0xffffff : 0x4488ff);
         if (this.attackTimer <= 0) {
-          this.sprite.clearTint();
+          if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
           this.state = 'attack';
           this.currentAttack?.execute();
           this.attackTimer = this.currentAttack?.duration ?? 500;
@@ -196,7 +216,8 @@ export class Boss {
         this.attackTimer -= delta;
         if (this.attackTimer <= 0) {
           this.state = 'idle';
-          this.actionCooldown = this.currentAttack?.cooldown ?? 1500;
+          const baseCooldown = this.currentAttack?.cooldown ?? 1500;
+          this.actionCooldown = this.enraged ? baseCooldown * 0.7 : baseCooldown;
           this.currentAttack = null;
         }
         break;
@@ -211,7 +232,7 @@ export class Boss {
         this.attackTimer -= delta;
         this.sprite.setTint(0xffcc44);
         if (this.attackTimer <= 0) {
-          this.sprite.clearTint();
+          if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
           this.state = 'idle';
           this.actionCooldown = 500;
         }
@@ -249,7 +270,9 @@ export class Boss {
     // Flash — yellow for weakness, white for normal
     this.sprite.setTint(isWeak ? 0xffff00 : 0xffffff);
     this.scene.time.delayedCall(100, () => {
-      if (this.state !== 'dead') this.sprite.clearTint();
+      if (this.state !== 'dead') {
+        if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
+      }
     });
 
     // Show "WEAK!" text on weakness hit
@@ -416,7 +439,7 @@ export class Boss {
       wave.setTint(0x4488ff);
       const wb = wave.body as Phaser.Physics.Arcade.Body;
       wb.setAllowGravity(false);
-      wb.setVelocityX(dir * 120);
+      wb.setVelocityX(dir * (this.enraged ? 144 : 120));
       (wave as any).damage = this.damage;
       (wave as any).isEnemyProjectile = true;
       this.hazards.push(wave);
@@ -441,7 +464,8 @@ export class Boss {
     warning.lineBetween(playerX, 0, playerX, this.arenaFloor);
     warning.setDepth(5);
 
-    this.scene.time.delayedCall(300, () => {
+    const strikeDelay = this.enraged ? 150 : 300;
+    this.scene.time.delayedCall(strikeDelay, () => {
       warning.destroy();
 
       // Lightning strike
@@ -481,8 +505,9 @@ export class Boss {
   /** Chain lightning — arcs between multiple points */
   private attackChainLightning() {
     const count = this.phase >= 3 ? 5 : 3;
+    const chainDelay = this.enraged ? 75 : 150;
     for (let i = 0; i < count; i++) {
-      this.scene.time.delayedCall(i * 150, () => {
+      this.scene.time.delayedCall(i * chainDelay, () => {
         const x = this.arenaLeft + Math.random() * (this.arenaRight - this.arenaLeft);
         const bolt = this.scene.physics.add.sprite(x, this.arenaFloor - 8, 'projectile-enemy');
         bolt.setDisplaySize(10, 16);
@@ -509,8 +534,9 @@ export class Boss {
   private attackElectricStorm() {
     safeShake(this.scene.cameras.main, 300, 0.01);
 
+    const stormDelay = this.enraged ? 50 : 100;
     for (let i = 0; i < 8; i++) {
-      this.scene.time.delayedCall(i * 100, () => {
+      this.scene.time.delayedCall(i * stormDelay, () => {
         const x = this.arenaLeft + Math.random() * (this.arenaRight - this.arenaLeft);
         const spark = this.scene.physics.add.sprite(x, this.arenaFloor - 100, 'projectile-enemy');
         spark.setDisplaySize(6, 6);

@@ -85,12 +85,18 @@ export class Wraith {
   // Afterimage effect
   private afterimages: Phaser.GameObjects.Sprite[] = [];
 
+  // Ultimate ability — Shadow Strike
+  private ultimateCooldownUntil = 0;
+  private readonly ULTIMATE_COOLDOWN = 8000;
+  private readonly ULTIMATE_ENERGY_COST = 40;
+
   // Input
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: {
     attack: Phaser.Input.Keyboard.Key;
     dash: Phaser.Input.Keyboard.Key;
     up: Phaser.Input.Keyboard.Key;
+    ultimate: Phaser.Input.Keyboard.Key;
   };
 
   private dustEmitter: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -126,6 +132,7 @@ export class Wraith {
       attack: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.Z),
       dash: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.X),
       up: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.UP),
+      ultimate: scene.input.keyboard!.addKey(Phaser.Input.Keyboard.KeyCodes.V),
     };
 
     this.dustEmitter = scene.add.particles(0, 0, 'particle', {
@@ -211,6 +218,7 @@ export class Wraith {
     this.handleJump(onFloor);
     this.handleAttack(time);
     this.handleDash(time);
+    this.handleUltimate(time);
     this.updateState(onFloor);
 
     // Landing dust + reset double jump + squash
@@ -488,6 +496,75 @@ export class Wraith {
     this.dashCooldown = this.DASH_COOLDOWN;
     this.invincibleUntil = Math.max(this.invincibleUntil, time + this.DASH_DURATION);
     playSound('dash');
+  }
+
+  /** Ultimate: Shadow Strike — teleport to nearest enemy, backstab, invincible 0.5s */
+  private handleUltimate(time: number) {
+    if (!Phaser.Input.Keyboard.JustDown(this.keys.ultimate)) return;
+    if (time < this.ultimateCooldownUntil) return;
+    if (this.energy < this.ULTIMATE_ENERGY_COST) return;
+    if (this.isDashing) return;
+
+    // Find nearest enemy within 200px
+    const gameScene = this.scene as any;
+    const enemies = gameScene.enemies as any[] | undefined;
+    const boss = gameScene.boss;
+    let nearest: any = null;
+    let nearestDist = 200;
+
+    if (enemies) {
+      for (const enemy of enemies) {
+        if (!enemy?.sprite?.active) continue;
+        const dist = Phaser.Math.Distance.Between(
+          this.sprite.x, this.sprite.y,
+          enemy.sprite.x, enemy.sprite.y
+        );
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearest = enemy;
+        }
+      }
+    }
+
+    // Also check boss
+    if (boss?.sprite?.active && boss.state !== 'dead') {
+      const dist = Phaser.Math.Distance.Between(
+        this.sprite.x, this.sprite.y,
+        boss.sprite.x, boss.sprite.y
+      );
+      if (dist < nearestDist) {
+        nearestDist = dist;
+        nearest = boss;
+      }
+    }
+
+    if (!nearest) return; // No valid target — don't consume resources
+
+    this.energy -= this.ULTIMATE_ENERGY_COST;
+    this.ultimateCooldownUntil = time + this.ULTIMATE_COOLDOWN;
+
+    playSound('powerAbsorb');
+    this.scene.cameras.main.flash(60, 80, 0, 160);
+
+    // Spawn afterimage at current position
+    this.spawnAfterimage();
+
+    // Teleport behind the target
+    const behindOffset = nearest.sprite.x > this.sprite.x ? -20 : 20;
+    this.sprite.setPosition(nearest.sprite.x + behindOffset, nearest.sprite.y);
+    this.facingRight = behindOffset < 0;
+    this.sprite.setFlipX(!this.facingRight);
+
+    // Deal backstab damage
+    if (nearest.takeDamage) {
+      nearest.takeDamage(25, this.sprite.x, time);
+    }
+
+    // Particle burst at arrival
+    this.dustEmitter.emitParticleAt(this.sprite.x, this.sprite.y, 8);
+
+    // Brief invincibility
+    this.invincibleUntil = Math.max(this.invincibleUntil, time + 500);
   }
 
   private spawnAfterimage() {

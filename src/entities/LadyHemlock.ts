@@ -53,6 +53,9 @@ export class LadyHemlock {
   // Hazards
   private hazards: Phaser.GameObjects.GameObject[] = [];
 
+  // Rage mode — triggers at 30% HP
+  private enraged = false;
+
   // Poison debuff
   private poisonTimer = 0;
   private poisonSlowMult = 1;
@@ -138,7 +141,10 @@ export class LadyHemlock {
     // Poison tick-down
     if (this.poisonTimer > 0) {
       this.poisonTimer -= delta;
-      if (this.poisonTimer <= 0) { this.poisonSlowMult = 1; this.sprite.clearTint(); }
+      if (this.poisonTimer <= 0) {
+        this.poisonSlowMult = 1;
+        if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
+      }
     }
 
     const gameScene = this.scene as any;
@@ -153,6 +159,23 @@ export class LadyHemlock {
     if (hpPercent <= 0.33 && this.phase < 3) { this.phase = 3; this.onPhaseChange(); }
     else if (hpPercent <= 0.66 && this.phase < 2) { this.phase = 2; this.onPhaseChange(); }
 
+    // Rage mode at 30% HP
+    if (!this.enraged && this.hp <= this.maxHp * 0.3) {
+      this.enraged = true;
+      this.sprite.setTint(0xff4444);
+      playSound('bossRoar');
+      safeShake(this.scene.cameras.main, 300, 0.02);
+
+      const enrageText = this.scene.add.text(this.sprite.x, this.sprite.y - 50, 'ENRAGED!', {
+        fontSize: '16px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#ff4444',
+        fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(100);
+      this.scene.tweens.add({
+        targets: enrageText, y: enrageText.y - 24, alpha: 0, duration: 1200,
+        onComplete: () => enrageText.destroy(),
+      });
+    }
+
     switch (this.state) {
       case 'idle':
         this.actionCooldown -= delta * this.poisonSlowMult;
@@ -164,7 +187,7 @@ export class LadyHemlock {
         this.attackTimer -= delta;
         this.sprite.setTint(time % 200 > 100 ? 0xffffff : 0x44cc44);
         if (this.attackTimer <= 0) {
-          this.sprite.clearTint();
+          if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
           this.state = 'attack';
           this.currentAttack?.execute();
           this.attackTimer = this.currentAttack?.duration ?? 500;
@@ -174,7 +197,8 @@ export class LadyHemlock {
         this.attackTimer -= delta;
         if (this.attackTimer <= 0) {
           this.state = 'idle';
-          this.actionCooldown = this.currentAttack?.cooldown ?? 1500;
+          const baseCooldown = this.currentAttack?.cooldown ?? 1500;
+          this.actionCooldown = this.enraged ? baseCooldown * 0.7 : baseCooldown;
           this.currentAttack = null;
         }
         break;
@@ -185,7 +209,11 @@ export class LadyHemlock {
       case 'transition':
         this.attackTimer -= delta;
         this.sprite.setTint(0xffcc44);
-        if (this.attackTimer <= 0) { this.sprite.clearTint(); this.state = 'idle'; this.actionCooldown = 500; }
+        if (this.attackTimer <= 0) {
+          if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
+          this.state = 'idle';
+          this.actionCooldown = 500;
+        }
         break;
     }
 
@@ -211,7 +239,9 @@ export class LadyHemlock {
 
     this.sprite.setTint(isWeak ? 0xffff00 : 0xffffff);
     this.scene.time.delayedCall(100, () => {
-      if (this.state !== 'dead') this.sprite.clearTint();
+      if (this.state !== 'dead') {
+        if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
+      }
     });
 
     if (isWeak) {
@@ -367,7 +397,8 @@ export class LadyHemlock {
     for (let i = 0; i < count; i++) {
       const cx = playerX + (i - (count - 1) / 2) * 40;
       const cloud = this.scene.physics.add.sprite(cx, this.arenaFloor - 12, 'projectile-enemy');
-      cloud.setDisplaySize(24, 16);
+      const cloudSize = this.enraged ? 1.5 : 1;
+      cloud.setDisplaySize(24 * cloudSize, 16 * cloudSize);
       cloud.setTint(0x66ff66);
       cloud.setAlpha(0.5);
       const cb = cloud.body as Phaser.Physics.Arcade.Body;

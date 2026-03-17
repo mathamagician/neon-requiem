@@ -53,6 +53,9 @@ export class Overclock {
   // Hazards
   private hazards: Phaser.GameObjects.GameObject[] = [];
 
+  // Rage mode — triggers at 30% HP
+  private enraged = false;
+
   // Overclock Mode (Phase 3 charge attack)
   private overclockChargesLeft = 0;
   private overclockSpeedTimer = 0;
@@ -139,7 +142,7 @@ export class Overclock {
     if (this.overclockSpeedTimer > 0) {
       this.overclockSpeedTimer -= delta;
       if (this.overclockSpeedTimer <= 0) {
-        this.sprite.clearTint();
+        if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
       }
     }
 
@@ -155,6 +158,23 @@ export class Overclock {
     if (hpPercent <= 0.33 && this.phase < 3) { this.phase = 3; this.onPhaseChange(); }
     else if (hpPercent <= 0.66 && this.phase < 2) { this.phase = 2; this.onPhaseChange(); }
 
+    // Rage mode at 30% HP
+    if (!this.enraged && this.hp <= this.maxHp * 0.3) {
+      this.enraged = true;
+      this.sprite.setTint(0xff4444);
+      playSound('bossRoar');
+      safeShake(this.scene.cameras.main, 300, 0.02);
+
+      const enrageText = this.scene.add.text(this.sprite.x, this.sprite.y - 50, 'ENRAGED!', {
+        fontSize: '16px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#ff4444',
+        fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(100);
+      this.scene.tweens.add({
+        targets: enrageText, y: enrageText.y - 24, alpha: 0, duration: 1200,
+        onComplete: () => enrageText.destroy(),
+      });
+    }
+
     switch (this.state) {
       case 'idle':
         this.actionCooldown -= delta;
@@ -166,7 +186,7 @@ export class Overclock {
         this.attackTimer -= delta;
         this.sprite.setTint(time % 200 > 100 ? 0xffffff : 0x44ccff);
         if (this.attackTimer <= 0) {
-          this.sprite.clearTint();
+          if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
           this.state = 'attack';
           this.currentAttack?.execute();
           this.attackTimer = this.currentAttack?.duration ?? 500;
@@ -176,7 +196,8 @@ export class Overclock {
         this.attackTimer -= delta;
         if (this.attackTimer <= 0) {
           this.state = 'idle';
-          this.actionCooldown = this.currentAttack?.cooldown ?? 1500;
+          const baseCooldown = this.currentAttack?.cooldown ?? 1500;
+          this.actionCooldown = this.enraged ? baseCooldown * 0.7 : baseCooldown;
           this.currentAttack = null;
         }
         break;
@@ -187,7 +208,11 @@ export class Overclock {
       case 'transition':
         this.attackTimer -= delta;
         this.sprite.setTint(0xffcc44);
-        if (this.attackTimer <= 0) { this.sprite.clearTint(); this.state = 'idle'; this.actionCooldown = 500; }
+        if (this.attackTimer <= 0) {
+          if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
+          this.state = 'idle';
+          this.actionCooldown = 500;
+        }
         break;
     }
 
@@ -207,7 +232,9 @@ export class Overclock {
 
     this.sprite.setTint(isWeak ? 0xffff00 : 0xffffff);
     this.scene.time.delayedCall(100, () => {
-      if (this.state !== 'dead') this.sprite.clearTint();
+      if (this.state !== 'dead') {
+        if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
+      }
     });
 
     if (isWeak) {
@@ -297,7 +324,8 @@ export class Overclock {
       { name: 'Missile Barrage', telegraph: 600, duration: 600, cooldown: 1400, execute: () => this.attackMissileBarrage() },
     ];
     if (this.phase >= 2) {
-      base.push({ name: 'EMP Pulse', telegraph: 700, duration: 600, cooldown: 1800, execute: () => this.attackEMPPulse() });
+      const empCooldown = this.enraged ? 900 : 1800;
+      base.push({ name: 'EMP Pulse', telegraph: 700, duration: 600, cooldown: empCooldown, execute: () => this.attackEMPPulse() });
     }
     if (this.phase >= 3) {
       base.push({ name: 'Overclock Mode', telegraph: 500, duration: 3000, cooldown: 2500, execute: () => this.attackOverclockMode() });
@@ -372,7 +400,7 @@ export class Overclock {
     const ring = this.scene.add.graphics().setDepth(40);
     this.hazards.push(ring as any);
     let currentRadius = 0;
-    const expandSpeed = 0.12; // pixels per ms
+    const expandSpeed = this.enraged ? 0.18 : 0.12; // pixels per ms
     let pulseDamageDealt = false;
 
     const pulseUpdate = this.scene.time.addEvent({

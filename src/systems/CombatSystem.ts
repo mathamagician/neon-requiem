@@ -10,12 +10,28 @@ import { playSound } from '../systems/SoundManager';
  * - Enemy contact → Player
  * - Enemy projectiles → Player
  */
+/** Combo tier thresholds and their damage multipliers */
+const COMBO_TIERS: [number, number][] = [
+  [12, 2.0],
+  [8, 1.5],
+  [5, 1.25],
+  [3, 1.1],
+  [0, 1.0],
+];
+
+/** Time in ms before the combo resets from inactivity */
+const COMBO_DECAY_MS = 2000;
+
 export class CombatSystem {
   private scene: GameScene;
   private enemyProjectiles: Phaser.Physics.Arcade.Sprite[] = [];
   private hitEnemiesThisSwing: Set<Phaser.Physics.Arcade.Sprite> = new Set();
   private lastAttackCombo = -1;
   private overlapCollider: Phaser.Physics.Arcade.Collider;
+
+  // Hit-combo tracker
+  comboCount = 0;
+  private comboLastHitTime = 0;
 
   constructor(scene: GameScene) {
     this.scene = scene;
@@ -46,6 +62,11 @@ export class CombatSystem {
       this.hitEnemiesThisSwing.clear();
     }
 
+    // Combo decay — reset if no hits within the window
+    if (this.comboCount > 0 && time - this.comboLastHitTime > COMBO_DECAY_MS) {
+      this.comboCount = 0;
+    }
+
     // Player attack → enemy + boss hit detection
     this.checkPlayerAttackHits(time);
     this.checkPlayerAttackBoss(time);
@@ -56,6 +77,25 @@ export class CombatSystem {
 
     // Cleanup dead projectiles
     this.enemyProjectiles = this.enemyProjectiles.filter(p => p.active);
+  }
+
+  /** Get the current combo damage multiplier */
+  getComboMultiplier(): number {
+    for (const [threshold, mult] of COMBO_TIERS) {
+      if (this.comboCount >= threshold) return mult;
+    }
+    return 1.0;
+  }
+
+  /** Register a successful hit — increments combo and resets timer */
+  private registerComboHit(time: number) {
+    this.comboCount++;
+    this.comboLastHitTime = time;
+  }
+
+  /** Reset the combo (called when player takes damage) */
+  resetCombo() {
+    this.comboCount = 0;
   }
 
   addEnemyProjectile(proj: Phaser.Physics.Arcade.Sprite) {
@@ -83,7 +123,9 @@ export class CombatSystem {
         // Wraith backstab + poison check
         this.applyWraithEffects(player, enemy);
 
-        const damage = player.getAttackDamage();
+        const baseDamage = player.getAttackDamage();
+        const damage = Math.round(baseDamage * this.getComboMultiplier());
+        this.registerComboHit(time);
         enemy.takeDamage(damage, player.sprite.x, time);
         player.onAttackHit(time);
         this.showDamageNumber(enemySprite.x, enemySprite.y - 10, damage);
@@ -115,6 +157,7 @@ export class CombatSystem {
     const time = this.scene.time.now;
     if (this.tryShieldBlock(player, enemy.damage, enemy.sprite.x, time)) return;
     player.takeDamage(enemy.damage, enemy.sprite.x, time);
+    this.resetCombo();
   };
 
   /** Check Gunner projectiles hitting enemies and boss */
@@ -137,7 +180,9 @@ export class CombatSystem {
         if (!enemy || enemy.state === 'dead') continue;
         const eBounds = enemySprite.getBounds();
         if (Phaser.Geom.Rectangle.Overlaps(projBounds, eBounds)) {
-          const finalDmg = this.applyWeakPoint(proj, eBounds, damage, player);
+          const weakDmg = this.applyWeakPoint(proj, eBounds, damage, player);
+          const finalDmg = Math.round(weakDmg * this.getComboMultiplier());
+          this.registerComboHit(time);
           enemy.takeDamage(finalDmg, proj.x, time);
           player.onAttackHit(time);
           this.showDamageNumber(enemySprite.x, enemySprite.y - 10, finalDmg);
@@ -152,7 +197,9 @@ export class CombatSystem {
       if (boss && boss.isActive && boss.state !== 'dead') {
         const bBounds = boss.sprite.getBounds();
         if (Phaser.Geom.Rectangle.Overlaps(projBounds, bBounds)) {
-          const finalDmg = this.applyWeakPoint(proj, bBounds, damage, player);
+          const weakDmg = this.applyWeakPoint(proj, bBounds, damage, player);
+          const finalDmg = Math.round(weakDmg * this.getComboMultiplier());
+          this.registerComboHit(time);
           boss.takeDamage(finalDmg, proj.x, time);
           player.onAttackHit(time);
           this.showDamageNumber(boss.sprite.x, boss.sprite.y - 20, finalDmg);
@@ -182,7 +229,9 @@ export class CombatSystem {
       // Wraith backstab + poison on boss
       this.applyWraithEffects(player, boss);
 
-      const damage = player.getAttackDamage();
+      const baseDamage = player.getAttackDamage();
+      const damage = Math.round(baseDamage * this.getComboMultiplier());
+      this.registerComboHit(time);
       boss.takeDamage(damage, player.sprite.x, time);
       player.onAttackHit(time);
       this.showDamageNumber(boss.sprite.x, boss.sprite.y - 20, damage);
@@ -215,6 +264,7 @@ export class CombatSystem {
           continue;
         }
         player.takeDamage(damage, proj.x, time);
+        this.resetCombo();
         proj.destroy();
       }
     }

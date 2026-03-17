@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { GAME_WIDTH, GAME_HEIGHT, TILE_SIZE, COLORS } from '../../shared/constants';
 import type { GameScene } from './GameScene';
+import { getZoneModifiers, mergeModifiers } from '../systems/ZoneModifiers';
 
 export class HUDScene extends Phaser.Scene {
   private gameScene!: GameScene;
@@ -22,6 +23,9 @@ export class HUDScene extends Phaser.Scene {
 
   // Completion tracker
   private bossTrackerText!: Phaser.GameObjects.Text;
+
+  // Zone modifier display
+  private modifierText!: Phaser.GameObjects.Text;
 
   constructor() {
     super({ key: 'HUDScene' });
@@ -76,6 +80,28 @@ export class HUDScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 2,
     }).setOrigin(1, 1).setAlpha(0);
 
+    // Zone modifier display (top-center, only on NG+)
+    this.modifierText = this.add.text(GAME_WIDTH / 2, 6, '', {
+      fontSize: '11px', fontFamily: 'Consolas, monospace', color: '#ffcc44',
+      fontStyle: 'bold', stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5, 0).setAlpha(0);
+
+    // Show zone modifiers if active
+    const mods = getZoneModifiers(this.gameScene.currentZone, this.gameScene.ngPlusLevel);
+    if (mods.length > 0) {
+      const merged = mergeModifiers(mods);
+      this.modifierText.setText(merged.name);
+      this.modifierText.setColor(merged.color);
+      this.modifierText.setAlpha(1);
+    }
+    if (this.gameScene.ngPlusLevel > 0) {
+      // Also show NG+ level indicator
+      const ngLabel = `NG+${this.gameScene.ngPlusLevel}`;
+      const existing = this.modifierText.text;
+      this.modifierText.setText(existing ? `${ngLabel} | ${existing}` : ngLabel);
+      this.modifierText.setAlpha(1);
+    }
+
     // Minimap
     this.minimapGfx = this.add.graphics();
     this.minimapDot = this.add.graphics();
@@ -128,12 +154,17 @@ export class HUDScene extends Phaser.Scene {
 
     this.levelText.setText(`LV ${p.level}`);
 
-    // Combo
-    if (p.isAttacking && p.attackCombo > 0) {
-      const comboNames = ['', 'x2', 'x3!', 'x4!!'];
-      this.comboText.setText(comboNames[p.attackCombo]);
+    // Combo — show hit-combo counter from CombatSystem
+    const combo = this.gameScene.combat?.comboCount ?? 0;
+    if (combo >= 3) {
+      const mult = this.gameScene.combat.getComboMultiplier();
+      const multLabel = mult > 1 ? ` x${mult}` : '';
+      this.comboText.setText(`${combo} HIT${multLabel}`);
       this.comboText.setAlpha(1);
-      this.comboText.setScale(1 + p.attackCombo * 0.2);
+      this.comboText.setScale(1 + Math.min(combo, 12) * 0.05);
+      // Tint shifts with combo tier
+      const color = combo >= 12 ? '#ff4444' : combo >= 8 ? '#ffaa22' : combo >= 5 ? '#ffcc44' : '#00ffcc';
+      this.comboText.setColor(color);
     } else {
       this.comboText.setAlpha(Math.max(0, this.comboText.alpha - 0.05));
     }
@@ -250,6 +281,17 @@ export class HUDScene extends Phaser.Scene {
     this.minimapDot.fillStyle(blink ? 0x00ffcc : 0xffffff, 1);
     this.minimapDot.fillCircle(px, py, 2);
 
+    // Draw exit markers (yellow diamonds)
+    const zoneExits: { x: number; y: number }[] = gs.zoneExits;
+    if (zoneExits) {
+      for (const exit of zoneExits) {
+        const ex = mapX + (exit.x / (levelW * TILE_SIZE)) * mapW;
+        const ey = mapY + (exit.y / (levelH * TILE_SIZE)) * mapH;
+        this.minimapDot.fillStyle(0xffcc44, 0.9);
+        this.minimapDot.fillRect(ex - 1.5, ey - 1.5, 3, 3);
+      }
+    }
+
     // Draw enemy dots (red, smaller)
     const enemies: any[] = gs.enemyInstances;
     if (enemies) {
@@ -260,6 +302,16 @@ export class HUDScene extends Phaser.Scene {
         this.minimapDot.fillStyle(0xff4444, 0.7);
         this.minimapDot.fillCircle(ex, ey, 1);
       }
+    }
+
+    // Draw boss dot (large, purple, pulsing)
+    const boss = gs.boss ?? gs.boss2 ?? gs.boss3 ?? gs.boss4;
+    if (boss?.sprite?.active) {
+      const bx = mapX + (boss.sprite.x / (levelW * TILE_SIZE)) * mapW;
+      const by = mapY + (boss.sprite.y / (levelH * TILE_SIZE)) * mapH;
+      const pulse = 0.5 + Math.sin(this.gameScene.time.now * 0.006) * 0.5;
+      this.minimapDot.fillStyle(0xff44ff, pulse);
+      this.minimapDot.fillCircle(bx, by, 2.5);
     }
   }
 }

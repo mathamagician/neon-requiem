@@ -61,6 +61,9 @@ export class HollowKing {
   // Summoned skulls (Phase 2+)
   private skulls: Phaser.Physics.Arcade.Sprite[] = [];
 
+  // Rage mode — triggers at 30% HP
+  private enraged = false;
+
   // Poison debuff
   private poisonTimer = 0;
   private poisonSlowMult = 1;
@@ -144,7 +147,7 @@ export class HollowKing {
       this.poisonTimer -= delta;
       if (this.poisonTimer <= 0) {
         this.poisonSlowMult = 1;
-        this.sprite.clearTint();
+        if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
       }
     }
 
@@ -165,6 +168,23 @@ export class HollowKing {
       this.onPhaseChange();
     }
 
+    // Rage mode at 30% HP
+    if (!this.enraged && this.hp <= this.maxHp * 0.3) {
+      this.enraged = true;
+      this.sprite.setTint(0xff4444);
+      playSound('bossRoar');
+      safeShake(this.scene.cameras.main, 300, 0.02);
+
+      const enrageText = this.scene.add.text(this.sprite.x, this.sprite.y - 50, 'ENRAGED!', {
+        fontSize: '16px', fontFamily: 'Arial, Helvetica, sans-serif', color: '#ff4444',
+        fontStyle: 'bold', stroke: '#000000', strokeThickness: 3,
+      }).setOrigin(0.5).setDepth(100);
+      this.scene.tweens.add({
+        targets: enrageText, y: enrageText.y - 24, alpha: 0, duration: 1200,
+        onComplete: () => enrageText.destroy(),
+      });
+    }
+
     switch (this.state) {
       case 'idle':
         this.actionCooldown -= delta * this.poisonSlowMult;
@@ -177,7 +197,7 @@ export class HollowKing {
         this.attackTimer -= delta;
         this.sprite.setTint(time % 200 > 100 ? 0xffffff : 0x4488ff);
         if (this.attackTimer <= 0) {
-          this.sprite.clearTint();
+          if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
           this.state = 'attack';
           this.currentAttack?.execute();
           this.attackTimer = this.currentAttack?.duration ?? 500;
@@ -188,7 +208,8 @@ export class HollowKing {
         this.attackTimer -= delta;
         if (this.attackTimer <= 0) {
           this.state = 'idle';
-          this.actionCooldown = this.currentAttack?.cooldown ?? 1500;
+          const baseCooldown = this.currentAttack?.cooldown ?? 1500;
+          this.actionCooldown = this.enraged ? baseCooldown * 0.7 : baseCooldown;
           this.currentAttack = null;
         }
         break;
@@ -202,7 +223,7 @@ export class HollowKing {
         this.attackTimer -= delta;
         this.sprite.setTint(0x4488ff);
         if (this.attackTimer <= 0) {
-          this.sprite.clearTint();
+          if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
           this.state = 'idle';
           this.actionCooldown = 500;
         }
@@ -240,7 +261,9 @@ export class HollowKing {
 
     this.sprite.setTint(isWeak ? 0xffff00 : 0xffffff);
     this.scene.time.delayedCall(100, () => {
-      if (this.state !== 'dead') this.sprite.clearTint();
+      if (this.state !== 'dead') {
+        if (this.enraged) this.sprite.setTint(0xff4444); else this.sprite.clearTint();
+      }
     });
 
     if (isWeak) {
@@ -388,7 +411,8 @@ export class HollowKing {
     const gameScene = this.scene as any;
     const playerX = gameScene.player?.sprite.x ?? this.sprite.x;
     const dir = playerX > this.sprite.x ? 1 : -1;
-    const count = this.phase >= 3 ? 5 : 3;
+    const baseCount = this.phase >= 3 ? 5 : 3;
+    const count = this.enraged ? baseCount + 2 : baseCount;
     const spreadAngle = 30; // degrees total spread
 
     for (let i = 0; i < count; i++) {
@@ -449,7 +473,8 @@ export class HollowKing {
 
   /** Skull Summon — spawns floating skulls that home toward player */
   private attackSkullSummon() {
-    const count = this.phase >= 3 ? 3 : 2;
+    const baseSkullCount = this.phase >= 3 ? 3 : 2;
+    const count = this.enraged ? baseSkullCount + 2 : baseSkullCount;
     for (let i = 0; i < count; i++) {
       const ox = (Math.random() - 0.5) * 60;
       const skull = this.scene.physics.add.sprite(
@@ -521,7 +546,7 @@ export class HollowKing {
       const dy = (player.sprite.y - 12) - skull.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist > 5) {
-        const speed = 50;
+        const speed = this.enraged ? 60 : 50;
         skull.body!.velocity.x += (dx / dist) * speed * 0.05;
         skull.body!.velocity.y += (dy / dist) * speed * 0.05;
         // Cap speed

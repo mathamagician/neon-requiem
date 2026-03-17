@@ -1,231 +1,541 @@
 /**
  * MusicManager — procedural ambient music using Web Audio API.
- * No audio files needed. Creates gentle, calming ambient pads with
- * a slow arpeggio pattern using soft sine waves and musical intervals.
+ * No audio files needed. Creates zone-specific ambient drones, a combat
+ * rhythmic layer, and an intensified boss layer using OscillatorNode + GainNode.
  *
- * Each zone has a unique key/mood:
- *   hub        — warm major key, safe feeling
- *   foundry    — minor key, slightly tense but still ambient
- *   cryptvault — dark minor, mysterious atmosphere
+ * Zone tones:
+ *   hub        — warm C major pad (safe, inviting)
+ *   foundry    — C minor low oscillators (industrial, tense)
+ *   cryptvault — diminished chord with slow LFO (dark, eerie)
+ *   garden     — sus4 chord with gentle pulsing (organic, unsettling)
+ *   citadel    — perfect 5ths square wave (cold, digital)
+ *   *_boss     — parent zone tone but more intense
+ *
+ * Layers:
+ *   ambient  — always-on zone drone (2-3 oscillators)
+ *   combat   — rhythmic pulse added when enemies are near
+ *   boss     — replaces ambient with intensified version when boss triggers
+ *
+ * Kept lightweight: max 3-4 oscillators active at once per layer.
+ * Cross-fades between states over ~1s.
  */
 
-let audioCtx: AudioContext | null = null;
+// ---------------------------------------------------------------------------
+// Audio context & master gain
+// ---------------------------------------------------------------------------
+
+let ctx: AudioContext | null = null;
 let masterGain: GainNode | null = null;
-let currentZone: string | null = null;
-let musicVolume = 0.06; // Very quiet — background ambience, not foreground
-let isPlaying = false;
+let musicVolume = 0.06;
 
-// Cleanup tracking
-let activeOscillators: OscillatorNode[] = [];
-let arpeggioInterval: ReturnType<typeof setInterval> | null = null;
-let padGains: GainNode[] = [];
-
-// Musical note frequencies (Hz)
-const NOTE = {
-  C3: 130.81, D3: 146.83, Eb3: 155.56, E3: 164.81, F3: 174.61, Gb3: 185.00, G3: 196.00, Ab3: 207.65, A3: 220.00, Bb3: 233.08, B3: 246.94,
-  C4: 261.63, D4: 293.66, Eb4: 311.13, E4: 329.63, F4: 349.23, Gb4: 369.99, G4: 392.00, Ab4: 415.30, A4: 440.00, Bb4: 466.16, B4: 493.88,
-  C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99,
-};
-
-interface ZoneMusic {
-  padNotes: number[];       // sustained pad chord (sine waves)
-  arpNotes: number[];       // arpeggio melody notes (cycled)
-  arpSpeed: number;         // ms between arp notes
-  arpAttack: number;        // seconds for each arp note fade-in
-  arpRelease: number;       // seconds for each arp note fade-out
-  padDetune: number;        // cents of chorus detune for warmth
+function ensureCtx(): AudioContext {
+  if (!ctx) {
+    ctx = new AudioContext();
+    masterGain = ctx.createGain();
+    masterGain.gain.value = musicVolume;
+    masterGain.connect(ctx.destination);
+  }
+  if (ctx.state === 'suspended') {
+    ctx.resume();
+  }
+  return ctx;
 }
 
-const ZONE_MUSIC: Record<string, ZoneMusic> = {
+// ---------------------------------------------------------------------------
+// Note helpers
+// ---------------------------------------------------------------------------
+
+/** Convert MIDI note number to frequency */
+function mtof(midi: number): number {
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+// MIDI note names for readability
+const C3 = 48, D3 = 50, Eb3 = 51, E3 = 52, F3 = 53, G3 = 55, Ab3 = 56, A3 = 57, Bb3 = 58, B3 = 59;
+const C4 = 60, D4 = 62, Eb4 = 63, E4 = 64, F4 = 65, Gb4 = 66, G4 = 67, B4 = 71;
+const C5 = 72;
+
+// ---------------------------------------------------------------------------
+// Zone definitions
+// ---------------------------------------------------------------------------
+
+interface ZoneTone {
+  /** Chord frequencies for ambient pad (2-3 voices) */
+  chord: number[];
+  /** Oscillator type for pad voices */
+  type: OscillatorType;
+  /** Optional LFO rate in Hz (0 = none) */
+  lfoRate: number;
+  /** LFO depth (gain modulation amount, 0-1) */
+  lfoDepth: number;
+  /** Detune in cents for chorus effect */
+  detune: number;
+  /** Base volume per voice (before master gain) */
+  voiceVol: number;
+  /** Arpeggio notes (cycled), null = no arpeggio */
+  arpNotes: number[] | null;
+  /** Arpeggio speed in ms */
+  arpSpeed: number;
+}
+
+const ZONE_TONES: Record<string, ZoneTone> = {
   hub: {
-    // C major 7 — warm, inviting, safe
-    padNotes: [NOTE.C3, NOTE.E3, NOTE.G3, NOTE.B3],
-    arpNotes: [NOTE.E4, NOTE.G4, NOTE.C5, NOTE.E5, NOTE.D5, NOTE.B4, NOTE.G4, NOTE.C4],
+    // C major — warm, safe, pad-like
+    chord: [mtof(C3), mtof(E3), mtof(G3)],
+    type: 'sine',
+    lfoRate: 0,
+    lfoDepth: 0,
+    detune: 6,
+    voiceVol: 0.1,
+    arpNotes: [mtof(E4), mtof(G4), mtof(C5), mtof(G4)],
     arpSpeed: 1800,
-    arpAttack: 0.3,
-    arpRelease: 1.4,
-    padDetune: 6,
   },
   foundry: {
-    // A minor 7 — moody but not harsh
-    padNotes: [NOTE.A3, NOTE.C4, NOTE.E4, NOTE.G4],
-    arpNotes: [NOTE.C5, NOTE.E4, NOTE.A4, NOTE.G4, NOTE.E4, NOTE.C4, NOTE.D4, NOTE.E4],
-    arpSpeed: 2200,
-    arpAttack: 0.4,
-    arpRelease: 1.6,
-    padDetune: 8,
+    // C minor — industrial, tense, low oscillators
+    chord: [mtof(C3), mtof(Eb3), mtof(G3)],
+    type: 'sawtooth',
+    lfoRate: 0.3,
+    lfoDepth: 0.15,
+    detune: 10,
+    voiceVol: 0.07,
+    arpNotes: null,
+    arpSpeed: 0,
   },
   cryptvault: {
-    // Eb minor — dark, mysterious, ethereal
-    padNotes: [NOTE.Eb3, NOTE.Gb3, NOTE.Bb3, NOTE.Eb4],
-    arpNotes: [NOTE.Bb4, NOTE.Ab4, NOTE.Eb4, NOTE.Gb4, NOTE.Ab4, NOTE.Eb4, NOTE.Bb3, NOTE.Eb4],
+    // Diminished chord — dark, eerie, slow LFO
+    chord: [mtof(B3), mtof(D4), mtof(F4), mtof(Ab3)],
+    type: 'sine',
+    lfoRate: 0.15,
+    lfoDepth: 0.3,
+    detune: 12,
+    voiceVol: 0.08,
+    arpNotes: [mtof(F4), mtof(D4), mtof(Ab3 + 12), mtof(B3 + 12)],
     arpSpeed: 2800,
-    arpAttack: 0.5,
-    arpRelease: 2.0,
-    padDetune: 10,
   },
   garden: {
-    // D minor 9 — eerie, organic, slightly unsettling but beautiful
-    padNotes: [NOTE.D3, NOTE.F3, NOTE.A3, NOTE.E4],
-    arpNotes: [NOTE.A4, NOTE.F4, NOTE.D4, NOTE.E4, NOTE.F4, NOTE.A4, NOTE.G4, NOTE.E4],
+    // Csus4 — organic, unsettling, gentle pulsing
+    chord: [mtof(C3), mtof(F3), mtof(G3)],
+    type: 'triangle',
+    lfoRate: 0.5,
+    lfoDepth: 0.2,
+    detune: 7,
+    voiceVol: 0.09,
+    arpNotes: [mtof(G4), mtof(F4), mtof(C4), mtof(F4)],
     arpSpeed: 2400,
-    arpAttack: 0.4,
-    arpRelease: 1.8,
-    padDetune: 7,
   },
   citadel: {
-    // B minor add9 — cold, digital, relentless precision
-    padNotes: [NOTE.B3, NOTE.D4, NOTE.Gb4, NOTE.A4],
-    arpNotes: [NOTE.Gb4, NOTE.B4, NOTE.D5, NOTE.Gb4, NOTE.E4, NOTE.B3, NOTE.D4, NOTE.A4],
+    // Perfect 5ths — cold, digital, square wave
+    chord: [mtof(C3), mtof(G3), mtof(D4)],
+    type: 'square',
+    lfoRate: 0,
+    lfoDepth: 0,
+    detune: 4,
+    voiceVol: 0.04, // square is harsh, keep it low
+    arpNotes: [mtof(G4), mtof(D4), mtof(C5), mtof(G4)],
     arpSpeed: 1600,
-    arpAttack: 0.2,
-    arpRelease: 1.2,
-    padDetune: 4,
   },
 };
 
-
-function ensureContext(): AudioContext {
-  if (!audioCtx) {
-    audioCtx = new AudioContext();
-    masterGain = audioCtx.createGain();
-    masterGain.gain.value = musicVolume;
-    masterGain.connect(audioCtx.destination);
-  }
-  if (audioCtx.state === 'suspended') {
-    audioCtx.resume();
-  }
-  return audioCtx;
+function getZoneTone(zoneId: string): ZoneTone | null {
+  // Boss zones use parent zone tone
+  const base = zoneId.replace(/_boss$/, '');
+  return ZONE_TONES[base] ?? null;
 }
 
-/** Create a soft sine pad voice with optional chorus detune */
-function createPadVoice(ctx: AudioContext, freq: number, detune: number, vol: number): { osc: OscillatorNode; gain: GainNode } {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
+// ---------------------------------------------------------------------------
+// Voice management — lightweight wrapper for osc + gain pairs
+// ---------------------------------------------------------------------------
 
-  osc.type = 'sine';
+interface Voice {
+  osc: OscillatorNode;
+  gain: GainNode;
+}
+
+/** All active nodes for cleanup */
+let ambientVoices: Voice[] = [];
+let combatVoices: Voice[] = [];
+let bossVoices: Voice[] = [];
+let lfoNode: OscillatorNode | null = null;
+let lfoGain: GainNode | null = null;
+let arpeggioTimer: ReturnType<typeof setInterval> | null = null;
+
+function createVoice(
+  freq: number,
+  type: OscillatorType,
+  vol: number,
+  detuneCents: number,
+  dest: AudioNode,
+): Voice {
+  const ac = ctx!;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
   osc.frequency.value = freq;
-  osc.detune.value = detune;
-
-  gain.gain.value = 0;
+  osc.detune.value = detuneCents;
+  gain.gain.value = 0; // start silent, fade in
   osc.connect(gain);
-  gain.connect(masterGain!);
-
+  gain.connect(dest);
   osc.start();
-
-  // Gentle fade in
-  gain.gain.setValueAtTime(0, ctx.currentTime);
-  gain.gain.linearRampToValueAtTime(vol, ctx.currentTime + 3);
-
+  // Fade in
+  gain.gain.setValueAtTime(0, ac.currentTime);
+  gain.gain.linearRampToValueAtTime(vol, ac.currentTime + 1.5);
   return { osc, gain };
 }
 
-/** Play a single arpeggio note with attack/release envelope */
-function playArpNote(ctx: AudioContext, freq: number, attack: number, release: number): void {
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-
-  osc.type = 'sine';
-  osc.frequency.value = freq;
-  // Very slight detune for shimmer
-  osc.detune.value = (Math.random() - 0.5) * 4;
-
-  gain.gain.value = 0;
-  osc.connect(gain);
-  gain.connect(masterGain!);
-
+function fadeOutVoices(voices: Voice[], duration = 1.5): void {
+  if (!ctx || voices.length === 0) return;
   const now = ctx.currentTime;
-  const peakVol = 0.12; // Arp notes slightly louder than pad for melody
-
-  // Envelope: fade in → hold briefly → fade out
-  gain.gain.setValueAtTime(0, now);
-  gain.gain.linearRampToValueAtTime(peakVol, now + attack);
-  gain.gain.linearRampToValueAtTime(0, now + attack + release);
-
-  osc.start(now);
-  osc.stop(now + attack + release + 0.1);
+  const toStop = [...voices];
+  for (const v of toStop) {
+    try {
+      v.gain.gain.cancelScheduledValues(now);
+      v.gain.gain.setValueAtTime(v.gain.gain.value, now);
+      v.gain.gain.linearRampToValueAtTime(0, now + duration);
+    } catch { /* ignore */ }
+  }
+  setTimeout(() => {
+    for (const v of toStop) {
+      try { v.osc.stop(); } catch { /* ignore */ }
+      try { v.osc.disconnect(); } catch { /* ignore */ }
+      try { v.gain.disconnect(); } catch { /* ignore */ }
+    }
+  }, (duration + 0.2) * 1000);
 }
 
-/** Start ambient music for the given zone. */
-export function startMusic(zone: string): void {
-  if (zone === currentZone && isPlaying) return;
+function stopVoicesImmediate(voices: Voice[]): void {
+  for (const v of voices) {
+    try { v.osc.stop(); } catch { /* ignore */ }
+    try { v.osc.disconnect(); } catch { /* ignore */ }
+    try { v.gain.disconnect(); } catch { /* ignore */ }
+  }
+}
 
-  // Boss practice zones use parent zone music
-  const musicZone = zone.replace(/_boss$/, '');
-  const config = ZONE_MUSIC[musicZone];
-  if (!config) return;
+// ---------------------------------------------------------------------------
+// State tracking
+// ---------------------------------------------------------------------------
 
-  // Stop any existing music
-  stopMusic(true);
+let currentZone: string | null = null;
+let combatActive = false;
+let bossActive = false;
+let isPlaying = false;
 
-  const ctx = ensureContext();
-  currentZone = zone;
-  isPlaying = true;
+// Layer-specific gain buses (so we can fade layers independently)
+let ambientBus: GainNode | null = null;
+let combatBus: GainNode | null = null;
+let bossBus: GainNode | null = null;
 
-  // === Pad layer: sustained sine chord with chorus ===
-  const padVol = 0.08; // Very soft per-voice
-  for (const freq of config.padNotes) {
+function createBuses(): void {
+  if (!ctx || !masterGain) return;
+  if (!ambientBus) {
+    ambientBus = ctx.createGain();
+    ambientBus.gain.value = 1;
+    ambientBus.connect(masterGain);
+  }
+  if (!combatBus) {
+    combatBus = ctx.createGain();
+    combatBus.gain.value = 0;
+    combatBus.connect(masterGain);
+  }
+  if (!bossBus) {
+    bossBus = ctx.createGain();
+    bossBus.gain.value = 0;
+    bossBus.connect(masterGain);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ambient layer
+// ---------------------------------------------------------------------------
+
+function startAmbientLayer(tone: ZoneTone): void {
+  if (!ctx || !ambientBus) return;
+
+  // Pad voices (2-3 notes, main + chorus detuned copy = max 4 oscillators)
+  // Limit to 3 chord tones max to stay lightweight
+  const chordNotes = tone.chord.slice(0, 3);
+  for (const freq of chordNotes) {
     // Main voice
-    const v1 = createPadVoice(ctx, freq, 0, padVol);
-    activeOscillators.push(v1.osc);
-    padGains.push(v1.gain);
-
+    ambientVoices.push(createVoice(freq, tone.type, tone.voiceVol, 0, ambientBus));
     // Chorus voice (slightly detuned for warmth)
-    const v2 = createPadVoice(ctx, freq, config.padDetune, padVol * 0.5);
-    activeOscillators.push(v2.osc);
-    padGains.push(v2.gain);
-
-    // Counter-detuned chorus voice
-    const v3 = createPadVoice(ctx, freq, -config.padDetune, padVol * 0.5);
-    activeOscillators.push(v3.osc);
-    padGains.push(v3.gain);
+    ambientVoices.push(
+      createVoice(freq, tone.type, tone.voiceVol * 0.4, tone.detune, ambientBus),
+    );
   }
 
-  // === Arpeggio layer: gentle cycling melody ===
-  let arpIndex = 0;
-  arpeggioInterval = setInterval(() => {
-    if (!isPlaying || !audioCtx) return;
-    const note = config.arpNotes[arpIndex % config.arpNotes.length];
-    playArpNote(audioCtx, note, config.arpAttack, config.arpRelease);
-    arpIndex++;
-  }, config.arpSpeed);
+  // LFO modulation on ambient bus (if configured)
+  if (tone.lfoRate > 0 && tone.lfoDepth > 0) {
+    lfoNode = ctx.createOscillator();
+    lfoGain = ctx.createGain();
+    lfoNode.type = 'sine';
+    lfoNode.frequency.value = tone.lfoRate;
+    lfoGain.gain.value = tone.lfoDepth;
+    lfoNode.connect(lfoGain);
+    // Modulate the ambient bus gain
+    lfoGain.connect(ambientBus.gain);
+    lfoNode.start();
+  }
+
+  // Arpeggio (if configured)
+  if (tone.arpNotes && tone.arpSpeed > 0) {
+    let idx = 0;
+    arpeggioTimer = setInterval(() => {
+      if (!isPlaying || !ctx || !ambientBus || bossActive) return;
+      const notes = tone.arpNotes!;
+      const freq = notes[idx % notes.length];
+      // Single short sine note
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      osc.detune.value = (Math.random() - 0.5) * 4;
+      gain.gain.value = 0;
+      osc.connect(gain);
+      gain.connect(ambientBus!);
+      const now = ctx.currentTime;
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.1, now + 0.3);
+      gain.gain.linearRampToValueAtTime(0, now + 1.4);
+      osc.start(now);
+      osc.stop(now + 1.6);
+      idx++;
+    }, tone.arpSpeed);
+  }
 }
 
-/** Stop all music. If fade=true, fades out over 2s; otherwise stops immediately. */
-export function stopMusic(fade = false): void {
-  // Stop arpeggio
-  if (arpeggioInterval !== null) {
-    clearInterval(arpeggioInterval);
-    arpeggioInterval = null;
+function stopAmbientLayer(fade: boolean): void {
+  if (arpeggioTimer !== null) {
+    clearInterval(arpeggioTimer);
+    arpeggioTimer = null;
   }
-
-  const oscs = [...activeOscillators];
-  const gains = [...padGains];
-  activeOscillators = [];
-  padGains = [];
-  isPlaying = false;
-  currentZone = null;
-
-  if (oscs.length === 0) return;
-
-  if (fade && audioCtx) {
-    const now = audioCtx.currentTime;
-    for (const g of gains) {
-      try { g.gain.linearRampToValueAtTime(0, now + 2); } catch { /* ignore */ }
-    }
-    setTimeout(() => {
-      for (const o of oscs) {
-        try { o.stop(); } catch { /* ignore */ }
-      }
-    }, 2500);
+  if (lfoNode) {
+    try { lfoNode.stop(); } catch { /* ignore */ }
+    try { lfoNode.disconnect(); } catch { /* ignore */ }
+    lfoNode = null;
+  }
+  if (lfoGain) {
+    try { lfoGain.disconnect(); } catch { /* ignore */ }
+    lfoGain = null;
+  }
+  if (fade) {
+    fadeOutVoices(ambientVoices, 1.5);
   } else {
-    for (const o of oscs) {
-      try { o.stop(); } catch { /* ignore */ }
-    }
+    stopVoicesImmediate(ambientVoices);
+  }
+  ambientVoices = [];
+}
+
+// ---------------------------------------------------------------------------
+// Combat layer — rhythmic pulse that fades in when enemies are near
+// ---------------------------------------------------------------------------
+
+let combatPulseTimer: ReturnType<typeof setInterval> | null = null;
+
+function startCombatLayer(tone: ZoneTone): void {
+  if (!ctx || !combatBus) return;
+
+  // Low sub-bass pulse
+  const bassFreq = tone.chord[0]; // root note
+  combatVoices.push(
+    createVoice(bassFreq * 0.5, 'sine', 0.12, 0, combatBus),
+  );
+
+  // Rhythmic kick pulse (quarter notes at ~100 BPM = 600ms)
+  combatPulseTimer = setInterval(() => {
+    if (!isPlaying || !ctx || !combatBus || !combatActive) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = bassFreq * 0.25; // Very low sub
+    gain.gain.value = 0;
+    osc.connect(gain);
+    gain.connect(combatBus!);
+    const now = ctx.currentTime;
+    // Sharp attack, fast decay — percussive feel
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.2, now + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+    // Pitch drop for kick drum feel
+    osc.frequency.setValueAtTime(bassFreq * 0.5, now);
+    osc.frequency.exponentialRampToValueAtTime(bassFreq * 0.15, now + 0.15);
+    osc.start(now);
+    osc.stop(now + 0.35);
+  }, 600);
+}
+
+function stopCombatLayer(fade: boolean): void {
+  if (combatPulseTimer !== null) {
+    clearInterval(combatPulseTimer);
+    combatPulseTimer = null;
+  }
+  if (fade) {
+    fadeOutVoices(combatVoices, 1.0);
+  } else {
+    stopVoicesImmediate(combatVoices);
+  }
+  combatVoices = [];
+}
+
+// ---------------------------------------------------------------------------
+// Boss layer — replaces ambient with an intensified version
+// ---------------------------------------------------------------------------
+
+let bossPulseTimer: ReturnType<typeof setInterval> | null = null;
+
+function startBossLayer(tone: ZoneTone): void {
+  if (!ctx || !bossBus) return;
+
+  // Intensified pad — lower, louder, more dissonant
+  const root = tone.chord[0];
+  // Distorted root drone
+  bossVoices.push(createVoice(root * 0.5, 'sawtooth', 0.08, 0, bossBus));
+  // Tritone tension (root + 6 semitones = tritone)
+  bossVoices.push(createVoice(root * Math.pow(2, 6 / 12), 'sawtooth', 0.05, 8, bossBus));
+  // High dissonant shimmer
+  bossVoices.push(createVoice(root * 2 * Math.pow(2, 1 / 12), 'square', 0.02, -5, bossBus));
+
+  // Fast rhythmic pulse (~140 BPM = ~430ms)
+  bossPulseTimer = setInterval(() => {
+    if (!isPlaying || !ctx || !bossBus || !bossActive) return;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.value = root * 0.25;
+    gain.gain.value = 0;
+    osc.connect(gain);
+    gain.connect(bossBus!);
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.15, now + 0.015);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+    osc.frequency.setValueAtTime(root * 0.5, now);
+    osc.frequency.exponentialRampToValueAtTime(root * 0.12, now + 0.1);
+    osc.start(now);
+    osc.stop(now + 0.25);
+  }, 430);
+}
+
+function stopBossLayer(fade: boolean): void {
+  if (bossPulseTimer !== null) {
+    clearInterval(bossPulseTimer);
+    bossPulseTimer = null;
+  }
+  if (fade) {
+    fadeOutVoices(bossVoices, 1.0);
+  } else {
+    stopVoicesImmediate(bossVoices);
+  }
+  bossVoices = [];
+}
+
+// ---------------------------------------------------------------------------
+// Cross-fade helpers for layer buses
+// ---------------------------------------------------------------------------
+
+function fadeBus(bus: GainNode | null, target: number, duration = 1.0): void {
+  if (!bus || !ctx) return;
+  const now = ctx.currentTime;
+  bus.gain.cancelScheduledValues(now);
+  bus.gain.setValueAtTime(bus.gain.value, now);
+  bus.gain.linearRampToValueAtTime(target, now + duration);
+}
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/** Start ambient music for the given zone. Handles boss zone suffixes. */
+export function startZoneMusic(zoneId: string): void {
+  if (zoneId === currentZone && isPlaying) return;
+
+  const tone = getZoneTone(zoneId);
+  if (!tone) return;
+
+  // Stop everything first
+  stopMusic();
+
+  ensureCtx();
+  createBuses();
+  currentZone = zoneId;
+  isPlaying = true;
+  combatActive = false;
+  bossActive = false;
+
+  // Start ambient layer
+  startAmbientLayer(tone);
+  fadeBus(ambientBus, 1, 0.1);
+
+  // Pre-create combat + boss layers (silent until activated)
+  startCombatLayer(tone);
+  startBossLayer(tone);
+  fadeBus(combatBus, 0, 0.1);
+  fadeBus(bossBus, 0, 0.1);
+
+  // If this is a boss zone, auto-activate boss intensity
+  if (zoneId.endsWith('_boss')) {
+    setBossActive(true);
   }
 }
 
-/** Set music volume (0-1) */
+/** Stop all music. Pass fade=true for a smooth fade-out. */
+export function stopMusic(fade = false): void {
+  if (fade) { fadeOutMusic(); return; }
+  isPlaying = false;
+  combatActive = false;
+  bossActive = false;
+
+  stopAmbientLayer(false);
+  stopCombatLayer(false);
+  stopBossLayer(false);
+
+  currentZone = null;
+}
+
+/** Fade-stop variant for zone transitions. */
+export function fadeOutMusic(): void {
+  if (!isPlaying) return;
+  isPlaying = false;
+  combatActive = false;
+  bossActive = false;
+
+  stopAmbientLayer(true);
+  stopCombatLayer(true);
+  stopBossLayer(true);
+
+  currentZone = null;
+}
+
+/** Activate/deactivate the combat rhythmic layer. */
+export function setCombatActive(active: boolean): void {
+  if (active === combatActive) return;
+  combatActive = active;
+  if (!isPlaying) return;
+
+  if (active && !bossActive) {
+    fadeBus(combatBus, 1, 0.8);
+  } else {
+    fadeBus(combatBus, 0, 1.2);
+  }
+}
+
+/** Activate/deactivate the boss intensity layer. Replaces ambient when active. */
+export function setBossActive(active: boolean): void {
+  if (active === bossActive) return;
+  bossActive = active;
+  if (!isPlaying) return;
+
+  if (active) {
+    // Cross-fade: dim ambient, kill combat, bring in boss
+    fadeBus(ambientBus, 0.2, 1.0);
+    fadeBus(combatBus, 0, 0.5);
+    fadeBus(bossBus, 1, 1.0);
+  } else {
+    // Restore ambient, remove boss
+    fadeBus(bossBus, 0, 1.5);
+    fadeBus(ambientBus, 1, 1.5);
+  }
+}
+
+/** Set music master volume (0-1). */
 export function setMusicVolume(v: number): void {
   musicVolume = Math.max(0, Math.min(1, v));
   if (masterGain) {
@@ -233,6 +543,10 @@ export function setMusicVolume(v: number): void {
   }
 }
 
+/** Get current music volume (0-1). */
 export function getMusicVolume(): number {
   return musicVolume;
 }
+
+// Legacy aliases for backward compatibility with existing imports
+export { startZoneMusic as startMusic };

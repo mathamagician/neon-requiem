@@ -8,12 +8,14 @@ import type { EnemyType } from '../entities/Enemy';
 import { CombatSystem } from '../systems/CombatSystem';
 import { InventorySystem } from '../systems/InventorySystem';
 import { BossPowerSystem } from '../systems/BossPowerSystem';
+import { TutorialSystem } from '../systems/TutorialSystem';
 import { generateDrop } from '../../shared/data/equipment';
 import { createTestLevel, LEVEL_WIDTH_TILES, LEVEL_HEIGHT_TILES } from '../levels/testLevel';
 import { createCryptvaultLevel } from '../levels/cryptvaultLevel';
 import { createHubLevel } from '../levels/hubLevel';
 import { getBlightedGardenTiles } from '../levels/blightedGardenLevel';
 import { getNeonCitadelTiles } from '../levels/neonCitadelLevel';
+import { getVoidNexusTiles } from '../levels/voidNexusLevel';
 import { getBossArenaTiles } from '../levels/bossArenaLevel';
 import { getZone, type ZoneDef } from '../levels/zones';
 import { renderZoneBackground } from '../art/backgroundRenderer';
@@ -23,10 +25,11 @@ import { LadyHemlock } from '../entities/LadyHemlock';
 import { Overclock } from '../entities/Overclock';
 import type { AnyPlayer } from '../entities/PlayerTypes';
 import { getDefaultBranch } from '../../shared/data/skillTrees';
-import { buildSaveData, writeSave, restoreInventory, type SaveData } from '../systems/SaveSystem';
+import { buildSaveData, writeSave, restoreInventory, getNGPlusMultiplier, type SaveData } from '../systems/SaveSystem';
+import { getZoneModifiers, mergeModifiers } from '../systems/ZoneModifiers';
 import { playSound } from '../systems/SoundManager';
 import { initCameraFX, updateFX, destroyFX } from '../systems/FXManager';
-import { startMusic, stopMusic } from '../systems/MusicManager';
+import { startZoneMusic, stopMusic, fadeOutMusic, setCombatActive, setBossActive } from '../systems/MusicManager';
 import { NetManager, type NetPlayerState } from '../systems/NetManager';
 
 export type ClassName = 'vanguard' | 'gunner' | 'wraith';
@@ -37,6 +40,7 @@ export class GameScene extends Phaser.Scene {
   groundLayer!: Phaser.Tilemaps.TilemapLayer;
   combat!: CombatSystem;
   bossPowerSystem!: BossPowerSystem;
+  private tutorial!: TutorialSystem;
   debugMode = false;
   currentClass: ClassName = 'vanguard';
   private classLabel!: Phaser.GameObjects.Text;
@@ -55,6 +59,7 @@ export class GameScene extends Phaser.Scene {
   private boss4Triggered = false;
   bossesDefeated: string[] = [];
   gold = 0;
+  ngPlusLevel = 0;
 
   // NPCs
   private npcs: { sprite: Phaser.GameObjects.Sprite; type: string; label: Phaser.GameObjects.Text }[] = [];
@@ -123,6 +128,7 @@ export class GameScene extends Phaser.Scene {
       this.bossesDefeated = [...save.bossesDefeated];
       this.bossPowers = [...save.collectedPowers];
       this.gold = save.gold ?? 0;
+      this.ngPlusLevel = save.ngPlusLevel ?? 0;
     }
 
     // -- Build tilemap based on zone --
@@ -221,6 +227,9 @@ export class GameScene extends Phaser.Scene {
     // -- Combat --
     this.combat = new CombatSystem(this);
 
+    // -- Tutorial hints --
+    this.tutorial = new TutorialSystem(this);
+
     // -- Camera --
     const worldWidth = levelW * TILE_SIZE;
     const worldHeight = levelH * TILE_SIZE;
@@ -303,13 +312,13 @@ export class GameScene extends Phaser.Scene {
 
     // -- Background music --
     // Start on first user interaction (AudioContext requires gesture)
-    const startZoneMusic = () => {
-      startMusic(this.currentZone);
-      this.input.off('pointerdown', startZoneMusic);
-      this.input.keyboard!.off('keydown', startZoneMusic);
+    const startMusicOnGesture = () => {
+      startZoneMusic(this.currentZone);
+      this.input.off('pointerdown', startMusicOnGesture);
+      this.input.keyboard!.off('keydown', startMusicOnGesture);
     };
-    this.input.on('pointerdown', startZoneMusic);
-    this.input.keyboard!.on('keydown', startZoneMusic);
+    this.input.on('pointerdown', startMusicOnGesture);
+    this.input.keyboard!.on('keydown', startMusicOnGesture);
   }
 
   /** Clean up persistent resources when scene shuts down */
@@ -328,6 +337,7 @@ export class GameScene extends Phaser.Scene {
     for (const enemy of this.enemyInstances) enemy.update(time, delta);
     this.combat.update(time, delta);
     this.bossPowerSystem.update(time, delta);
+    this.tutorial.update(time, delta);
     this.checkLootPickup();
     this.checkSavePoints(time);
     this.handleBossPowerInput(time);
@@ -337,6 +347,7 @@ export class GameScene extends Phaser.Scene {
     if (this.boss && !this.bossTriggered && this.player.sprite.x > bossTriggerX) {
       this.bossTriggered = true;
       this.boss.activate();
+      setBossActive(true);
     }
     if (this.boss?.isActive) {
       this.boss.update(time, delta);
@@ -345,6 +356,7 @@ export class GameScene extends Phaser.Scene {
     if (this.boss2 && !this.boss2Triggered && this.player.sprite.x > bossTriggerX) {
       this.boss2Triggered = true;
       this.boss2.activate();
+      setBossActive(true);
     }
     if (this.boss2?.isActive) {
       this.boss2.update(time, delta);
@@ -353,6 +365,7 @@ export class GameScene extends Phaser.Scene {
     if (this.boss3 && !this.boss3Triggered && this.player.sprite.x > bossTriggerX) {
       this.boss3Triggered = true;
       this.boss3.activate();
+      setBossActive(true);
     }
     if (this.boss3?.isActive) {
       this.boss3.update(time, delta);
@@ -361,6 +374,7 @@ export class GameScene extends Phaser.Scene {
     if (this.boss4 && !this.boss4Triggered && this.player.sprite.x > bossTriggerX) {
       this.boss4Triggered = true;
       this.boss4.activate();
+      setBossActive(true);
     }
     if (this.boss4?.isActive) {
       this.boss4.update(time, delta);
@@ -372,6 +386,26 @@ export class GameScene extends Phaser.Scene {
       || (this.boss3?.isActive && this.boss3.state !== 'dead')
       || (this.boss4?.isActive && this.boss4.state !== 'dead');
     updateFX(delta, !!anyBossActive, this.player.hp / this.player.maxHp);
+
+    // Music layers — boss overrides combat
+    setBossActive(!!anyBossActive);
+    if (!anyBossActive) {
+      // Combat music when enemies are within ~300px
+      const px = this.player.sprite.x;
+      const py = this.player.sprite.y;
+      const COMBAT_RANGE = 300;
+      let nearEnemy = false;
+      for (const e of this.enemyInstances) {
+        if (e.hp <= 0) continue;
+        const dx = e.sprite.x - px;
+        const dy = e.sprite.y - py;
+        if (dx * dx + dy * dy < COMBAT_RANGE * COMBAT_RANGE) {
+          nearEnemy = true;
+          break;
+        }
+      }
+      setCombatActive(nearEnemy);
+    }
 
     // Pit hazard check
     this.checkPitFall(time);
@@ -771,6 +805,7 @@ export class GameScene extends Phaser.Scene {
       case 'hub': return createHubLevel();
       case 'garden': return getBlightedGardenTiles();
       case 'citadel': return getNeonCitadelTiles();
+      case 'voidnexus': return getVoidNexusTiles();
       default: return createTestLevel();
     }
   }
@@ -893,6 +928,16 @@ export class GameScene extends Phaser.Scene {
       const groundY = this.findGroundY(worldX) ?? (this.zoneDef.height * TILE_SIZE - 60);
       const spawnY = (type === 'flyer' || type === 'ghost') ? groundY - 40 : groundY - 20;
       const enemy = new Enemy(this, worldX, spawnY, type);
+
+      // Apply NG+ and zone modifier scaling
+      const ngMult = getNGPlusMultiplier(this.ngPlusLevel);
+      const zoneMods = getZoneModifiers(this.currentZone, this.ngPlusLevel);
+      const merged = mergeModifiers(zoneMods);
+      enemy.hp = Math.round(enemy.hp * ngMult * merged.enemyHpMult);
+      enemy.maxHp = enemy.hp;
+      enemy.damage = Math.round(enemy.damage * ngMult * merged.enemyDamageMult);
+      enemy.speed = Math.round(enemy.speed * merged.enemySpeedMult);
+
       this.enemies.add(enemy.sprite);
       this.enemyInstances.push(enemy);
     }
@@ -911,10 +956,13 @@ export class GameScene extends Phaser.Scene {
     for (const exit of this.zoneDef.exits) {
       const worldX = exit.tileX * TILE_SIZE;
 
-      // Check if this is a locked boss practice door
+      // Check if this is a locked boss practice door or the Void Nexus (requires all 4 bosses)
       const isBossZone = exit.targetZone.endsWith('_boss');
+      const isVoidNexus = exit.targetZone === 'voidnexus';
       const targetZoneDef = getZone(exit.targetZone);
-      const bossDefeated = !isBossZone || !targetZoneDef.bossId || this.bossesDefeated.includes(targetZoneDef.bossId);
+      const bossDefeated = isVoidNexus
+        ? this.bossesDefeated.length >= 4
+        : !isBossZone || !targetZoneDef.bossId || this.bossesDefeated.includes(targetZoneDef.bossId);
 
       // Portal color: green if accessible, red if locked
       const portalColor = bossDefeated ? 0x00ffcc : 0xff4444;
@@ -950,9 +998,10 @@ export class GameScene extends Phaser.Scene {
         stroke: '#000000', strokeThickness: 1,
       }).setOrigin(0.5).setDepth(5);
 
-      // Show "LOCKED" below label for locked boss doors
+      // Show "LOCKED" below label for locked doors
       if (!bossDefeated) {
-        this.add.text(worldX, exitY - 12, 'LOCKED', {
+        const lockMsg = isVoidNexus ? `${this.bossesDefeated.length}/4 BOSSES` : 'LOCKED';
+        this.add.text(worldX, exitY - 12, lockMsg, {
           fontSize: '9px', fontFamily: 'Consolas, monospace', color: '#ff4444',
           stroke: '#000000', strokeThickness: 1,
         }).setOrigin(0.5).setDepth(5);
@@ -982,14 +1031,14 @@ export class GameScene extends Phaser.Scene {
 
         // Build save data to carry through zone transition (preserves inventory/state)
         const transitionSave = buildSaveData(
-          this.currentClass, this.player, this.inventory, this.bossesDefeated, exit.targetZone, this.gold
+          this.currentClass, this.player, this.inventory, this.bossesDefeated, exit.targetZone, this.gold, this.ngPlusLevel
         );
 
         // Fade out before transitioning
         this.cameras.main.fadeOut(300, 0, 0, 0);
         this.cameras.main.once('camerafadeoutcomplete', () => {
           // Stop music before transitioning (prevents oscillator leak)
-          stopMusic(true);
+          fadeOutMusic();
 
           // Transition to new zone
           this.scene.stop('HUDScene');
@@ -1013,7 +1062,7 @@ export class GameScene extends Phaser.Scene {
 
   /** Save current game state to localStorage */
   saveGame() {
-    const data = buildSaveData(this.currentClass, this.player, this.inventory, this.bossesDefeated, this.currentZone, this.gold);
+    const data = buildSaveData(this.currentClass, this.player, this.inventory, this.bossesDefeated, this.currentZone, this.gold, this.ngPlusLevel);
     writeSave(data);
   }
 
@@ -1048,6 +1097,14 @@ export class GameScene extends Phaser.Scene {
         { x: 42 * TILE_SIZE, y: groundY },
         { x: 78 * TILE_SIZE, y: groundY },
         { x: 115 * TILE_SIZE, y: groundY },
+      ];
+    } else if (this.currentZone === 'voidnexus') {
+      crystalPositions = [
+        { x: 4 * TILE_SIZE, y: groundY },
+        { x: 38 * TILE_SIZE, y: groundY },
+        { x: 75 * TILE_SIZE, y: groundY },
+        { x: 110 * TILE_SIZE, y: groundY },
+        { x: 145 * TILE_SIZE, y: groundY },
       ];
     } else {
       // Foundry (default)

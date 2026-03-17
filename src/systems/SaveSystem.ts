@@ -37,6 +37,9 @@ export interface SaveData {
   gold: number;
   currentZone: string;
   bossesDefeated: string[];
+
+  // New Game+
+  ngPlusLevel: number; // 0 = normal, 1+ = NG+ cycle
 }
 
 /** Check if a save exists */
@@ -71,7 +74,8 @@ export function buildSaveData(
   inv: InventorySystem,
   bossesDefeated: string[],
   currentZone: string,
-  gold: number
+  gold: number,
+  ngPlusLevel = 0
 ): SaveData {
   return {
     version: SAVE_VERSION,
@@ -98,6 +102,7 @@ export function buildSaveData(
     gold,
     currentZone,
     bossesDefeated,
+    ngPlusLevel,
   };
 }
 
@@ -128,11 +133,33 @@ export function restoreInventory(inv: InventorySystem, save: SaveData) {
   inv.activeBranch = save.activeBranch;
 }
 
+/** Create New Game+ save — keeps player progression, resets world */
+export function buildNGPlusSave(save: SaveData): SaveData {
+  return {
+    ...save,
+    timestamp: Date.now(),
+    currentZone: 'hub',
+    posX: 480, // center of hub
+    posY: 224,
+    bossesDefeated: [], // reset bosses
+    hp: save.maxHp, // full heal
+    energy: save.maxEnergy,
+    ngPlusLevel: (save.ngPlusLevel ?? 0) + 1,
+  };
+}
+
+/** Get enemy stat multiplier for NG+ level */
+export function getNGPlusMultiplier(ngLevel: number): number {
+  // Each NG+ cycle: enemies get +40% HP/damage
+  return 1 + ngLevel * 0.4;
+}
+
 /** Format save data for display */
 export function formatSaveInfo(save: SaveData): string {
   const cls = save.className.charAt(0).toUpperCase() + save.className.slice(1);
   const zone = save.currentZone ?? 'foundry';
   const date = new Date(save.timestamp);
   const time = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  return `${cls} Lv.${save.level} | ${zone} | ${save.bossesDefeated.length} bosses | ${time}`;
+  const ng = (save.ngPlusLevel ?? 0) > 0 ? ` | NG+${save.ngPlusLevel}` : '';
+  return `${cls} Lv.${save.level} | ${zone} | ${save.bossesDefeated.length} bosses${ng} | ${time}`;
 }

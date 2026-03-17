@@ -102,7 +102,7 @@ export class TitleScene extends Phaser.Scene {
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
 
-    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, 'v1.9.0', {
+    this.add.text(GAME_WIDTH / 2, GAME_HEIGHT - 20, 'v2.0.0', {
       fontSize: '12px', fontFamily: FONT, color: '#333344',
       stroke: '#000000', strokeThickness: 1,
     }).setOrigin(0.5);
