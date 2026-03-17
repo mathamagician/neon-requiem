@@ -382,7 +382,7 @@ export class Gunner {
       const chargeKey = this.scene.textures.exists('weapon-chargeshot') ? 'weapon-chargeshot' : undefined;
       if (chargeKey) proj.setTexture(chargeKey);
       proj.setDisplaySize(14, 8);
-      const chargeSpeed = Math.round(200 * shotSpeedMult);
+      const chargeSpeed = Math.round(280 * shotSpeedMult);
       projBody.setVelocity(aim.x * chargeSpeed, aim.y * chargeSpeed);
       proj.setTint(0x00ffcc);
       let chargeDmg = Math.round(12 * precisionMult * (1 + rangedBonus));
@@ -397,7 +397,7 @@ export class Gunner {
       // Normal shot
       playSound('gunShot');
       proj.setDisplaySize(8, 4);
-      const normalSpeed = Math.round(160 * shotSpeedMult);
+      const normalSpeed = Math.round(240 * shotSpeedMult);
       projBody.setVelocity(aim.x * normalSpeed, aim.y * normalSpeed);
       proj.clearTint();
       (proj as any).damage = Math.round(8 * precisionMult * (1 + rangedBonus));
@@ -407,7 +407,7 @@ export class Gunner {
     (proj as any).isPlayerProjectile = true;
     // Fire rate improves with level — 2% faster per level, min 60% of base
     const cdMult = Math.max(0.6, 1 - (this.level - 1) * 0.02);
-    this.shootCooldown = (isCharged ? 400 : 200) * cdMult;
+    this.shootCooldown = (isCharged ? 300 : 140) * cdMult;
 
     // Auto-destroy after 2 seconds
     this.scene.time.delayedCall(2000, () => {
