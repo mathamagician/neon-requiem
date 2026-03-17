@@ -16,6 +16,12 @@ export const PLAYER_MAX_ENERGY = 50;
 export const COYOTE_TIME_MS = 120; // ms after leaving platform where jump still works
 export const JUMP_BUFFER_MS = 150; // ms before landing where jump input is remembered
 
+// Movement feel — acceleration/deceleration for responsive but weighty controls
+export const PLAYER_ACCEL = 800;       // px/s² — how fast player reaches top speed
+export const PLAYER_DECEL = 500;       // px/s² — ground slide when releasing input
+export const PLAYER_AIR_ACCEL = 500;   // px/s² — less control in air
+export const PLAYER_AIR_DECEL = 200;   // px/s² — very low air friction (momentum)
+
 // Combat
 export const INVINCIBILITY_FRAMES_MS = 800;
 export const HITSTOP_DURATION_MS = 50;

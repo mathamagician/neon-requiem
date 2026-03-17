@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { playSound } from '../systems/SoundManager';
+import { safeShake } from '../systems/AccessibilitySettings';
 import {
   ENEMY_PATROL_SPEED,
   ENEMY_CHASE_SPEED,
@@ -468,7 +469,7 @@ export class Enemy {
     const dir = this.sprite.x < sourceX ? -1 : 1;
     this.pendingKnockbackX = dir * KNOCKBACK_VELOCITY;
     const isFloater = this.type === 'flyer' || this.type === 'ghost' || this.type === 'shade';
-    this.pendingKnockbackY = isFloater ? 0 : -80;
+    this.pendingKnockbackY = isFloater ? -30 : -100; // Upward pop on hit for juicier knockback
 
     // Freeze immediately for hitstop
     this.body.setVelocity(0, 0);
@@ -509,18 +510,37 @@ export class Enemy {
       gameScene.spawnLootDrop(this.sprite.x, this.sprite.y, dropBoost);
     }
 
-    // Death particles
-    const emitter = this.scene.add.particles(this.sprite.x, this.sprite.y - 8, 'particle', {
-      speed: { min: 30, max: 80 },
+    // Brief slow-mo on kill (scene-level timestamp prevents stacking)
+    const gs = this.scene as any;
+    const now = this.scene.time.now;
+    const slowEnd = (gs._killSlowEnd ?? 0) as number;
+    if (now > slowEnd) {
+      this.scene.physics.world.timeScale = 2;
+      gs._killSlowEnd = now + 80;
+      this.scene.time.delayedCall(80, () => { this.scene.physics.world.timeScale = 1; });
+    }
+
+    // Subtle screen shake on enemy death
+    safeShake(this.scene.cameras.main, 40, 0.004);
+
+    // Death burst — larger and more dramatic with type-specific colors
+    const burstColors = this.type === 'ghost' || this.type === 'shade'
+      ? [0x8844cc, 0xaa66ff, 0x6622aa]
+      : this.type === 'skeleton' || this.type === 'bone_archer'
+      ? [0xccccaa, 0xddddcc, 0xaa9988]
+      : [0xff4444, 0xff6644, 0xffaa44];
+
+    const deathBurst = this.scene.add.particles(this.sprite.x, this.sprite.y - 8, 'particle', {
+      speed: { min: 40, max: 120 },
       angle: { min: 0, max: 360 },
-      scale: { start: 1, end: 0 },
-      lifespan: 300,
-      tint: COLORS.danger,
-      quantity: 10,
+      scale: { start: 1.2, end: 0 },
+      lifespan: 400,
+      tint: burstColors,
+      quantity: 12,
       emitting: false,
     });
-    emitter.explode(10);
-    this.scene.time.delayedCall(400, () => emitter.destroy());
+    deathBurst.explode(12);
+    this.scene.time.delayedCall(500, () => deathBurst.destroy());
 
     // Hide sprite instead of destroying — avoids group/physics desync
     this.sprite.setActive(false).setVisible(false);

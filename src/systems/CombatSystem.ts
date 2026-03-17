@@ -86,6 +86,8 @@ export class CombatSystem {
         const damage = player.getAttackDamage();
         enemy.takeDamage(damage, player.sprite.x, time);
         player.onAttackHit(time);
+        this.showDamageNumber(enemySprite.x, enemySprite.y - 10, damage);
+        this.spawnHitParticles(enemySprite.x, enemySprite.y);
 
         // Vanguard shield punch — extra knockback on regular enemies
         if ((player as any).isShieldPunch?.()) {
@@ -138,6 +140,8 @@ export class CombatSystem {
           const finalDmg = this.applyWeakPoint(proj, eBounds, damage, player);
           enemy.takeDamage(finalDmg, proj.x, time);
           player.onAttackHit(time);
+          this.showDamageNumber(enemySprite.x, enemySprite.y - 10, finalDmg);
+          this.spawnHitParticles(enemySprite.x, enemySprite.y);
           if (!piercing) { proj.setActive(false).setVisible(false); proj.body!.enable = false; break; }
         }
       }
@@ -151,6 +155,8 @@ export class CombatSystem {
           const finalDmg = this.applyWeakPoint(proj, bBounds, damage, player);
           boss.takeDamage(finalDmg, proj.x, time);
           player.onAttackHit(time);
+          this.showDamageNumber(boss.sprite.x, boss.sprite.y - 20, finalDmg);
+          this.spawnHitParticles(boss.sprite.x, boss.sprite.y, 8);
           if (!piercing) { proj.setActive(false).setVisible(false); proj.body!.enable = false; }
         }
       }
@@ -179,6 +185,8 @@ export class CombatSystem {
       const damage = player.getAttackDamage();
       boss.takeDamage(damage, player.sprite.x, time);
       player.onAttackHit(time);
+      this.showDamageNumber(boss.sprite.x, boss.sprite.y - 20, damage);
+      this.spawnHitParticles(boss.sprite.x, boss.sprite.y, 8);
 
       // Vanguard shield punch stagger — interrupts boss telegraph/attack
       if ((player as any).isShieldPunch?.()) {
@@ -275,6 +283,33 @@ export class CombatSystem {
       const { duration, slow } = player.getPoisonParams();
       target.applyPoison(duration, slow);
     }
+  }
+
+  /** Show floating damage number above a target */
+  private showDamageNumber(x: number, y: number, damage: number, isCrit = false, isWeak = false) {
+    const color = isWeak ? '#ffff44' : isCrit ? '#ff8844' : '#ffffff';
+    const size = isCrit || isWeak ? '14px' : '11px';
+    const prefix = isCrit ? 'CRIT ' : '';
+    const text = this.scene.add.text(x + (Math.random() - 0.5) * 10, y - 10, `${prefix}${damage}`, {
+      fontSize: size, fontFamily: 'Arial, sans-serif', color,
+      fontStyle: (isCrit || isWeak) ? 'bold' : 'normal',
+      stroke: '#000000', strokeThickness: 2,
+    }).setOrigin(0.5).setDepth(50);
+    this.scene.tweens.add({
+      targets: text, y: text.y - 24, alpha: 0, duration: 800,
+      ease: 'Cubic.easeOut', onComplete: () => text.destroy(),
+    });
+  }
+
+  /** Spawn hit impact particles at a position */
+  private spawnHitParticles(x: number, y: number, quantity = 6) {
+    const hitFx = this.scene.add.particles(x, y - 8, 'particle', {
+      speed: { min: 30, max: 80 }, angle: { min: 0, max: 360 },
+      scale: { start: 0.6, end: 0 }, lifespan: 150,
+      tint: [0xffffff, 0xffcccc], quantity, emitting: false,
+    });
+    hitFx.explode(quantity);
+    this.scene.time.delayedCall(200, () => hitFx.destroy());
   }
 
   /** Check if the Vanguard's shield blocks this hit. Returns true if fully blocked. */

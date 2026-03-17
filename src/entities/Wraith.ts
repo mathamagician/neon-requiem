@@ -7,6 +7,10 @@ import {
   PLAYER_JUMP_VELOCITY,
   PLAYER_MAX_HP,
   PLAYER_MAX_ENERGY,
+  PLAYER_ACCEL,
+  PLAYER_DECEL,
+  PLAYER_AIR_ACCEL,
+  PLAYER_AIR_DECEL,
   COYOTE_TIME_MS,
   JUMP_BUFFER_MS,
   INVINCIBILITY_FRAMES_MS,
@@ -203,15 +207,27 @@ export class Wraith {
     if (this.state === 'hurt') return;
 
     this.handleDropThrough(onFloor);
-    this.handleMovement(onFloor);
+    this.handleMovement(onFloor, delta);
     this.handleJump(onFloor);
     this.handleAttack(time);
     this.handleDash(time);
     this.updateState(onFloor);
 
-    // Landing dust + reset double jump
+    // Landing dust + reset double jump + squash
     if (onFloor && !this.wasOnFloor) {
       this.dustEmitter.emitParticleAt(this.sprite.x, this.sprite.y, 4);
+      // Landing dust burst
+      const dust = this.scene.add.particles(this.sprite.x, this.sprite.y, 'particle', {
+        speed: { min: 10, max: 30 }, angle: { min: 160, max: 200 },
+        scale: { start: 0.5, end: 0 }, lifespan: 200,
+        tint: [0x888888, 0xaaaaaa], quantity: 4, emitting: false,
+      });
+      dust.explode(4);
+      this.scene.time.delayedCall(300, () => dust.destroy());
+      // Squash on land
+      this.scene.tweens.killTweensOf(this.sprite);
+      this.sprite.setScale(1.15, 0.85);
+      this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: 120, ease: 'Back.easeOut' });
       this.hasDoubleJump = true;
     }
     this.wasOnFloor = onFloor;
@@ -236,31 +252,42 @@ export class Wraith {
     }
   }
 
-  private handleMovement(onFloor: boolean) {
+  private handleMovement(onFloor: boolean, delta: number) {
     if (this.isAttacking && onFloor) {
       this.body.setVelocityX(this.body.velocity.x * 0.85);
       return;
     }
 
+    const dt = delta / 1000;
     const left = this.cursors.left.isDown || !!this.gp?.left;
     const right = this.cursors.right.isDown || !!this.gp?.right;
 
+    const accel = onFloor ? PLAYER_ACCEL * 1.2 : PLAYER_AIR_ACCEL * 1.2;
+    const decel = onFloor ? PLAYER_DECEL : PLAYER_AIR_DECEL;
+    let vx = this.body.velocity.x;
+
     if (left) {
-      this.body.setVelocityX(-this.WRAITH_SPEED);
+      vx -= accel * dt;
+      if (vx < -this.WRAITH_SPEED) vx = -this.WRAITH_SPEED;
       this.facingRight = false;
       this.sprite.setFlipX(true);
     } else if (right) {
-      this.body.setVelocityX(this.WRAITH_SPEED);
+      vx += accel * dt;
+      if (vx > this.WRAITH_SPEED) vx = this.WRAITH_SPEED;
       this.facingRight = true;
       this.sprite.setFlipX(false);
     } else {
-      if (onFloor) {
-        this.body.setVelocityX(this.body.velocity.x * 0.6);
-        if (Math.abs(this.body.velocity.x) < 8) this.body.setVelocityX(0);
-      } else {
-        this.body.setVelocityX(this.body.velocity.x * 0.9);
+      // Decelerate toward 0
+      if (vx > 0) {
+        vx -= decel * dt;
+        if (vx < 10) vx = 0;
+      } else if (vx < 0) {
+        vx += decel * dt;
+        if (vx > -10) vx = 0;
       }
     }
+
+    this.body.setVelocityX(vx);
   }
 
   private handleJump(onFloor: boolean) {
@@ -282,6 +309,10 @@ export class Wraith {
       this.facingRight = this.wallDir < 0;
       this.sprite.setFlipX(!this.facingRight);
       this.dustEmitter.emitParticleAt(this.sprite.x, this.sprite.y - 10, 3);
+      // Stretch on wall jump
+      this.scene.tweens.killTweensOf(this.sprite);
+      this.sprite.setScale(0.85, 1.15);
+      this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: 150, ease: 'Back.easeOut' });
       playSound('wallJump');
       return;
     }
@@ -292,6 +323,10 @@ export class Wraith {
       this.jumpBuffered = false;
       this.coyoteTimeLeft = 0;
       this.hasDoubleJump = true; // Reset double jump on ground jump
+      // Stretch on ground jump
+      this.scene.tweens.killTweensOf(this.sprite);
+      this.sprite.setScale(0.85, 1.15);
+      this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: 150, ease: 'Back.easeOut' });
       playSound('jump');
       return;
     }
@@ -301,8 +336,11 @@ export class Wraith {
       this.body.setVelocityY(this.WRAITH_JUMP * 0.85); // Slightly weaker than ground jump
       this.jumpBuffered = false;
       this.hasDoubleJump = false;
-      // Visual feedback: burst of particles
+      // Visual feedback: burst of particles + stretch
       this.dustEmitter.emitParticleAt(this.sprite.x, this.sprite.y, 5);
+      this.scene.tweens.killTweensOf(this.sprite);
+      this.sprite.setScale(0.85, 1.15);
+      this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: 150, ease: 'Back.easeOut' });
       playSound('doubleJump');
     }
 

@@ -1,0 +1,2900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEON REQUIEM — Visual Prototype</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Orbitron:wght@400;700;900&family=Cinzel:wght@400;700;900&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --neon-cyan: #00f0ff;
+    --neon-pink: #ff00aa;
+    --neon-gold: #ffd700;
+    --gothic-purple: #6b2fa0;
+    --blood-red: #cc1133;
+    --void-black: #0a0a12;
+    --grid-blue: #1a1a3e;
+  }
+
+  body {
+    background: var(--void-black);
+    color: #e0e0e0;
+    font-family: 'Press Start 2P', monospace;
+    overflow-x: hidden;
+  }
+
+  /* TITLE SCREEN */
+  #title-screen {
+    position: relative;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  #title-bg-canvas {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0;
+  }
+
+  .title-content {
+    position: relative;
+    z-index: 2;
+    text-align: center;
+  }
+
+  .title-main {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(2rem, 6vw, 5rem);
+    font-weight: 900;
+    letter-spacing: 0.15em;
+    background: linear-gradient(180deg, var(--neon-cyan) 0%, #fff 30%, var(--neon-pink) 70%, var(--neon-gold) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 30px rgba(0,240,255,0.5)) drop-shadow(0 0 60px rgba(255,0,170,0.3));
+    animation: titlePulse 3s ease-in-out infinite;
+  }
+
+  .title-sub {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(0.6rem, 1.5vw, 1rem);
+    color: #8a7ab5;
+    letter-spacing: 0.3em;
+    margin-top: 1rem;
+    font-style: italic;
+  }
+
+  @keyframes titlePulse {
+    0%, 100% { filter: drop-shadow(0 0 30px rgba(0,240,255,0.5)) drop-shadow(0 0 60px rgba(255,0,170,0.3)); }
+    50% { filter: drop-shadow(0 0 50px rgba(0,240,255,0.8)) drop-shadow(0 0 80px rgba(255,0,170,0.5)); }
+  }
+
+  /* NAV */
+  .nav-bar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,10,18,0.95);
+    border-bottom: 1px solid rgba(0,240,255,0.2);
+    padding: 0.5rem 1rem;
+    display: flex;
+    gap: 0.3rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    backdrop-filter: blur(10px);
+  }
+
+  .nav-btn {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 0.55rem;
+    padding: 0.5rem 0.8rem;
+    background: transparent;
+    color: #8a8aaa;
+    border: 1px solid #2a2a4a;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+
+  .nav-btn:hover, .nav-btn.active {
+    color: var(--neon-cyan);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 10px rgba(0,240,255,0.3), inset 0 0 10px rgba(0,240,255,0.1);
+  }
+
+  /* SECTIONS */
+  .section {
+    display: none;
+    padding: 2rem 1rem;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+
+  .section.active { display: block; }
+
+  .section-title {
+    font-family: 'Orbitron', sans-serif;
+    font-size: clamp(1rem, 3vw, 1.8rem);
+    color: var(--neon-cyan);
+    text-align: center;
+    margin-bottom: 2rem;
+    text-shadow: 0 0 20px rgba(0,240,255,0.5);
+  }
+
+  .section-subtitle {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    color: #6a6a8a;
+    text-align: center;
+    margin-top: -1.5rem;
+    margin-bottom: 2rem;
+    letter-spacing: 0.2em;
+  }
+
+  /* ZONE SHOWCASE */
+  .zone-showcase {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  .zone-card {
+    background: rgba(20,20,40,0.8);
+    border: 1px solid rgba(100,100,150,0.2);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .zone-card canvas {
+    width: 100%;
+    height: 300px;
+    display: block;
+    image-rendering: pixelated;
+  }
+
+  .zone-info {
+    padding: 1.2rem;
+  }
+
+  .zone-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .zone-desc {
+    font-size: 0.55rem;
+    line-height: 1.8;
+    color: #9a9ab0;
+  }
+
+  /* CHARACTER GRID */
+  .char-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+  }
+
+  .char-card {
+    background: rgba(20,20,40,0.8);
+    border: 1px solid rgba(100,100,150,0.2);
+    border-radius: 4px;
+    padding: 1.5rem;
+    text-align: center;
+  }
+
+  .char-card canvas {
+    image-rendering: pixelated;
+    margin: 0 auto 1rem;
+    display: block;
+  }
+
+  .char-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.9rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .char-role {
+    font-size: 0.5rem;
+    color: #8a8aaa;
+    margin-bottom: 0.8rem;
+  }
+
+  .char-stats {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    font-size: 0.45rem;
+  }
+
+  .stat-bar {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .stat-fill {
+    width: 4px;
+    background: #333;
+    height: 40px;
+    position: relative;
+    border-radius: 2px;
+  }
+
+  .stat-fill-inner {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
+    border-radius: 2px;
+  }
+
+  /* ENEMY BESTIARY */
+  .enemy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 1.2rem;
+  }
+
+  .enemy-card {
+    background: rgba(20,20,40,0.6);
+    border: 1px solid rgba(100,100,150,0.15);
+    border-radius: 4px;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s;
+  }
+
+  .enemy-card:hover {
+    border-color: var(--blood-red);
+    box-shadow: 0 0 15px rgba(204,17,51,0.2);
+  }
+
+  .enemy-card canvas {
+    image-rendering: pixelated;
+    margin: 0 auto 0.5rem;
+    display: block;
+  }
+
+  .enemy-name {
+    font-size: 0.45rem;
+    color: var(--blood-red);
+  }
+
+  .enemy-zone {
+    font-size: 0.35rem;
+    color: #666;
+    margin-top: 0.2rem;
+  }
+
+  /* ITEMS */
+  .item-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+  }
+
+  .item-card {
+    background: rgba(20,20,40,0.6);
+    border: 1px solid rgba(100,100,150,0.15);
+    border-radius: 4px;
+    padding: 0.8rem;
+    text-align: center;
+  }
+
+  .item-card canvas {
+    image-rendering: pixelated;
+    margin: 0 auto 0.4rem;
+    display: block;
+  }
+
+  .item-name { font-size: 0.4rem; }
+  .item-rarity-common { color: #ccc; }
+  .item-rarity-uncommon { color: #44cc44; }
+  .item-rarity-rare { color: #4488ff; }
+  .item-rarity-epic { color: #aa44ff; }
+  .item-rarity-legendary { color: #ffd700; }
+
+  /* BOSS SHOWCASE */
+  .boss-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 2rem;
+  }
+
+  .boss-card {
+    background: rgba(30,10,20,0.8);
+    border: 1px solid rgba(200,50,80,0.3);
+    border-radius: 4px;
+    overflow: hidden;
+    transition: all 0.3s;
+  }
+
+  .boss-card:hover {
+    border-color: rgba(200,50,80,0.6);
+    box-shadow: 0 0 30px rgba(200,50,80,0.2);
+  }
+
+  .boss-card canvas {
+    image-rendering: pixelated;
+    width: 100%;
+    height: 200px;
+    display: block;
+  }
+
+  .boss-info {
+    padding: 1.2rem;
+  }
+
+  .boss-name {
+    font-family: 'Orbitron', sans-serif;
+    font-size: 0.85rem;
+    color: var(--blood-red);
+    margin-bottom: 0.3rem;
+  }
+
+  .boss-zone-label {
+    font-size: 0.45rem;
+    color: #666;
+    margin-bottom: 0.5rem;
+  }
+
+  .boss-power {
+    font-size: 0.45rem;
+    color: var(--neon-gold);
+    margin-top: 0.5rem;
+  }
+
+  /* PLAYABLE DEMO */
+  #demo-container {
+    position: relative;
+    width: 100%;
+    max-width: 960px;
+    margin: 0 auto;
+    border: 2px solid rgba(0,240,255,0.3);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  #demo-canvas {
+    width: 100%;
+    display: block;
+    image-rendering: pixelated;
+    background: #0a0a12;
+  }
+
+  .demo-controls {
+    font-size: 0.5rem;
+    color: #6a6a8a;
+    text-align: center;
+    margin-top: 1rem;
+    line-height: 2;
+  }
+
+  .demo-controls kbd {
+    background: rgba(0,240,255,0.1);
+    border: 1px solid rgba(0,240,255,0.3);
+    padding: 0.2rem 0.5rem;
+    border-radius: 2px;
+    color: var(--neon-cyan);
+  }
+
+  /* HUD MOCKUP */
+  .hud-showcase {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+    align-items: center;
+  }
+
+  .hud-showcase canvas {
+    image-rendering: pixelated;
+    max-width: 100%;
+  }
+
+  /* ZONE LABEL COLORS */
+  .zone-foundry { color: #ff6a00; }
+  .zone-cryptvault { color: #6688ff; }
+  .zone-garden { color: #44dd44; }
+  .zone-siege { color: #ccaa44; }
+  .zone-mirror { color: #dd88ff; }
+  .zone-signal { color: #00ccff; }
+  .zone-cathedral { color: #ff4422; }
+  .zone-breach { color: #ff00aa; }
+  .zone-hub { color: #ddbb88; }
+
+  .loading {
+    text-align: center;
+    padding: 4rem;
+    font-size: 0.6rem;
+    color: var(--neon-cyan);
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .zone-label-bar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+  }
+</style>
+</head>
+<body>
+
+<div id="title-screen">
+  <canvas id="title-bg-canvas"></canvas>
+  <div class="title-content">
+    <h1 class="title-main">NEON REQUIEM</h1>
+    <p class="title-sub">Where dark magic meets dying technology</p>
+  </div>
+</div>
+
+<nav class="nav-bar">
+  <button class="nav-btn active" data-section="zones">ZONES</button>
+  <button class="nav-btn" data-section="characters">CLASSES</button>
+  <button class="nav-btn" data-section="enemies">BESTIARY</button>
+  <button class="nav-btn" data-section="bosses">BOSSES</button>
+  <button class="nav-btn" data-section="items">ARSENAL</button>
+  <button class="nav-btn" data-section="hud">HUD</button>
+  <button class="nav-btn" data-section="demo">PLAY DEMO</button>
+</nav>
+
+<section id="zones" class="section active">
+  <h2 class="section-title">THE SHATTERED REACH</h2>
+  <p class="section-subtitle">8 ZONES + HUB · INTERCONNECTED WORLD</p>
+  <div class="zone-showcase" id="zone-showcase"></div>
+</section>
+
+<section id="characters" class="section">
+  <h2 class="section-title">CHOOSE YOUR WARRIOR</h2>
+  <p class="section-subtitle">4 CLASSES · 12 SKILL BRANCHES · INFINITE BUILDS</p>
+  <div class="char-grid" id="char-grid"></div>
+</section>
+
+<section id="enemies" class="section">
+  <h2 class="section-title">BESTIARY</h2>
+  <p class="section-subtitle">CREATURES OF THE CONVERGENCE</p>
+  <div class="enemy-grid" id="enemy-grid"></div>
+</section>
+
+<section id="bosses" class="section">
+  <h2 class="section-title">ZONE GUARDIANS</h2>
+  <p class="section-subtitle">DEFEAT THEM · ABSORB THEIR POWER</p>
+  <div class="boss-grid" id="boss-grid"></div>
+</section>
+
+<section id="items" class="section">
+  <h2 class="section-title">ARSENAL & RELICS</h2>
+  <p class="section-subtitle">WEAPONS · ARMOR · CURSED RELICS · CONSUMABLES</p>
+  <div class="item-grid" id="item-grid"></div>
+</section>
+
+<section id="hud" class="section">
+  <h2 class="section-title">INTERFACE</h2>
+  <p class="section-subtitle">HUD · MENUS · SAVE SYSTEM</p>
+  <div class="hud-showcase" id="hud-showcase"></div>
+</section>
+
+<section id="demo" class="section">
+  <h2 class="section-title">PLAYABLE DEMO</h2>
+  <p class="section-subtitle">NEON FOUNDRY · VANGUARD CLASS</p>
+  <div id="demo-container">
+    <canvas id="demo-canvas" width="480" height="270"></canvas>
+  </div>
+  <div class="demo-controls">
+    <kbd>←</kbd> <kbd>→</kbd> Move &nbsp; <kbd>↑</kbd> Jump &nbsp;
+    <kbd>Z</kbd> Attack &nbsp; <kbd>X</kbd> Boss Power &nbsp;
+    <kbd>C</kbd> Dash &nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> Switch Zone
+  </div>
+</section>
+
+<script>
+// ============================================================
+// NEON REQUIEM PIXEL ART ENGINE
+// ============================================================
+
+// --- PALETTE DEFINITIONS ---
+const PAL = {
+  // Foundry
+  foundry: {
+    bg: ['#0d0a15','#1a0f22','#2a1530'],
+    mid: ['#3a1a10','#552200','#884400','#cc6600','#ff8800'],
+    neon: ['#00ccff','#0088ff','#ff4400','#ff6600'],
+    metal: ['#2a2a3a','#3a3a4a','#4a4a5a','#5a5a6a','#6a6a7a'],
+    lava: ['#ff2200','#ff4400','#ff6600','#ff8800','#ffaa00','#ffcc44'],
+  },
+  // Cryptvault
+  crypt: {
+    bg: ['#08081a','#0c0c24','#10102e'],
+    stone: ['#1a1a2e','#22224a','#2a2a55','#333366','#3d3d77'],
+    bone: ['#aaa088','#ccbb99','#ddccaa','#eeddbb'],
+    spectral: ['#2244aa','#3366cc','#4488ee','#66aaff','#88ccff'],
+    moss: ['#1a3322','#224422','#336633'],
+  },
+  // Blighted Garden
+  garden: {
+    bg: ['#0a1008','#0f1a0c','#142210'],
+    plant: ['#114422','#226633','#338844','#44aa55','#55cc66'],
+    toxic: ['#88ff00','#aaff22','#ccff44','#eeff88'],
+    flower: ['#aa22aa','#cc44cc','#ee66ee','#ff88ff'],
+    ruin: ['#3a3a2a','#4a4a3a','#5a5a4a'],
+  },
+  // Siege Engine
+  siege: {
+    bg: ['#0a0a0f','#12121a','#1a1a25'],
+    metal: ['#2a2a30','#3a3a44','#4a4a55','#5a5a66','#6a6a77','#7a7a88'],
+    brass: ['#886622','#aa8833','#ccaa44','#ddbb55'],
+    fire: ['#ff4400','#ff6600','#ff8800','#ffaa44'],
+    rivet: ['#555555','#666666','#777777'],
+  },
+  // Mirror Sanctum
+  mirror: {
+    bg: ['#0f0a1a','#1a1030','#251848'],
+    crystal: ['#8844cc','#aa66ee','#cc88ff','#ddaaff','#eeccff'],
+    reflect: ['#ffffff','#eeeeff','#ddddff','#ccccee'],
+    void: ['#110022','#220044','#330066'],
+  },
+  // Signal Tower
+  signal: {
+    bg: ['#040812','#081020','#0c1830'],
+    data: ['#00ff88','#00cc66','#009944','#006622'],
+    electric: ['#00ccff','#00aaff','#0088dd','#0066aa'],
+    panel: ['#1a2a3a','#223344','#2a3a4a','#334455'],
+  },
+  // Ashen Cathedral
+  cathedral: {
+    bg: ['#1a0808','#2a0c0c','#3a1010'],
+    stone: ['#3a2a2a','#4a3333','#5a3d3d','#6a4444'],
+    fire: ['#ff2200','#ff4400','#ff6600','#ff8800','#ffaa44','#ffcc88'],
+    ash: ['#555550','#666660','#777770','#888880'],
+    glass: ['#ff2244','#4422ff','#22ff44','#ffdd22','#ff44ff'],
+  },
+  // The Breach
+  breach: {
+    bg: ['#08000f','#100018','#180022'],
+    glitch: ['#ff0044','#00ff88','#4400ff','#ff00ff','#00ffff','#ffff00'],
+    void: ['#0a0014','#14002a','#1e0040'],
+    static: ['#aaaaaa','#888888','#666666','#444444','#222222'],
+  },
+  // Hub - The Threshold
+  hub: {
+    bg: ['#0c0a14','#141020','#1c182c'],
+    building: ['#2a2222','#3a3030','#4a3e3e','#5a4a4a','#6a5555'],
+    warm: ['#ffaa44','#ffcc66','#ffdd88','#ffeeaa'],
+    neon: ['#00ccff','#ff00aa','#ffdd00','#00ff88'],
+    road: ['#1a1a22','#222230','#2a2a38'],
+  },
+  // Characters
+  vanguard: ['#2244aa','#3366cc','#4488ee','#66aaff','#88ccff','#0088ff','#1a1a3a','#ccccdd'],
+  gunner: ['#cc4422','#ee6644','#ff8866','#ffaa88','#44ccaa','#22aa88','#1a2a2a','#ddccbb'],
+  wraith: ['#442266','#663388','#8844aa','#aa66cc','#220044','#110022','#1a1a2a','#aaaacc'],
+  channeler: ['#228844','#33aa55','#44cc66','#66ee88','#ffd700','#ffaa00','#1a2a1a','#ddddbb'],
+};
+
+// --- PIXEL ART DRAWING HELPERS ---
+function px(ctx, x, y, color, scale=1) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x*scale, y*scale, scale, scale);
+}
+
+function drawSprite(ctx, data, x, y, scale=1) {
+  for (let row = 0; row < data.length; row++) {
+    for (let col = 0; col < data[row].length; col++) {
+      if (data[row][col]) {
+        px(ctx, x+col, y+row, data[row][col], scale);
+      }
+    }
+  }
+}
+
+function noise(x, y, seed=0) {
+  const n = Math.sin(x * 127.1 + y * 311.7 + seed * 43758.5453) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return [r,g,b];
+}
+
+function rgbToHex(r,g,b) {
+  return '#' + [r,g,b].map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+}
+
+function blendColor(hex1, hex2, t) {
+  const [r1,g1,b1] = hexToRgb(hex1);
+  const [r2,g2,b2] = hexToRgb(hex2);
+  return rgbToHex(lerp(r1,r2,t), lerp(g1,g2,t), lerp(b1,b2,t));
+}
+
+function brighten(hex, amt) {
+  const [r,g,b] = hexToRgb(hex);
+  return rgbToHex(r+amt, g+amt, b+amt);
+}
+
+// ============================================================
+// ZONE BACKDROP RENDERERS
+// ============================================================
+
+function renderFoundryBackdrop(canvas) {
+  const W = 480, H = 270;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const P = PAL.foundry;
+
+  // Sky gradient
+  for (let y = 0; y < H; y++) {
+    const t = y / H;
+    ctx.fillStyle = blendColor('#0d0a15', '#2a1218', t);
+    ctx.fillRect(0, y, W, 1);
+  }
+
+  // Distant factory silhouettes (parallax layer 3)
+  for (let i = 0; i < 8; i++) {
+    const bx = i * 70 - 10;
+    const bh = 60 + noise(i, 0, 1) * 80;
+    const by = H - 80 - bh;
+    ctx.fillStyle = '#1a0f18';
+    ctx.fillRect(bx, by, 55, bh + 80);
+    // Smokestacks
+    ctx.fillRect(bx + 10, by - 30, 8, 30);
+    ctx.fillRect(bx + 35, by - 20, 6, 20);
+    // Tiny neon windows
+    for (let wy = 0; wy < bh; wy += 12) {
+      for (let wx = 0; wx < 45; wx += 10) {
+        if (noise(wx+i, wy, 2) > 0.5) {
+          ctx.fillStyle = noise(wx, wy, 3) > 0.5 ? '#ff440033' : '#00ccff22';
+          ctx.fillRect(bx + 5 + wx, by + 10 + wy, 4, 4);
+        }
+      }
+    }
+  }
+
+  // Mid-ground pipes and structures (parallax layer 2)
+  ctx.fillStyle = '#2a1a10';
+  for (let i = 0; i < 6; i++) {
+    const px_ = i * 90 + 20;
+    const ph = 40 + noise(i, 0, 5) * 60;
+    ctx.fillRect(px_, H - 60 - ph, 60, ph + 60);
+    // Pipe details
+    ctx.fillStyle = P.metal[2];
+    ctx.fillRect(px_ - 5, H - 60 - ph + 20, 70, 4);
+    ctx.fillRect(px_ - 5, H - 60 - ph + 50, 70, 4);
+    ctx.fillStyle = '#2a1a10';
+  }
+
+  // Lava river
+  for (let x = 0; x < W; x++) {
+    const lavaH = 15 + Math.sin(x * 0.05) * 5 + noise(x, 0, 7) * 8;
+    for (let y = 0; y < lavaH; y++) {
+      const t = y / lavaH;
+      const ci = Math.min(P.lava.length - 1, Math.floor(t * P.lava.length));
+      ctx.fillStyle = P.lava[ci];
+      if (noise(x, y, 8) > 0.3) {
+        ctx.fillRect(x, H - lavaH + y, 1, 1);
+      }
+    }
+  }
+
+  // Foreground platform
+  const platY = H - 50;
+  for (let x = 0; x < W; x++) {
+    ctx.fillStyle = P.metal[1];
+    ctx.fillRect(x, platY, 1, 50);
+    // Surface detail
+    if (x % 16 === 0) {
+      ctx.fillStyle = P.metal[3];
+      ctx.fillRect(x, platY, 16, 2);
+      // Rivets
+      ctx.fillStyle = P.metal[4];
+      ctx.fillRect(x + 2, platY + 4, 2, 2);
+      ctx.fillRect(x + 12, platY + 4, 2, 2);
+    }
+  }
+
+  // Neon lights
+  const neonPositions = [[80, platY - 40], [200, platY - 60], [350, platY - 30], [440, platY - 50]];
+  neonPositions.forEach(([nx, ny]) => {
+    const col = P.neon[Math.floor(noise(nx, ny, 9) * P.neon.length)];
+    // Glow
+    for (let r = 20; r > 0; r--) {
+      const alpha = Math.floor((1 - r/20) * 40);
+      ctx.fillStyle = col + alpha.toString(16).padStart(2,'0');
+      ctx.beginPath();
+      ctx.arc(nx, ny, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(nx - 1, ny - 1, 3, 3);
+  });
+
+  // Conveyor belt detail
+  for (let x = 60; x < 200; x += 8) {
+    ctx.fillStyle = '#444455';
+    ctx.fillRect(x, platY - 4, 6, 4);
+    ctx.fillStyle = '#555566';
+    ctx.fillRect(x + 1, platY - 3, 4, 2);
+  }
+
+  // Sparks / embers
+  for (let i = 0; i < 30; i++) {
+    const sx = noise(i, 0, 10) * W;
+    const sy = noise(i, 1, 10) * H;
+    ctx.fillStyle = P.lava[Math.floor(noise(i, 2, 10) * P.lava.length)];
+    ctx.fillRect(sx, sy, 1 + (noise(i, 3, 10) > 0.7 ? 1 : 0), 1);
+  }
+}
+
+function renderCryptvaultBackdrop(canvas) {
+  const W = 480, H = 270;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const P = PAL.crypt;
+
+  // Deep background
+  for (let y = 0; y < H; y++) {
+    ctx.fillStyle = blendColor('#06061a','#0e0e28', y/H);
+    ctx.fillRect(0, y, W, 1);
+  }
+
+  // Distant arches (layer 3)
+  for (let i = 0; i < 5; i++) {
+    const ax = i * 110 + 20;
+    ctx.fillStyle = P.stone[0];
+    // Gothic arch
+    ctx.fillRect(ax, 40, 8, 180);
+    ctx.fillRect(ax + 72, 40, 8, 180);
+    // Arch top
+    for (let a = 0; a < 40; a++) {
+      const angle = (a / 40) * Math.PI;
+      const cx_ = ax + 40 + Math.cos(angle) * 36;
+      const cy_ = 40 - Math.sin(angle) * 50;
+      ctx.fillRect(cx_, cy_, 4, 4);
+    }
+  }
+
+  // Coffin shelves (layer 2)
+  for (let row = 0; row < 3; row++) {
+    const sy = 60 + row * 55;
+    ctx.fillStyle = P.stone[1];
+    ctx.fillRect(0, sy, W, 4);
+    // Coffins
+    for (let c = 0; c < 6; c++) {
+      const cx_ = c * 85 + 15 + noise(c, row, 20) * 20;
+      if (noise(c, row, 21) > 0.3) {
+        ctx.fillStyle = P.stone[2];
+        ctx.fillRect(cx_, sy - 18, 30, 18);
+        ctx.fillStyle = P.bone[0];
+        ctx.fillRect(cx_ + 3, sy - 15, 24, 12);
+        // Cross on coffin
+        ctx.fillStyle = P.bone[2];
+        ctx.fillRect(cx_ + 13, sy - 14, 4, 10);
+        ctx.fillRect(cx_ + 10, sy - 11, 10, 3);
+      }
+    }
+  }
+
+  // Spectral light beams
+  for (let i = 0; i < 3; i++) {
+    const bx = 100 + i * 150;
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    ctx.fillStyle = P.spectral[2];
+    ctx.beginPath();
+    ctx.moveTo(bx, 0);
+    ctx.lineTo(bx - 30, H);
+    ctx.lineTo(bx + 30, H);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Floor
+  const floorY = H - 45;
+  for (let x = 0; x < W; x += 16) {
+    const shade = noise(x, 0, 22) > 0.5 ? P.stone[1] : P.stone[2];
+    ctx.fillStyle = shade;
+    ctx.fillRect(x, floorY, 16, 45);
+    // Cracks
+    if (noise(x, 1, 22) > 0.7) {
+      ctx.fillStyle = P.stone[0];
+      ctx.fillRect(x + 7, floorY, 1, 8);
+      ctx.fillRect(x + 8, floorY + 6, 1, 6);
+    }
+  }
+
+  // Skull decorations
+  for (let i = 0; i < 8; i++) {
+    const sx = 30 + i * 60 + noise(i, 0, 23) * 20;
+    const sy = floorY - 5;
+    // Mini skull
+    ctx.fillStyle = P.bone[1];
+    ctx.fillRect(sx, sy - 6, 6, 5);
+    ctx.fillRect(sx + 1, sy - 1, 4, 2);
+    ctx.fillStyle = '#111';
+    ctx.fillRect(sx + 1, sy - 4, 2, 2);
+    ctx.fillRect(sx + 3, sy - 4, 2, 2);
+  }
+
+  // Hanging chains
+  for (let i = 0; i < 6; i++) {
+    const cx_ = 40 + i * 80 + noise(i, 0, 24) * 30;
+    const chainLen = 30 + noise(i, 1, 24) * 40;
+    for (let j = 0; j < chainLen; j += 4) {
+      ctx.fillStyle = j % 8 < 4 ? '#3a3a4a' : '#4a4a5a';
+      ctx.fillRect(cx_, j, 2, 3);
+    }
+  }
+
+  // Floating spectral particles
+  for (let i = 0; i < 25; i++) {
+    const px_ = noise(i, 0, 25) * W;
+    const py_ = noise(i, 1, 25) * H;
+    const ci = Math.floor(noise(i, 2, 25) * P.spectral.length);
+    ctx.fillStyle = P.spectral[ci] + '66';
+    ctx.fillRect(px_, py_, 2, 2);
+  }
+
+  // Moss patches
+  for (let i = 0; i < 12; i++) {
+    const mx = noise(i, 0, 26) * W;
+    const my = floorY - noise(i, 1, 26) * 3;
+    ctx.fillStyle = P.moss[Math.floor(noise(i, 2, 26) * 3)];
+    for (let j = 0; j < 5; j++) {
+      ctx.fillRect(mx + j * 2, my - noise(i, j, 27) * 4, 2, 2 + noise(i, j, 28) * 3);
+    }
+  }
+}
+
+function renderGardenBackdrop(canvas) {
+  const W = 480, H = 270;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const P = PAL.garden;
+
+  // Misty green sky
+  for (let y = 0; y < H; y++) {
+    ctx.fillStyle = blendColor('#0a1208','#0f2210', y/H);
+    ctx.fillRect(0, y, W, 1);
+  }
+
+  // Distant overgrown ruins
+  for (let i = 0; i < 6; i++) {
+    const rx = i * 90 - 10;
+    const rh = 50 + noise(i, 0, 30) * 70;
+    ctx.fillStyle = P.ruin[0];
+    ctx.fillRect(rx, H - 80 - rh, 40, rh + 30);
+    // Broken top
+    for (let j = 0; j < 40; j += 4) {
+      const cutH = noise(j + i, 0, 31) * 20;
+      ctx.fillStyle = P.bg[2];
+      ctx.fillRect(rx + j, H - 80 - rh, 4, cutH);
+    }
+    // Vines growing up
+    ctx.fillStyle = P.plant[1];
+    for (let v = 0; v < 3; v++) {
+      const vx = rx + 5 + v * 12;
+      for (let vy = 0; vy < rh; vy += 3) {
+        ctx.fillRect(vx + Math.sin(vy * 0.2) * 3, H - 80 - rh + vy, 2, 3);
+      }
+    }
+  }
+
+  // Toxic pools
+  for (let i = 0; i < 3; i++) {
+    const px_ = 50 + i * 160;
+    const pw = 40 + noise(i, 0, 32) * 50;
+    for (let x = 0; x < pw; x++) {
+      const ph = 8 + Math.sin(x * 0.3) * 3;
+      for (let y = 0; y < ph; y++) {
+        const ci = Math.floor((y / ph) * P.toxic.length);
+        ctx.fillStyle = P.toxic[ci] + (y < 2 ? 'cc' : '44');
+        ctx.fillRect(px_ + x, H - 35 + y, 1, 1);
+      }
+    }
+    // Bubbles
+    ctx.fillStyle = P.toxic[0] + '88';
+    ctx.fillRect(px_ + pw/3, H - 38, 3, 3);
+    ctx.fillRect(px_ + pw * 0.6, H - 37, 2, 2);
+  }
+
+  // Ground with roots
+  const groundY = H - 40;
+  for (let x = 0; x < W; x++) {
+    const gh = 40 + noise(x, 0, 33) * 5;
+    ctx.fillStyle = noise(x, 1, 33) > 0.5 ? '#1a2a10' : '#223316';
+    ctx.fillRect(x, H - gh, 1, gh);
+  }
+
+  // Large twisted trees
+  for (let i = 0; i < 4; i++) {
+    const tx = 40 + i * 130;
+    // Trunk
+    for (let y = 0; y < 80; y++) {
+      const tw = 8 + Math.sin(y * 0.1) * 3;
+      ctx.fillStyle = blendColor('#2a1a08', '#3a2a12', y/80);
+      ctx.fillRect(tx - tw/2 + Math.sin(y * 0.15) * 4, groundY - y, tw, 1);
+    }
+    // Canopy - bioluminescent
+    for (let j = 0; j < 30; j++) {
+      const lx = tx + (noise(j, i, 34) - 0.5) * 60;
+      const ly = groundY - 80 + (noise(j, i, 35) - 0.5) * 40;
+      const ls = 3 + noise(j, i, 36) * 5;
+      ctx.fillStyle = P.plant[2 + Math.floor(noise(j, i, 37) * 3)] + '88';
+      ctx.fillRect(lx, ly, ls, ls);
+    }
+  }
+
+  // Glowing flowers
+  for (let i = 0; i < 15; i++) {
+    const fx = noise(i, 0, 38) * W;
+    const fy = groundY - 2 - noise(i, 1, 38) * 15;
+    // Stem
+    ctx.fillStyle = P.plant[1];
+    ctx.fillRect(fx, fy, 1, 10);
+    // Flower head
+    const fc = P.flower[Math.floor(noise(i, 2, 38) * P.flower.length)];
+    ctx.fillStyle = fc;
+    ctx.fillRect(fx - 2, fy - 3, 5, 4);
+    // Glow
+    ctx.fillStyle = fc + '22';
+    ctx.fillRect(fx - 5, fy - 6, 11, 10);
+  }
+
+  // Spore particles
+  for (let i = 0; i < 40; i++) {
+    const sx = noise(i, 0, 39) * W;
+    const sy = noise(i, 1, 39) * H;
+    ctx.fillStyle = noise(i, 2, 39) > 0.5 ? P.toxic[1] + '44' : P.flower[2] + '33';
+    ctx.fillRect(sx, sy, 1, 1);
+  }
+}
+
+function renderSiegeBackdrop(canvas) {
+  const W = 480, H = 270;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const P = PAL.siege;
+
+  // Stormy sky
+  for (let y = 0; y < H * 0.4; y++) {
+    ctx.fillStyle = blendColor('#0a0a12','#1a1825', y/(H*0.4));
+    ctx.fillRect(0, y, W, 1);
+  }
+
+  // Distant war machines
+  for (let i = 0; i < 3; i++) {
+    const mx = i * 180 + 30;
+    ctx.fillStyle = '#1a1a22';
+    ctx.fillRect(mx, 80, 80, 50);
+    ctx.fillRect(mx + 20, 60, 40, 20);
+    // Cannon
+    ctx.fillRect(mx + 60, 75, 30, 8);
+    // Tracks
+    ctx.fillRect(mx - 5, 125, 90, 12);
+    for (let t = 0; t < 90; t += 10) {
+      ctx.fillStyle = '#222230';
+      ctx.fillRect(mx - 5 + t, 125, 8, 12);
+      ctx.fillStyle = '#1a1a22';
+    }
+  }
+
+  // Interior walls - metal panels
+  for (let x = 0; x < W; x += 32) {
+    ctx.fillStyle = P.metal[noise(x, 0, 40) > 0.5 ? 1 : 2];
+    ctx.fillRect(x, H * 0.35, 32, H * 0.65);
+    // Panel lines
+    ctx.fillStyle = P.metal[0];
+    ctx.fillRect(x, H * 0.35, 1, H * 0.65);
+    ctx.fillRect(x, H * 0.35, 32, 1);
+    // Rivets
+    ctx.fillStyle = P.rivet[1];
+    ctx.fillRect(x + 3, H * 0.35 + 3, 2, 2);
+    ctx.fillRect(x + 27, H * 0.35 + 3, 2, 2);
+    ctx.fillRect(x + 3, H - 48, 2, 2);
+    ctx.fillRect(x + 27, H - 48, 2, 2);
+  }
+
+  // Gears
+  const gearPositions = [[100, 140, 25], [300, 120, 35], [420, 160, 20]];
+  gearPositions.forEach(([gx, gy, gr]) => {
+    ctx.fillStyle = P.brass[1];
+    for (let a = 0; a < 360; a += 3) {
+      const rad = a * Math.PI / 180;
+      const r = gr + (a % 30 < 15 ? 4 : 0);
+      const px_ = gx + Math.cos(rad) * r;
+      const py_ = gy + Math.sin(rad) * r;
+      ctx.fillRect(px_, py_, 2, 2);
+    }
+    ctx.fillStyle = P.metal[3];
+    ctx.beginPath();
+    ctx.arc(gx, gy, gr * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = P.metal[1];
+    ctx.fillRect(gx - 2, gy - 2, 4, 4);
+  });
+
+  // Floor grating
+  const floorY = H - 40;
+  for (let x = 0; x < W; x += 4) {
+    ctx.fillStyle = x % 8 < 4 ? P.metal[3] : P.metal[1];
+    ctx.fillRect(x, floorY, 4, 2);
+    // Grate holes
+    if (x % 16 < 12) {
+      ctx.fillStyle = '#0a0a10';
+      ctx.fillRect(x + 1, floorY + 4, 2, 6);
+    }
+    ctx.fillStyle = P.metal[2];
+    ctx.fillRect(x, floorY + 2, 4, 38);
+  }
+
+  // Ammo shells
+  for (let i = 0; i < 5; i++) {
+    const ax = 60 + i * 90;
+    ctx.fillStyle = P.brass[2];
+    ctx.fillRect(ax, floorY - 10, 6, 10);
+    ctx.fillStyle = P.brass[0];
+    ctx.fillRect(ax, floorY - 12, 6, 3);
+    ctx.fillStyle = P.fire[0];
+    ctx.fillRect(ax + 2, floorY - 13, 2, 2);
+  }
+
+  // Steam/smoke
+  for (let i = 0; i < 20; i++) {
+    const sx = noise(i, 0, 42) * W;
+    const sy = noise(i, 1, 42) * (H * 0.5) + H * 0.3;
+    ctx.fillStyle = '#ffffff08';
+    const ss = 3 + noise(i, 2, 42) * 6;
+    ctx.fillRect(sx, sy, ss, ss);
+  }
+}
+
+function renderSignalTowerBackdrop(canvas) {
+  const W = 480, H = 270;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const P = PAL.signal;
+
+  // Deep sky with data streams
+  for (let y = 0; y < H; y++) {
+    ctx.fillStyle = blendColor('#020610','#081828', y/H);
+    ctx.fillRect(0, y, W, 1);
+  }
+
+  // Vertical data streams (background)
+  for (let i = 0; i < 12; i++) {
+    const sx = noise(i, 0, 50) * W;
+    ctx.fillStyle = P.data[2] + '15';
+    ctx.fillRect(sx, 0, 2, H);
+    // Data bits flowing down
+    for (let j = 0; j < 20; j++) {
+      const dy = noise(i, j, 51) * H;
+      ctx.fillStyle = P.data[Math.floor(noise(i, j, 52) * 2)] + '44';
+      ctx.fillRect(sx - 1, dy, 4, 2);
+    }
+  }
+
+  // Antenna arrays (background)
+  for (let i = 0; i < 4; i++) {
+    const ax = 60 + i * 120;
+    ctx.fillStyle = P.panel[1];
+    ctx.fillRect(ax, 0, 3, H);
+    // Cross-beams
+    for (let y = 20; y < H; y += 40) {
+      ctx.fillRect(ax - 15, y, 33, 2);
+      // Satellite dishes
+      if (noise(i, y, 53) > 0.6) {
+        ctx.fillStyle = P.panel[2];
+        ctx.fillRect(ax - 10, y - 8, 12, 8);
+        ctx.fillStyle = P.electric[0] + '44';
+        ctx.fillRect(ax - 8, y - 6, 8, 4);
+        ctx.fillStyle = P.panel[1];
+      }
+    }
+  }
+
+  // Holographic displays
+  for (let i = 0; i < 3; i++) {
+    const hx = 80 + i * 150;
+    const hy = 60 + i * 30;
+    // Frame
+    ctx.fillStyle = P.panel[3];
+    ctx.fillRect(hx, hy, 50, 35);
+    // Screen
+    ctx.fillStyle = P.data[0] + '22';
+    ctx.fillRect(hx + 2, hy + 2, 46, 31);
+    // Scan lines on screen
+    for (let sy = 0; sy < 31; sy += 2) {
+      ctx.fillStyle = P.data[1] + '11';
+      ctx.fillRect(hx + 2, hy + 2 + sy, 46, 1);
+    }
+    // "Data" on screen
+    for (let d = 0; d < 8; d++) {
+      if (noise(d, i, 54) > 0.4) {
+        ctx.fillStyle = P.data[0] + '66';
+        ctx.fillRect(hx + 5 + d * 5, hy + 8 + Math.floor(noise(d, i, 55) * 20), 3, 2);
+      }
+    }
+  }
+
+  // Platform / walkway
+  const floorY = H - 50;
+  ctx.fillStyle = P.panel[2];
+  ctx.fillRect(0, floorY, W, 4);
+  ctx.fillStyle = P.panel[1];
+  ctx.fillRect(0, floorY + 4, W, 46);
+
+  // Glowing strip on walkway edge
+  ctx.fillStyle = P.electric[0] + '88';
+  ctx.fillRect(0, floorY, W, 1);
+  ctx.fillStyle = P.electric[0] + '22';
+  ctx.fillRect(0, floorY - 2, W, 2);
+
+  // Electric arcs
+  for (let i = 0; i < 5; i++) {
+    const ex = noise(i, 0, 56) * W;
+    ctx.fillStyle = P.electric[0];
+    let ey = noise(i, 1, 56) * (H * 0.6);
+    for (let j = 0; j < 15; j++) {
+      ctx.fillRect(ex + (noise(j, i, 57) - 0.5) * 10, ey, 1, 1);
+      ey += 2;
+    }
+  }
+}
+
+function renderMirrorBackdrop(canvas) {
+  const W = 480, H = 270;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const P = PAL.mirror;
+
+  // Deep purple void
+  for (let y = 0; y < H; y++) {
+    ctx.fillStyle = blendColor('#0a0518','#1a1040', y/H);
+    ctx.fillRect(0, y, W, 1);
+  }
+
+  // Crystal formations
+  for (let i = 0; i < 8; i++) {
+    const cx_ = noise(i, 0, 60) * W;
+    const cy_ = 50 + noise(i, 1, 60) * (H - 100);
+    const ch = 20 + noise(i, 2, 60) * 40;
+    const cw = 6 + noise(i, 3, 60) * 10;
+    const ci = Math.floor(noise(i, 4, 60) * P.crystal.length);
+    // Crystal body
+    ctx.fillStyle = P.crystal[ci] + '66';
+    ctx.beginPath();
+    ctx.moveTo(cx_, cy_);
+    ctx.lineTo(cx_ - cw/2, cy_ + ch);
+    ctx.lineTo(cx_ + cw/2, cy_ + ch);
+    ctx.fill();
+    // Highlight
+    ctx.fillStyle = P.reflect[0] + '33';
+    ctx.fillRect(cx_ - 1, cy_ + 2, 2, ch * 0.6);
+  }
+
+  // Mirror surfaces (reflecting platforms)
+  for (let i = 0; i < 3; i++) {
+    const mx = 60 + i * 150;
+    const my = 100 + i * 20;
+    // Mirror frame
+    ctx.fillStyle = P.crystal[0];
+    ctx.fillRect(mx, my, 80, 3);
+    ctx.fillRect(mx, my, 3, 60);
+    ctx.fillRect(mx + 77, my, 3, 60);
+    ctx.fillRect(mx, my + 57, 80, 3);
+    // Reflection surface
+    for (let y = 0; y < 54; y++) {
+      for (let x = 0; x < 74; x++) {
+        if (noise(x + mx, y, 61) > 0.7) {
+          const rc = P.reflect[Math.floor(noise(x, y, 62) * P.reflect.length)];
+          ctx.fillStyle = rc + '22';
+          ctx.fillRect(mx + 3 + x, my + 3 + y, 1, 1);
+        }
+      }
+    }
+  }
+
+  // Impossible geometry - Penrose-style stairs
+  const stairX = 200, stairY = 180;
+  for (let s = 0; s < 8; s++) {
+    ctx.fillStyle = P.crystal[s % P.crystal.length] + '44';
+    ctx.fillRect(stairX + s * 12, stairY - s * 8, 14, 8);
+    ctx.fillStyle = P.void[1];
+    ctx.fillRect(stairX + s * 12, stairY - s * 8 + 8, 14, 20);
+  }
+
+  // Floor
+  const floorY = H - 40;
+  for (let x = 0; x < W; x += 8) {
+    const checker = (Math.floor(x/8)) % 2;
+    ctx.fillStyle = checker ? P.void[1] : P.void[2];
+    ctx.fillRect(x, floorY, 8, 40);
+  }
+
+  // Floating particles
+  for (let i = 0; i < 35; i++) {
+    const px_ = noise(i, 0, 63) * W;
+    const py_ = noise(i, 1, 63) * H;
+    ctx.fillStyle = P.crystal[Math.floor(noise(i, 2, 63) * P.crystal.length)] + '55';
+    ctx.fillRect(px_, py_, 1 + (noise(i, 3, 63) > 0.8 ? 1 : 0), 1);
+  }
+}
+
+function renderCathedralBackdrop(canvas) {
+  const W = 480, H = 270;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const P = PAL.cathedral;
+
+  // Fiery sky
+  for (let y = 0; y < H; y++) {
+    const t = y / H;
+    ctx.fillStyle = blendColor('#1a0505', t < 0.5 ? '#3a1010' : '#2a0808', t);
+    ctx.fillRect(0, y, W, 1);
+  }
+
+  // Gothic architecture - pillars and arches
+  for (let i = 0; i < 6; i++) {
+    const px_ = i * 95 + 10;
+    ctx.fillStyle = P.stone[1];
+    ctx.fillRect(px_, 20, 12, 220);
+    // Column detail
+    ctx.fillStyle = P.stone[2];
+    ctx.fillRect(px_ + 2, 20, 8, 220);
+    ctx.fillStyle = P.stone[3];
+    ctx.fillRect(px_ + 4, 25, 4, 210);
+    // Capital
+    ctx.fillStyle = P.stone[2];
+    ctx.fillRect(px_ - 4, 18, 20, 6);
+  }
+
+  // Stained glass windows
+  const windowPositions = [[55, 40], [240, 50], [430, 35]];
+  windowPositions.forEach(([wx, wy]) => {
+    // Frame
+    ctx.fillStyle = P.stone[0];
+    ctx.fillRect(wx, wy, 40, 70);
+    // Glass panes
+    const colors = P.glass;
+    for (let gx = 0; gx < 36; gx += 6) {
+      for (let gy = 0; gy < 66; gy += 6) {
+        ctx.fillStyle = colors[Math.floor(noise(gx + wx, gy, 70) * colors.length)] + '88';
+        ctx.fillRect(wx + 2 + gx, wy + 2 + gy, 5, 5);
+      }
+    }
+    // Glow from window
+    ctx.fillStyle = '#ffaa4411';
+    ctx.beginPath();
+    ctx.moveTo(wx + 20, wy + 70);
+    ctx.lineTo(wx - 20, H);
+    ctx.lineTo(wx + 60, H);
+    ctx.fill();
+  });
+
+  // Perpetual flames
+  for (let i = 0; i < 10; i++) {
+    const fx = 20 + i * 48;
+    const fy = H - 60;
+    // Torch base
+    ctx.fillStyle = P.stone[2];
+    ctx.fillRect(fx - 2, fy, 4, 15);
+    // Fire
+    for (let f = 0; f < 12; f++) {
+      const ff = f / 12;
+      const ci = Math.floor(ff * P.fire.length);
+      ctx.fillStyle = P.fire[Math.min(ci, P.fire.length - 1)] + (f < 4 ? 'cc' : '66');
+      const fw = 6 - ff * 4;
+      ctx.fillRect(fx - fw/2 + noise(f, i, 71) * 3, fy - 3 - f * 2, fw, 2);
+    }
+  }
+
+  // Floor
+  const floorY = H - 40;
+  for (let x = 0; x < W; x += 16) {
+    ctx.fillStyle = P.stone[noise(x, 0, 72) > 0.5 ? 0 : 1];
+    ctx.fillRect(x, floorY, 16, 40);
+  }
+
+  // Ash particles
+  for (let i = 0; i < 50; i++) {
+    const ax = noise(i, 0, 73) * W;
+    const ay = noise(i, 1, 73) * H;
+    ctx.fillStyle = P.ash[Math.floor(noise(i, 2, 73) * P.ash.length)] + '55';
+    ctx.fillRect(ax, ay, 1, 1);
+  }
+
+  // Embers rising
+  for (let i = 0; i < 20; i++) {
+    const ex = noise(i, 0, 74) * W;
+    const ey = H - noise(i, 1, 74) * H * 0.8;
+    ctx.fillStyle = P.fire[Math.floor(noise(i, 2, 74) * 3)] + '88';
+    ctx.fillRect(ex, ey, 1, 1);
+  }
+}
+
+function renderBreachBackdrop(canvas) {
+  const W = 480, H = 270;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const P = PAL.breach;
+
+  // Void background
+  for (let y = 0; y < H; y++) {
+    ctx.fillStyle = blendColor('#04000a','#10001a', y/H);
+    ctx.fillRect(0, y, W, 1);
+  }
+
+  // Reality tears - glitch lines
+  for (let i = 0; i < 15; i++) {
+    const ly = noise(i, 0, 80) * H;
+    const lx = noise(i, 1, 80) * W * 0.3;
+    const lw = 50 + noise(i, 2, 80) * 200;
+    ctx.fillStyle = P.glitch[Math.floor(noise(i, 3, 80) * P.glitch.length)] + '33';
+    ctx.fillRect(lx, ly, lw, 1 + (noise(i, 4, 80) > 0.7 ? 1 : 0));
+  }
+
+  // Floating chunks of reality
+  // Medieval castle chunk
+  const castleX = 60, castleY = 80;
+  ctx.fillStyle = '#3a3040';
+  ctx.fillRect(castleX, castleY, 50, 40);
+  ctx.fillRect(castleX + 5, castleY - 15, 10, 15);
+  ctx.fillRect(castleX + 35, castleY - 12, 10, 12);
+  // Battlements
+  for (let b = 0; b < 5; b++) {
+    ctx.fillRect(castleX + b * 10, castleY - 4, 6, 4);
+  }
+
+  // Server rack chunk
+  const rackX = 280, rackY = 60;
+  ctx.fillStyle = '#2a2a3a';
+  ctx.fillRect(rackX, rackY, 35, 60);
+  for (let r = 0; r < 6; r++) {
+    ctx.fillStyle = '#1a1a2a';
+    ctx.fillRect(rackX + 3, rackY + 3 + r * 9, 29, 7);
+    // Blinking lights
+    ctx.fillStyle = noise(r, 0, 81) > 0.5 ? '#00ff44' : '#ff0022';
+    ctx.fillRect(rackX + 5, rackY + 5 + r * 9, 2, 2);
+    ctx.fillStyle = noise(r, 1, 81) > 0.3 ? '#00ff44' : '#ff0022';
+    ctx.fillRect(rackX + 9, rackY + 5 + r * 9, 2, 2);
+  }
+
+  // Dimensional static zones
+  for (let i = 0; i < 3; i++) {
+    const sx = noise(i, 0, 82) * W;
+    const sy = noise(i, 1, 82) * H;
+    const sw = 30 + noise(i, 2, 82) * 50;
+    const sh = 20 + noise(i, 3, 82) * 30;
+    for (let x = 0; x < sw; x++) {
+      for (let y = 0; y < sh; y++) {
+        if (noise(x + sx, y + sy, 83) > 0.6) {
+          ctx.fillStyle = P.static[Math.floor(noise(x, y, 84) * P.static.length)] + '44';
+          ctx.fillRect(sx + x, sy + y, 1, 1);
+        }
+      }
+    }
+  }
+
+  // Broken floor - half medieval stone, half metal grid
+  const floorY = H - 45;
+  for (let x = 0; x < W/2; x += 12) {
+    ctx.fillStyle = noise(x, 0, 85) > 0.3 ? '#2a2234' : '#332840';
+    ctx.fillRect(x, floorY, 12, 45);
+  }
+  for (let x = W/2; x < W; x += 8) {
+    ctx.fillStyle = x % 16 < 8 ? '#2a2a3a' : '#222230';
+    ctx.fillRect(x, floorY, 8, 45);
+  }
+
+  // The tear in reality - centerpiece
+  const tearX = W/2, tearY = H/2 - 20;
+  for (let r = 40; r > 0; r--) {
+    const alpha = Math.floor((1 - r/40) * 30);
+    ctx.fillStyle = '#ff00ff' + alpha.toString(16).padStart(2, '0');
+    ctx.beginPath();
+    ctx.ellipse(tearX, tearY, r * 1.5, r, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Inner void
+  ctx.fillStyle = '#000005';
+  ctx.beginPath();
+  ctx.ellipse(tearX, tearY, 15, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // Edge sparks
+  for (let a = 0; a < 360; a += 20) {
+    const rad = a * Math.PI / 180;
+    const sx = tearX + Math.cos(rad) * 25;
+    const sy = tearY + Math.sin(rad) * 12;
+    ctx.fillStyle = P.glitch[Math.floor(noise(a, 0, 86) * P.glitch.length)];
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+}
+
+function renderHubBackdrop(canvas) {
+  const W = 480, H = 270;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const P = PAL.hub;
+
+  // Twilight sky
+  for (let y = 0; y < H * 0.45; y++) {
+    const t = y / (H * 0.45);
+    ctx.fillStyle = blendColor('#141028', '#2a1838', t);
+    ctx.fillRect(0, y, W, 1);
+  }
+
+  // Stars
+  for (let i = 0; i < 30; i++) {
+    const sx = noise(i, 0, 90) * W;
+    const sy = noise(i, 1, 90) * H * 0.3;
+    ctx.fillStyle = noise(i, 2, 90) > 0.7 ? '#ffffff' : '#aaaacc';
+    ctx.fillRect(sx, sy, 1, 1);
+  }
+
+  // Moon (half-glitched)
+  const moonX = 380, moonY = 40;
+  ctx.fillStyle = '#ccccdd';
+  ctx.beginPath();
+  ctx.arc(moonX, moonY, 18, 0, Math.PI * 2);
+  ctx.fill();
+  // Static on one half
+  for (let x = -18; x < 0; x++) {
+    for (let y = -18; y < 18; y++) {
+      if (x*x + y*y < 18*18 && noise(x, y, 91) > 0.4) {
+        ctx.fillStyle = PAL.breach.static[Math.floor(noise(x, y, 92) * 3)] + '88';
+        ctx.fillRect(moonX + x, moonY + y, 1, 1);
+      }
+    }
+  }
+
+  // Buildings silhouettes
+  const buildings = [
+    {x: 20, w: 55, h: 90, hasSign: true, signColor: '#00ccff'},
+    {x: 80, w: 40, h: 110, hasSign: false},
+    {x: 130, w: 65, h: 70, hasSign: true, signColor: '#ff00aa'},
+    {x: 200, w: 50, h: 130, hasSign: true, signColor: '#ffdd00'},
+    {x: 260, w: 45, h: 85, hasSign: false},
+    {x: 310, w: 60, h: 100, hasSign: true, signColor: '#00ff88'},
+    {x: 380, w: 50, h: 75, hasSign: false},
+    {x: 440, w: 45, h: 95, hasSign: true, signColor: '#ff4400'},
+  ];
+
+  const groundY = H - 50;
+
+  buildings.forEach((b, i) => {
+    const by = groundY - b.h;
+    // Building body
+    ctx.fillStyle = P.building[Math.floor(noise(i, 0, 93) * 3)];
+    ctx.fillRect(b.x, by, b.w, b.h);
+
+    // Windows
+    for (let wy = 0; wy < b.h - 15; wy += 14) {
+      for (let wx = 0; wx < b.w - 10; wx += 12) {
+        if (noise(wx + i, wy, 94) > 0.3) {
+          const lit = noise(wx, wy + i, 95) > 0.4;
+          ctx.fillStyle = lit ? P.warm[Math.floor(noise(wx, wy, 96) * P.warm.length)] + '88' : '#0a0a1488';
+          ctx.fillRect(b.x + 5 + wx, by + 8 + wy, 6, 8);
+        }
+      }
+    }
+
+    // Roof detail
+    ctx.fillStyle = P.building[3];
+    ctx.fillRect(b.x - 2, by - 3, b.w + 4, 5);
+
+    // Neon signs
+    if (b.hasSign) {
+      const signY = by + 20 + noise(i, 5, 97) * 20;
+      ctx.fillStyle = b.signColor + 'cc';
+      ctx.fillRect(b.x + 5, signY, b.w - 10, 8);
+      // Glow
+      ctx.fillStyle = b.signColor + '22';
+      ctx.fillRect(b.x, signY - 5, b.w, 18);
+    }
+  });
+
+  // Street/ground
+  for (let x = 0; x < W; x++) {
+    ctx.fillStyle = P.road[Math.floor(noise(x, 0, 98) * P.road.length)];
+    ctx.fillRect(x, groundY, 1, 50);
+  }
+
+  // Puddles reflecting neon
+  for (let i = 0; i < 5; i++) {
+    const px_ = 30 + i * 100;
+    const pw = 20 + noise(i, 0, 99) * 30;
+    for (let x = 0; x < pw; x++) {
+      const nc = P.neon[Math.floor(noise(x + px_, i, 100) * P.neon.length)];
+      ctx.fillStyle = nc + '22';
+      ctx.fillRect(px_ + x, groundY + 3, 1, 2);
+    }
+  }
+
+  // Lanterns
+  for (let i = 0; i < 6; i++) {
+    const lx = 50 + i * 78;
+    // Post
+    ctx.fillStyle = '#3a3a44';
+    ctx.fillRect(lx, groundY - 30, 2, 30);
+    // Lamp
+    ctx.fillStyle = P.warm[0];
+    ctx.fillRect(lx - 2, groundY - 34, 6, 5);
+    // Glow
+    ctx.fillStyle = P.warm[0] + '15';
+    for (let r = 15; r > 0; r--) {
+      ctx.beginPath();
+      ctx.arc(lx + 1, groundY - 32, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// ============================================================
+// CHARACTER SPRITE GENERATORS
+// ============================================================
+
+function drawVanguard(ctx, x, y, s=3, frame=0) {
+  const C = PAL.vanguard;
+  // 16x24 sprite scaled up
+  const sprite = [
+    // Row 0-2: Helmet
+    [0,0,0,0,0,C[6],C[6],C[0],C[0],C[6],C[6],0,0,0,0,0],
+    [0,0,0,0,C[6],C[0],C[1],C[1],C[1],C[1],C[0],C[6],0,0,0,0],
+    [0,0,0,C[6],C[0],C[1],C[2],C[2],C[2],C[2],C[1],C[0],C[6],0,0,0],
+    // Row 3-4: Visor
+    [0,0,0,C[0],C[1],C[2],'#00ffff','#00dddd','#00dddd','#00ffff',C[2],C[1],C[0],0,0,0],
+    [0,0,0,C[0],C[1],C[2],'#00cccc','#009999','#009999','#00cccc',C[2],C[1],C[0],0,0,0],
+    // Row 5-6: Lower helm
+    [0,0,0,0,C[0],C[1],C[7],C[7],C[7],C[7],C[1],C[0],0,0,0,0],
+    [0,0,0,0,0,C[0],C[0],C[7],C[7],C[0],C[0],0,0,0,0,0],
+    // Row 7-10: Chest armor with circuit lines
+    [0,0,0,C[6],C[0],C[1],C[1],C[2],C[2],C[1],C[1],C[0],C[6],0,0,0],
+    [0,0,C[6],C[0],C[1],C[2],'#00ffff',C[2],C[2],'#00ffff',C[2],C[1],C[0],C[6],0,0],
+    [0,0,C[6],C[0],C[1],C[2],C[2],C[2],C[2],C[2],C[2],C[1],C[0],C[6],0,0],
+    [0,0,C[6],C[0],C[1],'#00ffff',C[1],C[1],C[1],C[1],'#00ffff',C[1],C[0],C[6],0,0],
+    // Row 11-12: Belt
+    [0,0,0,C[6],C[6],'#ffd700','#ffd700','#ffd700','#ffd700','#ffd700','#ffd700',C[6],C[6],0,0,0],
+    [0,0,0,0,C[6],C[6],C[0],C[0],C[0],C[0],C[6],C[6],0,0,0,0],
+    // Row 13-16: Legs
+    [0,0,0,0,C[0],C[1],C[1],0,0,C[1],C[1],C[0],0,0,0,0],
+    [0,0,0,0,C[0],C[1],C[2],0,0,C[2],C[1],C[0],0,0,0,0],
+    [0,0,0,0,C[0],C[1],C[1],0,0,C[1],C[1],C[0],0,0,0,0],
+    // Row 17: Boots
+    [0,0,0,C[0],C[0],C[0],C[0],0,0,C[0],C[0],C[0],C[0],0,0,0],
+  ];
+
+  // Plasma blade (right side)
+  const bladeColors = ['#ffffff','#88ddff','#00ccff','#0088cc','#004466'];
+  if (frame % 2 === 0) {
+    for (let by = 0; by < 14; by++) {
+      const bci = Math.min(bladeColors.length - 1, Math.floor(by / 3));
+      px(ctx, x + 14, y + 2 + by, bladeColors[bci], s);
+      px(ctx, x + 15, y + 2 + by, bladeColors[Math.min(bci + 1, bladeColors.length - 1)], s);
+    }
+    // Handle
+    px(ctx, x + 13, y + 8, '#666677', s);
+    px(ctx, x + 13, y + 9, '#555566', s);
+    px(ctx, x + 13, y + 10, '#555566', s);
+  }
+
+  drawSprite(ctx, sprite, x, y, s);
+}
+
+function drawGunner(ctx, x, y, s=3, frame=0) {
+  const C = PAL.gunner;
+  const sprite = [
+    [0,0,0,0,0,C[6],C[6],C[6],C[6],C[6],0,0,0,0,0,0],
+    [0,0,0,0,C[6],C[0],C[0],C[0],C[0],C[0],C[6],0,0,0,0,0],
+    [0,0,0,C[6],C[0],C[1],C[1],C[1],C[1],C[1],C[0],C[6],0,0,0,0],
+    // Visor
+    [0,0,0,C[0],C[1],'#22ffaa','#22ffaa','#22ffaa','#22ffaa','#22ffaa',C[1],C[0],0,0,0,0],
+    [0,0,0,C[0],C[1],'#00cc88','#00cc88','#00cc88','#00cc88','#00cc88',C[1],C[0],0,0,0,0],
+    [0,0,0,0,C[0],C[7],C[7],C[7],C[7],C[7],C[0],0,0,0,0,0],
+    [0,0,0,0,0,C[0],C[7],C[7],C[7],C[0],0,0,0,0,0,0],
+    // Chest - lighter armor
+    [0,0,0,C[6],C[0],C[0],C[1],C[1],C[1],C[0],C[0],C[6],0,0,0,0],
+    [0,0,0,C[0],C[1],C[1],C[2],C[2],C[2],C[1],C[1],C[0],0,0,0,0],
+    [0,0,0,C[0],C[1],C[2],C[2],C[3],C[2],C[2],C[1],C[0],0,0,0,0],
+    [0,0,0,C[0],C[1],C[1],C[2],C[2],C[2],C[1],C[1],C[0],0,0,0,0],
+    // Belt
+    [0,0,0,0,C[6],C[4],C[4],C[4],C[4],C[4],C[6],0,0,0,0,0],
+    [0,0,0,0,0,C[6],C[5],C[5],C[5],C[6],0,0,0,0,0,0],
+    // Legs
+    [0,0,0,0,C[0],C[1],C[1],0,C[1],C[1],C[0],0,0,0,0,0],
+    [0,0,0,0,C[0],C[1],C[2],0,C[2],C[1],C[0],0,0,0,0,0],
+    [0,0,0,0,C[0],C[1],C[1],0,C[1],C[1],C[0],0,0,0,0,0],
+    [0,0,0,C[0],C[0],C[0],C[0],0,C[0],C[0],C[0],C[0],0,0,0,0],
+  ];
+
+  // Arm cannon
+  const cannonColors = ['#888899','#aaaacc','#ccccee','#00ffaa'];
+  px(ctx, x + 12, y + 7, cannonColors[0], s);
+  px(ctx, x + 13, y + 7, cannonColors[0], s);
+  px(ctx, x + 14, y + 7, cannonColors[1], s);
+  px(ctx, x + 12, y + 8, cannonColors[0], s);
+  px(ctx, x + 13, y + 8, cannonColors[1], s);
+  px(ctx, x + 14, y + 8, cannonColors[2], s);
+  px(ctx, x + 15, y + 8, cannonColors[2], s);
+  px(ctx, x + 16, y + 8, cannonColors[3], s);
+  px(ctx, x + 12, y + 9, cannonColors[0], s);
+  px(ctx, x + 13, y + 9, cannonColors[0], s);
+  px(ctx, x + 14, y + 9, cannonColors[1], s);
+
+  drawSprite(ctx, sprite, x, y, s);
+}
+
+function drawWraith(ctx, x, y, s=3, frame=0) {
+  const C = PAL.wraith;
+  // Hood and cloak
+  const sprite = [
+    [0,0,0,0,C[4],C[0],C[0],C[0],C[0],C[4],0,0,0,0,0,0],
+    [0,0,0,C[4],C[0],C[1],C[1],C[1],C[1],C[0],C[4],0,0,0,0,0],
+    [0,0,C[4],C[0],C[1],C[2],C[2],C[2],C[2],C[1],C[0],C[4],0,0,0,0],
+    // Face (shadowed)
+    [0,0,C[0],C[1],C[2],C[5],C[5],'#aa44cc',C[5],C[5],C[2],C[1],C[0],0,0,0],
+    [0,0,C[0],C[1],C[5],'#ff44ff',C[5],C[5],C[5],'#ff44ff',C[5],C[1],C[0],0,0,0],
+    [0,0,0,C[0],C[1],C[5],C[5],C[5],C[5],C[5],C[1],C[0],0,0,0,0],
+    // Shoulders + cloak
+    [0,C[4],C[0],C[1],C[2],C[2],C[2],C[2],C[2],C[2],C[1],C[0],C[4],0,0,0],
+    [C[4],C[0],C[1],C[2],C[3],C[3],C[2],C[2],C[3],C[3],C[2],C[1],C[0],C[4],0,0],
+    [0,C[0],C[1],C[2],C[2],C[2],C[2],C[2],C[2],C[2],C[2],C[1],C[0],0,0,0],
+    [0,0,C[0],C[1],C[2],C[2],C[2],C[2],C[2],C[2],C[1],C[0],0,0,0,0],
+    [0,0,C[0],C[1],C[1],C[2],C[2],C[2],C[2],C[1],C[1],C[0],0,0,0,0],
+    // Cloak tails
+    [0,0,0,C[0],C[1],C[1],0,0,C[1],C[1],C[0],0,0,0,0,0],
+    [0,0,0,C[4],C[0],C[1],0,0,C[1],C[0],C[4],0,0,0,0,0],
+    [0,0,0,0,C[4],C[0],0,0,C[0],C[4],0,0,0,0,0,0],
+    // Legs (barely visible)
+    [0,0,0,0,C[5],C[4],0,0,C[4],C[5],0,0,0,0,0,0],
+    [0,0,0,0,C[5],C[4],0,0,C[4],C[5],0,0,0,0,0,0],
+    [0,0,0,C[5],C[4],C[4],0,0,C[4],C[4],C[5],0,0,0,0,0],
+  ];
+
+  // Twin daggers
+  // Left dagger
+  px(ctx, x - 1, y + 6, '#aaaacc', s);
+  px(ctx, x - 2, y + 5, '#ccccee', s);
+  px(ctx, x - 3, y + 4, '#ffffff', s);
+  // Right dagger
+  px(ctx, x + 13, y + 6, '#aaaacc', s);
+  px(ctx, x + 14, y + 5, '#ccccee', s);
+  px(ctx, x + 15, y + 4, '#ffffff', s);
+
+  // Shadow trail particles
+  if (frame > 0) {
+    for (let i = 0; i < 3; i++) {
+      px(ctx, x - 3 - i * 2, y + 5 + i, C[4] + '44', s);
+      px(ctx, x - 2 - i * 2, y + 8 + i, C[5] + '33', s);
+    }
+  }
+
+  drawSprite(ctx, sprite, x, y, s);
+}
+
+function drawChanneler(ctx, x, y, s=3, frame=0) {
+  const C = PAL.channeler;
+  const sprite = [
+    [0,0,0,0,0,C[0],C[0],C[1],C[0],C[0],0,0,0,0,0,0],
+    [0,0,0,0,C[0],C[1],C[1],C[2],C[1],C[1],C[0],0,0,0,0,0],
+    [0,0,0,C[6],C[0],C[1],C[2],C[2],C[2],C[1],C[0],C[6],0,0,0,0],
+    // Face
+    [0,0,0,C[0],C[7],C[7],'#44ff88',C[7],'#44ff88',C[7],C[7],C[0],0,0,0,0],
+    [0,0,0,C[0],C[7],C[7],C[7],C[7],C[7],C[7],C[7],C[0],0,0,0,0],
+    [0,0,0,0,C[0],C[7],C[7],C[7],C[7],C[7],C[0],0,0,0,0,0],
+    // Robes
+    [0,0,C[6],C[0],C[1],C[1],C[2],C[2],C[2],C[1],C[1],C[0],C[6],0,0,0],
+    [0,C[6],C[0],C[1],C[2],C[2],C[3],C[3],C[3],C[2],C[2],C[1],C[0],C[6],0,0],
+    [0,C[0],C[1],C[2],'#ffd700',C[2],C[3],C[3],C[3],C[2],'#ffd700',C[2],C[1],C[0],0,0],
+    [0,0,C[0],C[1],C[2],C[2],C[3],C[3],C[3],C[2],C[2],C[1],C[0],0,0,0],
+    [0,0,C[0],C[1],C[2],C[2],C[2],C[3],C[2],C[2],C[2],C[1],C[0],0,0,0],
+    [0,0,0,C[0],C[1],C[2],C[2],C[2],C[2],C[2],C[1],C[0],0,0,0,0],
+    // Robe bottom (wide)
+    [0,0,C[0],C[0],C[1],C[2],C[2],C[2],C[2],C[2],C[1],C[0],C[0],0,0,0],
+    [0,C[0],C[0],C[1],C[1],C[1],C[2],C[2],C[2],C[1],C[1],C[1],C[0],C[0],0,0],
+    [C[0],C[0],C[1],C[1],C[1],C[2],C[2],C[2],C[2],C[2],C[1],C[1],C[1],C[0],C[0],0],
+    [0,C[6],C[0],C[1],C[1],C[1],C[1],C[1],C[1],C[1],C[1],C[1],C[0],C[6],0,0],
+    [0,0,C[6],C[6],C[0],C[0],C[0],C[0],C[0],C[0],C[0],C[6],C[6],0,0,0],
+  ];
+
+  // Floating crystal focus
+  const crystalY = y - 2 + Math.sin(frame * 0.5) * 0.5;
+  px(ctx, x + 14, crystalY, '#88ffaa', s);
+  px(ctx, x + 15, crystalY - 1, '#ffffff', s);
+  px(ctx, x + 15, crystalY, '#ffd700', s);
+  px(ctx, x + 15, crystalY + 1, '#88ffaa', s);
+  px(ctx, x + 16, crystalY, '#44cc66', s);
+  // Glow
+  ctx.fillStyle = '#44ff8822';
+  ctx.fillRect((x + 14) * s, (crystalY - 2) * s, 4 * s, 5 * s);
+
+  // Arm runes
+  px(ctx, x + 1, y + 8, '#ffd700', s);
+  px(ctx, x + 12, y + 8, '#ffd700', s);
+
+  drawSprite(ctx, sprite, x, y, s);
+}
+
+// ============================================================
+// ENEMY SPRITE GENERATORS
+// ============================================================
+
+function drawEnemy(ctx, type, x, y, s=3) {
+  const enemies = {
+    worker_bot: {
+      colors: ['#555566','#666677','#777788','#ff4400','#ff6600','#00ccff'],
+      data: [
+        [0,0,0,'c2','c2','c2','c2',0,0,0],
+        [0,0,'c2','c1','c1','c1','c1','c2',0,0],
+        [0,'c2','c1','c3','c0','c0','c3','c1','c2',0],
+        [0,'c2','c1','c4','c0','c0','c4','c1','c2',0],
+        ['c2','c1','c1','c1','c1','c1','c1','c1','c1','c2'],
+        ['c2','c1','c5','c1','c1','c1','c1','c5','c1','c2'],
+        [0,'c2','c1','c1','c2','c2','c1','c1','c2',0],
+        [0,0,'c2','c2',0,0,'c2','c2',0,0],
+        [0,'c0','c0',0,0,0,0,'c0','c0',0],
+        ['c0','c0','c0',0,0,0,0,'c0','c0','c0'],
+      ]
+    },
+    slag_golem: {
+      colors: ['#553300','#774400','#996600','#ff6600','#ff8800','#ffaa44'],
+      data: [
+        [0,0,'c3','c3','c3','c3','c3',0,0,0],
+        [0,'c3','c2','c2','c2','c2','c2','c3',0,0],
+        ['c3','c2','c4','c1','c1','c1','c4','c2','c3',0],
+        ['c2','c1','c5','c1','c1','c1','c5','c1','c2',0],
+        ['c2','c1','c1','c1','c1','c1','c1','c1','c2',0],
+        ['c1','c0','c0','c1','c1','c1','c0','c0','c1',0],
+        ['c0','c0','c0','c0','c1','c0','c0','c0','c0',0],
+        [0,'c0','c0','c0','c0','c0','c0','c0',0,0],
+        ['c0','c0',0,0,'c0',0,0,'c0','c0',0],
+        ['c0','c0','c0',0,'c0',0,'c0','c0','c0',0],
+      ]
+    },
+    skeleton: {
+      colors: ['#888877','#aaa999','#ccccbb','#ddddcc','#442222','#111111'],
+      data: [
+        [0,0,0,'c2','c2','c2','c2',0,0,0],
+        [0,0,'c2','c3','c3','c3','c3','c2',0,0],
+        [0,'c2','c5','c3','c3','c3','c5','c3','c2',0],
+        [0,'c2','c3','c5','c1','c5','c3','c3','c2',0],
+        [0,0,'c1','c1','c5','c1','c1',0,0,0],
+        [0,0,0,'c1','c1','c1',0,0,0,0],
+        [0,'c4','c1','c1','c1','c1','c1','c4',0,0],
+        [0,0,0,'c1','c1','c1',0,0,0,0],
+        [0,0,'c1','c1','c1','c1','c1',0,0,0],
+        [0,0,'c1',0,'c1',0,'c1',0,0,0],
+        [0,'c1','c1',0,'c0',0,'c1','c1',0,0],
+      ]
+    },
+    ghost: {
+      colors: ['#223366','#3355aa','#4477dd','#66aaff','#88ccff','#aaeeff'],
+      data: [
+        [0,0,0,'c4','c4','c4',0,0,0,0],
+        [0,0,'c4','c5','c5','c5','c4',0,0,0],
+        [0,'c3','c4','c5','c5','c5','c4','c3',0,0],
+        ['c2','c3','#ffffff','c4','c4','#ffffff','c3','c2',0,0],
+        ['c1','c2','#000033','c3','c3','#000033','c2','c1',0,0],
+        ['c1','c2','c3','c3','c3','c3','c2','c1',0,0],
+        ['c0','c1','c2','c2','c2','c2','c1','c0',0,0],
+        [0,'c0','c1','c1','c1','c1','c0',0,0,0],
+        [0,0,'c0',0,'c0',0,'c0',0,0,0],
+      ]
+    },
+    bone_archer: {
+      colors: ['#777766','#999988','#bbbbaa','#ccccbb','#553322','#886644'],
+      data: [
+        [0,0,0,'c2','c2','c2',0,0,0,0,0,0],
+        [0,0,'c2','c3','c3','c3','c2',0,0,0,0,0],
+        [0,'c1','#111','c2','c2','#111','c2','c1',0,0,0,0],
+        [0,0,'c1','c1','c1','c1',0,0,0,0,0,0],
+        [0,0,0,'c1','c1','c1',0,0,0,0,0,0],
+        ['c5','c4','c1','c1','c1','c1','c4',0,0,0,0,0],
+        [0,'c5','c4','c1','c1','c1',0,'c5',0,0,0,0],
+        [0,0,0,'c1','c1',0,0,0,'c5',0,0,0],
+        [0,0,'c0','c0','c0','c0',0,0,0,'c5',0,0],
+        [0,0,'c0',0,0,'c0',0,0,0,0,'c4',0],
+        [0,'c0','c0',0,0,'c0','c0',0,0,0,0,'c4'],
+      ]
+    },
+    plant_creature: {
+      colors: ['#114422','#226633','#338844','#44aa55','#88ff00','#ff44aa'],
+      data: [
+        [0,0,'c4','c3','c4',0,'c4','c3',0,0],
+        [0,'c3','c3','c2','c3','c3','c3','c2','c3',0],
+        ['c2','c2','c2','c1','c1','c1','c1','c2','c2','c2'],
+        ['c1','c1','c5','c0','c1','c1','c0','c5','c1','c1'],
+        ['c1','c0','c0','c0','c0','c0','c0','c0','c0','c1'],
+        [0,'c0','c0','c1','c0','c0','c1','c0','c0',0],
+        [0,0,'c0','c1','c1','c1','c1','c0',0,0],
+        [0,0,'c0','c0','c0','c0','c0','c0',0,0],
+        [0,'c0','c0',0,0,0,0,'c0','c0',0],
+      ]
+    },
+    fire_priest: {
+      colors: ['#661100','#882200','#aa3300','#cc4400','#ff6600','#ffaa44'],
+      data: [
+        [0,0,0,'c4','c5','c5','c4',0,0,0],
+        [0,0,'c3','c4','c5','c5','c4','c3',0,0],
+        [0,'c2','c3','c4','c4','c4','c3','c2',0,0],
+        [0,'c1','#ffcc00','c2','c2','#ffcc00','c2','c1',0,0],
+        [0,'c1','c1','c1','c1','c1','c1','c1',0,0],
+        [0,'c0','c1','c2','c3','c2','c1','c0',0,0],
+        ['c0','c0','c1','c1','c2','c1','c1','c0','c0',0],
+        [0,'c0','c0','c1','c1','c1','c0','c0',0,0],
+        [0,'c0','c0','c0','c1','c0','c0','c0',0,0],
+        ['c0','c0',0,0,'c0',0,0,'c0','c0',0],
+      ]
+    },
+    data_construct: {
+      colors: ['#003322','#005544','#008866','#00aa88','#00ffaa','#88ffcc'],
+      data: [
+        [0,0,'c4','c5','c5','c5','c4',0,0,0],
+        [0,'c3','c4','c4','c5','c4','c4','c3',0,0],
+        ['c2','c3','c3','#ffffff','c3','#ffffff','c3','c3','c2',0],
+        ['c1','c2','c3','c3','c3','c3','c3','c2','c1',0],
+        ['c0','c1','c2','c2','c2','c2','c2','c1','c0',0],
+        [0,'c0','c1','c1','c1','c1','c1','c0',0,0],
+        [0,0,'c0','c0','c1','c0','c0',0,0,0],
+        [0,0,0,'c0',0,'c0',0,0,0,0],
+      ]
+    },
+  };
+
+  const e = enemies[type];
+  if (!e) return;
+  const rendered = e.data.map(row => row.map(c => {
+    if (!c) return 0;
+    if (c.startsWith('#')) return c;
+    const idx = parseInt(c.substring(1));
+    return e.colors[idx];
+  }));
+  drawSprite(ctx, rendered, x, y, s);
+}
+
+// ============================================================
+// BOSS SPRITE GENERATORS
+// ============================================================
+
+function drawBoss(ctx, name, cx, cy, s=3) {
+  const bosses = {
+    voltrexx: () => {
+      // Massive power core construct
+      const colors = ['#003366','#005599','#0077cc','#0099ff','#00ccff','#ffffff','#ff4400','#ffaa00'];
+      // Core body
+      for (let y = -12; y < 12; y++) {
+        for (let x = -10; x < 10; x++) {
+          const dist = Math.sqrt(x*x + y*y);
+          if (dist < 10) {
+            const ci = Math.min(3, Math.floor(dist / 3));
+            px(ctx, cx+x, cy+y, colors[ci], s);
+          }
+        }
+      }
+      // Electric spikes
+      for (let a = 0; a < 8; a++) {
+        const angle = (a / 8) * Math.PI * 2;
+        for (let r = 10; r < 18; r++) {
+          const rx = Math.round(cx + Math.cos(angle) * r);
+          const ry = Math.round(cy + Math.sin(angle) * r);
+          px(ctx, rx, ry, colors[4 + (r % 2)], s);
+        }
+      }
+      // Core eye
+      px(ctx, cx-2, cy-1, colors[5], s);
+      px(ctx, cx+1, cy-1, colors[5], s);
+      px(ctx, cx-1, cy, '#ff0000', s);
+      px(ctx, cx, cy, '#ff0000', s);
+      px(ctx, cx-1, cy+2, colors[6], s);
+      px(ctx, cx, cy+2, colors[6], s);
+      px(ctx, cx+1, cy+2, colors[6], s);
+    },
+    hollow_king: () => {
+      // Undead monarch
+      const crown = ['#ffd700','#ffaa00','#ff8800'];
+      const bone = ['#aaa888','#ccbb99','#ddccaa'];
+      const robe = ['#1a1a44','#222266','#2a2a77','#333388'];
+      const spectral = ['#4466cc','#5588ee','#66aaff'];
+      // Crown
+      for (let x = -6; x <= 6; x++) {
+        px(ctx, cx+x, cy-14, crown[0], s);
+        if (x % 3 === 0) {
+          px(ctx, cx+x, cy-16, crown[1], s);
+          px(ctx, cx+x, cy-15, crown[0], s);
+        }
+      }
+      // Skull
+      for (let y = -12; y < -5; y++) {
+        for (let x = -5; x < 5; x++) {
+          if (Math.abs(x) + Math.abs(y + 9) < 6) {
+            px(ctx, cx+x, cy+y, bone[1], s);
+          }
+        }
+      }
+      // Eyes
+      px(ctx, cx-3, cy-9, spectral[2], s);
+      px(ctx, cx-2, cy-9, spectral[1], s);
+      px(ctx, cx+1, cy-9, spectral[1], s);
+      px(ctx, cx+2, cy-9, spectral[2], s);
+      // Robes
+      for (let y = -4; y < 12; y++) {
+        const w = 6 + y * 0.5;
+        for (let x = -w; x < w; x++) {
+          const ci = Math.min(robe.length - 1, Math.floor(Math.abs(x) / 3));
+          px(ctx, cx+Math.round(x), cy+y, robe[ci], s);
+        }
+      }
+      // Spectral glow around
+      for (let i = 0; i < 12; i++) {
+        const angle = (i / 12) * Math.PI * 2;
+        const r = 14 + Math.sin(i * 2) * 2;
+        px(ctx, cx + Math.round(Math.cos(angle) * r), cy + Math.round(Math.sin(angle) * r), spectral[i % 3] + '44', s);
+      }
+    },
+    lady_hemlock: () => {
+      const plant = ['#114422','#226633','#338844','#44aa55'];
+      const skin = ['#88aa88','#99bb99','#aaccaa'];
+      const flower = ['#ff44aa','#ff66cc','#ff88dd'];
+      // Body (merged with vines)
+      for (let y = -10; y < 10; y++) {
+        for (let x = -6; x < 6; x++) {
+          if (Math.abs(x) < 4 + Math.sin(y * 0.5) * 2) {
+            if (y < -4) px(ctx, cx+x, cy+y, skin[Math.min(2, Math.abs(x))], s);
+            else px(ctx, cx+x, cy+y, plant[Math.min(3, Math.floor(Math.abs(y)/3))], s);
+          }
+        }
+      }
+      // Vine tendrils
+      for (let v = 0; v < 6; v++) {
+        const angle = (v / 6) * Math.PI * 2;
+        for (let r = 8; r < 16; r++) {
+          const vx = Math.round(cx + Math.cos(angle + r * 0.1) * r);
+          const vy = Math.round(cy + Math.sin(angle + r * 0.1) * r);
+          px(ctx, vx, vy, plant[r % plant.length], s);
+        }
+      }
+      // Eyes
+      px(ctx, cx-2, cy-7, '#ff00ff', s);
+      px(ctx, cx+1, cy-7, '#ff00ff', s);
+      // Flowers on vines
+      for (let f = 0; f < 4; f++) {
+        const angle = (f / 4) * Math.PI * 2 + 0.5;
+        const fx = Math.round(cx + Math.cos(angle) * 14);
+        const fy = Math.round(cy + Math.sin(angle) * 14);
+        px(ctx, fx, fy, flower[f % 3], s);
+        px(ctx, fx-1, fy, flower[(f+1) % 3], s);
+        px(ctx, fx+1, fy, flower[(f+2) % 3], s);
+        px(ctx, fx, fy-1, flower[f % 3], s);
+      }
+    },
+    ironmaw: () => {
+      // Giant mech/fortress AI
+      const metal = ['#2a2a33','#3a3a44','#4a4a55','#5a5a66','#6a6a77'];
+      const red = ['#cc0000','#ff2200','#ff4400'];
+      // Main body (tank-like)
+      for (let y = -8; y < 8; y++) {
+        for (let x = -12; x < 12; x++) {
+          if (Math.abs(y) < 7) {
+            const ci = Math.min(metal.length - 1, Math.floor((x + 12) / 5));
+            px(ctx, cx+x, cy+y, metal[ci], s);
+          }
+        }
+      }
+      // Cannon
+      for (let x = 12; x < 22; x++) {
+        px(ctx, cx+x, cy-2, metal[3], s);
+        px(ctx, cx+x, cy-1, metal[4], s);
+        px(ctx, cx+x, cy, metal[4], s);
+        px(ctx, cx+x, cy+1, metal[3], s);
+      }
+      // Red eye
+      px(ctx, cx-4, cy-3, red[2], s);
+      px(ctx, cx-3, cy-3, red[1], s);
+      px(ctx, cx+2, cy-3, red[1], s);
+      px(ctx, cx+3, cy-3, red[2], s);
+      // Treads
+      for (let x = -10; x < 10; x++) {
+        px(ctx, cx+x, cy+8, metal[0], s);
+        px(ctx, cx+x, cy+9, metal[1], s);
+        if (x % 3 === 0) px(ctx, cx+x, cy+8, metal[2], s);
+      }
+      // Armor plating lines
+      for (let y = -5; y < 6; y += 3) {
+        for (let x = -11; x < 11; x++) {
+          px(ctx, cx+x, cy+y, metal[0], s);
+        }
+      }
+    },
+  };
+
+  if (bosses[name]) bosses[name]();
+}
+
+// ============================================================
+// ITEM / ICON GENERATORS
+// ============================================================
+
+function drawItem(ctx, type, x, y, s=2) {
+  const items = {
+    plasma_blade: {w:8,h:16,data:() => {
+      const c = ['#004466','#0088cc','#00ccff','#88ddff','#ffffff'];
+      for (let i = 0; i < 12; i++) px(ctx, x+3, y+i, c[Math.min(4,Math.floor(i/3))], s);
+      for (let i = 0; i < 12; i++) px(ctx, x+4, y+i, c[Math.min(4,Math.floor(i/2.5))], s);
+      px(ctx, x+2, y+12, '#666677', s); px(ctx, x+5, y+12, '#666677', s);
+      px(ctx, x+2, y+13, '#555566', s); px(ctx, x+3, y+13, '#ffd700', s);
+      px(ctx, x+4, y+13, '#ffd700', s); px(ctx, x+5, y+13, '#555566', s);
+      px(ctx, x+3, y+14, '#444455', s); px(ctx, x+4, y+14, '#444455', s);
+      px(ctx, x+3, y+15, '#333344', s); px(ctx, x+4, y+15, '#333344', s);
+    }},
+    pulse_rifle: {w:16,h:8,data:() => {
+      const c = ['#444455','#666677','#888899','#aaaacc','#00ffaa'];
+      for (let x_ = 0; x_ < 14; x_++) {
+        px(ctx, x+x_, y+3, c[1], s);
+        px(ctx, x+x_, y+4, c[2], s);
+      }
+      px(ctx, x+14, y+3, c[4], s); px(ctx, x+14, y+4, c[4], s);
+      px(ctx, x+15, y+3, c[4], s); px(ctx, x+15, y+4, c[4], s);
+      // Stock
+      for (let x_ = 0; x_ < 4; x_++) {
+        px(ctx, x+x_, y+2, c[0], s); px(ctx, x+x_, y+5, c[0], s);
+      }
+      // Scope
+      px(ctx, x+6, y+1, c[3], s); px(ctx, x+7, y+1, c[3], s);
+      px(ctx, x+6, y+2, c[2], s); px(ctx, x+7, y+2, c[2], s);
+    }},
+    ether_daggers: {w:12,h:12,data:() => {
+      const c = ['#442266','#663388','#8844aa','#ccccee','#ffffff'];
+      // Left dagger
+      px(ctx, x+1, y, c[4], s); px(ctx, x+2, y+1, c[3], s);
+      px(ctx, x+3, y+2, c[3], s); px(ctx, x+4, y+3, c[2], s);
+      px(ctx, x+4, y+4, c[1], s); px(ctx, x+4, y+5, c[0], s);
+      // Right dagger
+      px(ctx, x+10, y, c[4], s); px(ctx, x+9, y+1, c[3], s);
+      px(ctx, x+8, y+2, c[3], s); px(ctx, x+7, y+3, c[2], s);
+      px(ctx, x+7, y+4, c[1], s); px(ctx, x+7, y+5, c[0], s);
+      // Handles
+      px(ctx, x+4, y+6, '#555566', s); px(ctx, x+4, y+7, '#444455', s);
+      px(ctx, x+7, y+6, '#555566', s); px(ctx, x+7, y+7, '#444455', s);
+    }},
+    spell_focus: {w:8,h:12,data:() => {
+      const c = ['#228844','#33aa55','#44cc66','#ffd700','#ffffff'];
+      // Crystal
+      px(ctx, x+3, y, c[4], s); px(ctx, x+4, y, c[4], s);
+      px(ctx, x+2, y+1, c[3], s); px(ctx, x+3, y+1, c[4], s);
+      px(ctx, x+4, y+1, c[3], s); px(ctx, x+5, y+1, c[3], s);
+      px(ctx, x+2, y+2, c[2], s); px(ctx, x+3, y+2, c[3], s);
+      px(ctx, x+4, y+2, c[3], s); px(ctx, x+5, y+2, c[2], s);
+      px(ctx, x+3, y+3, c[2], s); px(ctx, x+4, y+3, c[2], s);
+      // Staff
+      for (let i = 4; i < 11; i++) {
+        px(ctx, x+3, y+i, '#554422', s);
+        px(ctx, x+4, y+i, '#665533', s);
+      }
+      // Rune marks
+      px(ctx, x+3, y+6, c[3], s);
+      px(ctx, x+4, y+8, c[3], s);
+    }},
+    health_potion: {w:6,h:8,data:() => {
+      px(ctx, x+2, y, '#aaaacc', s); px(ctx, x+3, y, '#aaaacc', s);
+      px(ctx, x+2, y+1, '#888899', s); px(ctx, x+3, y+1, '#888899', s);
+      px(ctx, x+1, y+2, '#cc1133', s); px(ctx, x+2, y+2, '#ff2244', s);
+      px(ctx, x+3, y+2, '#ff2244', s); px(ctx, x+4, y+2, '#cc1133', s);
+      for (let i = 3; i < 7; i++) {
+        px(ctx, x+1, y+i, '#cc1133', s); px(ctx, x+2, y+i, '#ff3355', s);
+        px(ctx, x+3, y+i, '#ff3355', s); px(ctx, x+4, y+i, '#cc1133', s);
+      }
+      px(ctx, x+2, y+7, '#aa1133', s); px(ctx, x+3, y+7, '#aa1133', s);
+    }},
+    energy_cell: {w:6,h:8,data:() => {
+      px(ctx, x+2, y, '#666677', s); px(ctx, x+3, y, '#666677', s);
+      for (let i = 1; i < 7; i++) {
+        px(ctx, x+1, y+i, '#333344', s); px(ctx, x+4, y+i, '#333344', s);
+        px(ctx, x+2, y+i, '#00ccff', s); px(ctx, x+3, y+i, '#0088cc', s);
+      }
+      px(ctx, x+2, y+7, '#333344', s); px(ctx, x+3, y+7, '#333344', s);
+    }},
+    bloodstone_ring: {w:8,h:8,data:() => {
+      const c = ['#661122','#992233','#cc3344','#ff4455','#ffd700'];
+      px(ctx, x+3, y, c[4], s); px(ctx, x+4, y, c[4], s);
+      px(ctx, x+2, y+1, c[3], s); px(ctx, x+5, y+1, c[3], s);
+      px(ctx, x+3, y+1, c[4], s); px(ctx, x+4, y+1, c[4], s);
+      px(ctx, x+1, y+2, c[2], s); px(ctx, x+6, y+2, c[2], s);
+      px(ctx, x+1, y+3, c[1], s); px(ctx, x+6, y+3, c[1], s);
+      px(ctx, x+1, y+4, c[1], s); px(ctx, x+6, y+4, c[1], s);
+      px(ctx, x+2, y+5, c[0], s); px(ctx, x+5, y+5, c[0], s);
+      px(ctx, x+3, y+6, c[0], s); px(ctx, x+4, y+6, c[0], s);
+    }},
+    armor_heavy: {w:10,h:12,data:() => {
+      const c = ['#2a2a3a','#3a3a55','#4a4a66','#5a5a77','#00ccff'];
+      // Chest plate
+      for (let x_ = 2; x_ < 8; x_++) for (let y_ = 0; y_ < 6; y_++) {
+        px(ctx, x+x_, y+y_, c[Math.min(3,y_)], s);
+      }
+      // Shoulder pads
+      px(ctx, x+1, y+1, c[2], s); px(ctx, x+8, y+1, c[2], s);
+      px(ctx, x, y+2, c[1], s); px(ctx, x+9, y+2, c[1], s);
+      // Circuit accent
+      px(ctx, x+4, y+2, c[4], s); px(ctx, x+5, y+2, c[4], s);
+      px(ctx, x+4, y+4, c[4], s);
+      // Belt/skirt
+      for (let x_ = 2; x_ < 8; x_++) {
+        px(ctx, x+x_, y+6, '#ffd700', s);
+        for (let y_ = 7; y_ < 11; y_++) px(ctx, x+x_, y+y_, c[1], s);
+      }
+    }},
+  };
+  if (items[type]) items[type].data();
+}
+
+// ============================================================
+// PAGE BUILDERS
+// ============================================================
+
+function buildZones() {
+  const container = document.getElementById('zone-showcase');
+  const zones = [
+    {name: 'THE THRESHOLD', sub: 'Hub Town', class: 'zone-hub', render: renderHubBackdrop,
+     desc: 'Safe haven between worlds. Shops, blacksmith, quest NPCs by day — at night, some residents reveal their true nature. Grows and evolves as you progress.'},
+    {name: 'NEON FOUNDRY', sub: 'Zone 1', class: 'zone-foundry', render: renderFoundryBackdrop,
+     desc: 'Abandoned high-tech factory fused with medieval forges. Molten metal rivers, conveyor platforms, pneumatic presses. Boss: VOLTREXX — master of lightning.'},
+    {name: 'CRYPTVAULT', sub: 'Zone 3', class: 'zone-cryptvault', render: renderCryptvaultBackdrop,
+     desc: 'Ancient catacombs beneath a ruined castle. Gothic stone, spectral blue light, coffin-lined halls. Boss: THE HOLLOW KING — undead monarch on a throne of skulls.'},
+    {name: 'BLIGHTED GARDEN', sub: 'Zone 2', class: 'zone-garden', render: renderGardenBackdrop,
+     desc: 'Once-beautiful royal gardens corrupted by toxic magic. Bioluminescent flowers, spore clouds, twisted ruins. Boss: LADY HEMLOCK — sorceress merged with her garden.'},
+    {name: 'SIEGE ENGINE', sub: 'Zone 4', class: 'zone-siege', render: renderSiegeBackdrop,
+     desc: 'You\'re inside a colossal walking war machine. Gears, cannons, ammo conveyors — the whole zone sways and moves. Boss: IRONMAW — the fortress\'s AI core.'},
+    {name: 'MIRROR SANCTUM', sub: 'Zone 5', class: 'zone-mirror', render: renderMirrorBackdrop,
+     desc: 'Reality-warped temple where reflections are alive. Crystal halls, impossible geometry, mirror surfaces showing alternate realities. Boss: SPECTRA.'},
+    {name: 'SIGNAL TOWER', sub: 'Zone 6', class: 'zone-signal', render: renderSignalTowerBackdrop,
+     desc: 'A massive communication spire reaching into the static-filled sky. Vertical zone with data-stream waterfalls. Boss: CONDUCTOR IX.'},
+    {name: 'ASHEN CATHEDRAL', sub: 'Zone 7', class: 'zone-cathedral', render: renderCathedralBackdrop,
+     desc: 'A burning church frozen in eternal flame. Gothic architecture wreathed in perpetual fire, stained glass telling the lore. Boss: EMBERWITCH.'},
+    {name: 'THE BREACH', sub: 'Zone 8', class: 'zone-breach', render: renderBreachBackdrop,
+     desc: 'The epicenter where The Pale and The Grid collided. Reality is broken — chunks of castle float next to server racks. Boss: DREADNAUGHT.'},
+  ];
+
+  zones.forEach(z => {
+    const card = document.createElement('div');
+    card.className = 'zone-card';
+    card.innerHTML = `<canvas></canvas><div class="zone-info"><div class="zone-name ${z.class}">${z.name} <span style="font-size:0.5rem;color:#666">${z.sub}</span></div><div class="zone-desc">${z.desc}</div></div>`;
+    container.appendChild(card);
+    z.render(card.querySelector('canvas'));
+  });
+}
+
+function buildCharacters() {
+  const grid = document.getElementById('char-grid');
+  const chars = [
+    {name:'VANGUARD', role:'Melee Fighter — Plasma Blade', draw: drawVanguard, color: '#4488ee',
+     stats:{might:9,precision:4,arcana:3,vitality:8}},
+    {name:'GUNNER', role:'Ranged Specialist — Pulse Rifle', draw: drawGunner, color: '#ff6644',
+     stats:{might:4,precision:9,arcana:5,vitality:5}},
+    {name:'WRAITH', role:'Agile Assassin — Twin Ether Daggers', draw: drawWraith, color: '#aa66cc',
+     stats:{might:6,precision:7,arcana:4,vitality:3}},
+    {name:'CHANNELER', role:'Mage/Support — Spell Focus', draw: drawChanneler, color: '#44cc66',
+     stats:{might:3,precision:5,arcana:9,vitality:6}},
+  ];
+
+  chars.forEach(c => {
+    const card = document.createElement('div');
+    card.className = 'char-card';
+    const canvas = document.createElement('canvas');
+    canvas.width = 16 * 5; canvas.height = 18 * 5;
+    const ctx = canvas.getContext('2d');
+    c.draw(ctx, 0, 0, 5, 0);
+    card.appendChild(canvas);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'char-name';
+    nameEl.style.color = c.color;
+    nameEl.textContent = c.name;
+    card.appendChild(nameEl);
+
+    const roleEl = document.createElement('div');
+    roleEl.className = 'char-role';
+    roleEl.textContent = c.role;
+    card.appendChild(roleEl);
+
+    const statsEl = document.createElement('div');
+    statsEl.className = 'char-stats';
+    Object.entries(c.stats).forEach(([k,v]) => {
+      const bar = document.createElement('div');
+      bar.className = 'stat-bar';
+      const fill = document.createElement('div');
+      fill.className = 'stat-fill';
+      const inner = document.createElement('div');
+      inner.className = 'stat-fill-inner';
+      inner.style.height = (v * 10) + '%';
+      inner.style.background = c.color;
+      fill.appendChild(inner);
+      bar.appendChild(fill);
+      const label = document.createElement('span');
+      label.textContent = k.slice(0, 3).toUpperCase();
+      bar.appendChild(label);
+      statsEl.appendChild(bar);
+    });
+    card.appendChild(statsEl);
+
+    grid.appendChild(card);
+  });
+}
+
+function buildEnemies() {
+  const grid = document.getElementById('enemy-grid');
+  const enemies = [
+    {type:'worker_bot', name:'Worker Bot', zone:'Neon Foundry'},
+    {type:'slag_golem', name:'Slag Golem', zone:'Neon Foundry'},
+    {type:'skeleton', name:'Skeleton', zone:'Cryptvault'},
+    {type:'ghost', name:'Ghost', zone:'Cryptvault'},
+    {type:'bone_archer', name:'Bone Archer', zone:'Cryptvault'},
+    {type:'plant_creature', name:'Thorn Crawler', zone:'Blighted Garden'},
+    {type:'fire_priest', name:'Flame Priest', zone:'Ashen Cathedral'},
+    {type:'data_construct', name:'Data Construct', zone:'Signal Tower'},
+  ];
+
+  enemies.forEach(e => {
+    const card = document.createElement('div');
+    card.className = 'enemy-card';
+    const canvas = document.createElement('canvas');
+    canvas.width = 12 * 4; canvas.height = 12 * 4;
+    const ctx = canvas.getContext('2d');
+    drawEnemy(ctx, e.type, 1, 1, 4);
+    card.appendChild(canvas);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'enemy-name';
+    nameEl.textContent = e.name;
+    card.appendChild(nameEl);
+
+    const zoneEl = document.createElement('div');
+    zoneEl.className = 'enemy-zone';
+    zoneEl.textContent = e.zone;
+    card.appendChild(zoneEl);
+
+    grid.appendChild(card);
+  });
+}
+
+function buildBosses() {
+  const grid = document.getElementById('boss-grid');
+  const bosses = [
+    {name:'VOLTREXX', zone:'Neon Foundry', power:'Chain Lightning', key:'voltrexx'},
+    {name:'THE HOLLOW KING', zone:'Cryptvault', power:'Soul Drain', key:'hollow_king'},
+    {name:'LADY HEMLOCK', zone:'Blighted Garden', power:'Thornlash', key:'lady_hemlock'},
+    {name:'IRONMAW', zone:'Siege Engine', power:'Mortar Burst', key:'ironmaw'},
+  ];
+
+  bosses.forEach(b => {
+    const card = document.createElement('div');
+    card.className = 'boss-card';
+    const canvas = document.createElement('canvas');
+    canvas.width = 50 * 3; canvas.height = 35 * 3;
+    const ctx = canvas.getContext('2d');
+    // Dark background for boss
+    ctx.fillStyle = '#0a0008';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    drawBoss(ctx, b.key, 25, 18, 3);
+    card.appendChild(canvas);
+
+    const info = document.createElement('div');
+    info.className = 'boss-info';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'boss-name';
+    nameEl.textContent = b.name;
+    info.appendChild(nameEl);
+
+    const zoneEl = document.createElement('div');
+    zoneEl.className = 'boss-zone-label';
+    zoneEl.textContent = b.zone;
+    info.appendChild(zoneEl);
+
+    const powerEl = document.createElement('div');
+    powerEl.className = 'boss-power';
+    powerEl.textContent = 'ABSORBED POWER: ' + b.power;
+    info.appendChild(powerEl);
+
+    card.appendChild(info);
+    grid.appendChild(card);
+  });
+}
+
+function buildItems() {
+  const grid = document.getElementById('item-grid');
+  const items = [
+    {type:'plasma_blade', name:'Plasma Blade', rarity:'rare'},
+    {type:'pulse_rifle', name:'Pulse Rifle', rarity:'rare'},
+    {type:'ether_daggers', name:'Ether Daggers', rarity:'rare'},
+    {type:'spell_focus', name:'Spell Focus', rarity:'rare'},
+    {type:'armor_heavy', name:'Vanguard Plate', rarity:'epic'},
+    {type:'bloodstone_ring', name:'Bloodstone Ring', rarity:'legendary'},
+    {type:'health_potion', name:'Repair Kit', rarity:'common'},
+    {type:'energy_cell', name:'Surge Cell', rarity:'uncommon'},
+  ];
+
+  items.forEach(item => {
+    const card = document.createElement('div');
+    card.className = 'item-card';
+    const canvas = document.createElement('canvas');
+    canvas.width = 16 * 4; canvas.height = 16 * 4;
+    const ctx = canvas.getContext('2d');
+    drawItem(ctx, item.type, 2, 2, 4);
+    card.appendChild(canvas);
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'item-name item-rarity-' + item.rarity;
+    nameEl.textContent = item.name;
+    card.appendChild(nameEl);
+
+    grid.appendChild(card);
+  });
+}
+
+function buildHud() {
+  const container = document.getElementById('hud-showcase');
+  const canvas = document.createElement('canvas');
+  canvas.width = 480; canvas.height = 80;
+  const ctx = canvas.getContext('2d');
+
+  // Background
+  ctx.fillStyle = '#0a0a14cc';
+  ctx.fillRect(0, 0, 480, 80);
+
+  // Player 1 HUD (blue)
+  ctx.fillStyle = '#0088ff33';
+  ctx.fillRect(8, 8, 200, 30);
+  ctx.fillStyle = '#0088ff';
+  ctx.font = '9px "Press Start 2P"';
+  ctx.fillText('P1: VANGUARD', 12, 18);
+  // HP bar
+  ctx.fillStyle = '#222';
+  ctx.fillRect(12, 24, 120, 6);
+  ctx.fillStyle = '#cc1133';
+  ctx.fillRect(12, 24, 96, 6);
+  ctx.fillStyle = '#ff3355';
+  ctx.fillRect(12, 24, 96, 3);
+  // Energy bar
+  ctx.fillStyle = '#222';
+  ctx.fillRect(12, 32, 120, 4);
+  ctx.fillStyle = '#0088cc';
+  ctx.fillRect(12, 32, 80, 4);
+  ctx.fillStyle = '#00aaee';
+  ctx.fillRect(12, 32, 80, 2);
+  // Level
+  ctx.fillStyle = '#ffd700';
+  ctx.font = '7px "Press Start 2P"';
+  ctx.fillText('LV.15', 140, 20);
+
+  // Boss power icons
+  ctx.fillStyle = '#00ccff44';
+  ctx.fillRect(145, 26, 12, 12);
+  ctx.fillStyle = '#00ccff';
+  ctx.font = '6px "Press Start 2P"';
+  ctx.fillText('⚡', 148, 35);
+  ctx.fillStyle = '#44ff4444';
+  ctx.fillRect(160, 26, 12, 12);
+  ctx.fillStyle = '#44ff44';
+  ctx.fillText('☠', 163, 35);
+
+  // Player 2 HUD (red)
+  ctx.fillStyle = '#ff440033';
+  ctx.fillRect(250, 8, 200, 30);
+  ctx.fillStyle = '#ff4400';
+  ctx.font = '9px "Press Start 2P"';
+  ctx.fillText('P2: GUNNER', 254, 18);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(254, 24, 120, 6);
+  ctx.fillStyle = '#cc1133';
+  ctx.fillRect(254, 24, 110, 6);
+  ctx.fillStyle = '#ff3355';
+  ctx.fillRect(254, 24, 110, 3);
+  ctx.fillStyle = '#222';
+  ctx.fillRect(254, 32, 120, 4);
+  ctx.fillStyle = '#0088cc';
+  ctx.fillRect(254, 32, 100, 4);
+  ctx.fillStyle = '#ffd700';
+  ctx.font = '7px "Press Start 2P"';
+  ctx.fillText('LV.14', 382, 20);
+
+  // Gold display
+  ctx.fillStyle = '#ffd70088';
+  ctx.fillRect(200, 50, 80, 14);
+  ctx.fillStyle = '#ffd700';
+  ctx.font = '8px "Press Start 2P"';
+  ctx.fillText('💰 2,847', 206, 61);
+
+  // Mini boss HP (when in boss fight)
+  ctx.fillStyle = '#cc113344';
+  ctx.fillRect(100, 68, 280, 8);
+  ctx.fillStyle = '#cc1133';
+  ctx.fillRect(100, 68, 200, 8);
+  ctx.fillStyle = '#ff2244';
+  ctx.fillRect(100, 68, 200, 4);
+  ctx.fillStyle = '#ff6666';
+  ctx.font = '6px "Press Start 2P"';
+  ctx.fillText('VOLTREXX', 200, 75);
+
+  container.appendChild(canvas);
+
+  // Label
+  const label = document.createElement('div');
+  label.style.cssText = 'font-size:0.5rem;color:#666;text-align:center;';
+  label.textContent = 'CO-OP HUD MOCKUP — HP / ENERGY / LEVEL / BOSS POWERS / GOLD / BOSS HP BAR';
+  container.appendChild(label);
+}
+
+// ============================================================
+// PLAYABLE DEMO ENGINE
+// ============================================================
+
+function initDemo() {
+  const canvas = document.getElementById('demo-canvas');
+  const ctx = canvas.getContext('2d');
+  const W = 480, H = 270;
+
+  let currentZone = 'foundry';
+
+  const player = {
+    x: 60, y: 180, vx: 0, vy: 0, w: 14, h: 17,
+    grounded: false, facing: 1, attacking: false,
+    attackTimer: 0, dashTimer: 0, hp: 100, energy: 80,
+    invincible: 0, frame: 0, bosspower: false
+  };
+
+  const enemies = [];
+  const particles = [];
+  const projectiles = [];
+
+  const keys = {};
+  window.addEventListener('keydown', e => { keys[e.key] = true; e.preventDefault(); });
+  window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+  // Zone configs
+  const zoneConfigs = {
+    foundry: {
+      render: renderFoundryBackdrop,
+      floorY: 220,
+      platforms: [{x:100,y:170,w:80},{x:250,y:150,w:70},{x:380,y:180,w:60}],
+      enemyTypes: ['worker_bot','slag_golem'],
+      bgColor: '#0d0a15',
+    },
+    cryptvault: {
+      render: renderCryptvaultBackdrop,
+      floorY: 225,
+      platforms: [{x:60,y:160,w:70},{x:200,y:140,w:90},{x:350,y:170,w:65}],
+      enemyTypes: ['skeleton','ghost','bone_archer'],
+      bgColor: '#08081a',
+    },
+    garden: {
+      render: renderGardenBackdrop,
+      floorY: 230,
+      platforms: [{x:80,y:175,w:60},{x:220,y:155,w:80},{x:370,y:165,w:55}],
+      enemyTypes: ['plant_creature'],
+      bgColor: '#0a1008',
+    },
+  };
+
+  let bgCanvas = document.createElement('canvas');
+  let zone = zoneConfigs[currentZone];
+
+  function loadZone(name) {
+    currentZone = name;
+    zone = zoneConfigs[name] || zoneConfigs.foundry;
+    zone.render(bgCanvas);
+    enemies.length = 0;
+    particles.length = 0;
+    projectiles.length = 0;
+    // Spawn enemies
+    for (let i = 0; i < 4; i++) {
+      const type = zone.enemyTypes[Math.floor(Math.random() * zone.enemyTypes.length)];
+      enemies.push({
+        x: 150 + i * 80 + Math.random() * 40,
+        y: zone.floorY - 12,
+        type, hp: 3, maxHp: 3,
+        vx: (Math.random() > 0.5 ? 1 : -1) * 0.3,
+        hit: 0, dead: false, w: 10, h: 10
+      });
+    }
+    player.x = 60;
+    player.y = zone.floorY - player.h;
+  }
+
+  loadZone('foundry');
+
+  function spawnParticle(x, y, color, life=30) {
+    particles.push({
+      x, y, vx: (Math.random()-0.5) * 3, vy: -Math.random() * 2 - 1,
+      color, life, maxLife: life
+    });
+  }
+
+  function update() {
+    const spd = 2.5;
+    const gravity = 0.35;
+    const jumpForce = -6;
+
+    // Input
+    if (keys['ArrowLeft'] || keys['a']) { player.vx = -spd; player.facing = -1; }
+    else if (keys['ArrowRight'] || keys['d']) { player.vx = spd; player.facing = 1; }
+    else { player.vx *= 0.7; }
+
+    if ((keys['ArrowUp'] || keys['w']) && player.grounded) {
+      player.vy = jumpForce;
+      player.grounded = false;
+    }
+
+    // Dash
+    if (keys['c'] && player.dashTimer <= 0) {
+      player.dashTimer = 15;
+      player.vx = player.facing * 8;
+      player.invincible = 10;
+      for (let i = 0; i < 5; i++) spawnParticle(player.x + 7, player.y + 8, '#00ccff88');
+    }
+
+    // Attack
+    if (keys['z'] && !player.attacking) {
+      player.attacking = true;
+      player.attackTimer = 12;
+      // Check hits
+      enemies.forEach(e => {
+        if (e.dead) return;
+        const ax = player.facing > 0 ? player.x + player.w : player.x - 20;
+        if (e.x > ax && e.x < ax + 25 && Math.abs(e.y - player.y) < 20) {
+          e.hp--;
+          e.hit = 8;
+          e.vx = player.facing * 3;
+          for (let i = 0; i < 6; i++) spawnParticle(e.x + 5, e.y + 5, '#ff880088');
+          if (e.hp <= 0) {
+            e.dead = true;
+            for (let i = 0; i < 12; i++) spawnParticle(e.x + 5, e.y + 5, '#ffaa0088');
+          }
+        }
+      });
+    }
+
+    // Boss power
+    if (keys['x'] && player.energy > 0 && !player.bosspower) {
+      player.bosspower = true;
+      player.energy = Math.max(0, player.energy - 20);
+      // Chain lightning
+      const bolt = {x: player.x + (player.facing > 0 ? player.w : 0), y: player.y + 5,
+        vx: player.facing * 6, life: 30, color: '#00ccff'};
+      projectiles.push(bolt);
+      for (let i = 0; i < 8; i++) spawnParticle(bolt.x, bolt.y, '#00ccff88');
+      setTimeout(() => player.bosspower = false, 300);
+    }
+
+    // Zone switch
+    if (keys['1']) loadZone('foundry');
+    if (keys['2']) loadZone('cryptvault');
+    if (keys['3']) loadZone('garden');
+
+    // Physics
+    player.vy += gravity;
+    player.x += player.vx;
+    player.y += player.vy;
+
+    // Floor collision
+    if (player.y + player.h > zone.floorY) {
+      player.y = zone.floorY - player.h;
+      player.vy = 0;
+      player.grounded = true;
+    }
+
+    // Platform collision
+    zone.platforms.forEach(p => {
+      if (player.vy > 0 &&
+          player.x + player.w > p.x && player.x < p.x + p.w &&
+          player.y + player.h > p.y && player.y + player.h < p.y + 10) {
+        player.y = p.y - player.h;
+        player.vy = 0;
+        player.grounded = true;
+      }
+    });
+
+    // Boundaries
+    player.x = Math.max(0, Math.min(W - player.w, player.x));
+
+    // Timers
+    if (player.attackTimer > 0) player.attackTimer--;
+    else player.attacking = false;
+    if (player.dashTimer > 0) player.dashTimer--;
+    if (player.invincible > 0) player.invincible--;
+
+    // Energy regen
+    player.energy = Math.min(100, player.energy + 0.05);
+
+    player.frame++;
+
+    // Enemies
+    enemies.forEach(e => {
+      if (e.dead) return;
+      e.x += e.vx;
+      if (e.x < 20 || e.x > W - 20) e.vx *= -1;
+      if (e.hit > 0) { e.hit--; e.vx *= 0.8; }
+    });
+
+    // Projectiles
+    projectiles.forEach(p => {
+      p.x += p.vx;
+      p.life--;
+      spawnParticle(p.x, p.y + Math.random() * 4 - 2, '#00ccff44', 10);
+      // Hit enemies
+      enemies.forEach(e => {
+        if (e.dead) return;
+        if (Math.abs(p.x - e.x) < 12 && Math.abs(p.y - e.y) < 12) {
+          e.hp -= 2;
+          e.hit = 8;
+          for (let i = 0; i < 8; i++) spawnParticle(e.x + 5, e.y + 5, '#00ffff88');
+          if (e.hp <= 0) {
+            e.dead = true;
+            for (let i = 0; i < 15; i++) spawnParticle(e.x + 5, e.y + 5, '#00ccff88');
+          }
+          p.life = 0;
+        }
+      });
+    });
+
+    // Particles
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      p.vy += 0.05;
+      p.life--;
+    });
+
+    // Cleanup
+    for (let i = projectiles.length - 1; i >= 0; i--) {
+      if (projectiles[i].life <= 0) projectiles.splice(i, 1);
+    }
+    for (let i = particles.length - 1; i >= 0; i--) {
+      if (particles[i].life <= 0) particles.splice(i, 1);
+    }
+
+    // Respawn enemies
+    if (enemies.filter(e => !e.dead).length === 0) {
+      for (let i = 0; i < 4; i++) {
+        const type = zone.enemyTypes[Math.floor(Math.random() * zone.enemyTypes.length)];
+        enemies.push({
+          x: 150 + i * 80 + Math.random() * 40,
+          y: zone.floorY - 12,
+          type, hp: 3, maxHp: 3,
+          vx: (Math.random() > 0.5 ? 1 : -1) * 0.3,
+          hit: 0, dead: false, w: 10, h: 10
+        });
+      }
+    }
+  }
+
+  function render() {
+    // Draw background
+    ctx.drawImage(bgCanvas, 0, 0, W, H);
+
+    // Platforms
+    zone.platforms.forEach(p => {
+      ctx.fillStyle = currentZone === 'foundry' ? '#3a3a4a' :
+                      currentZone === 'cryptvault' ? '#2a2a55' : '#2a3a1a';
+      ctx.fillRect(p.x, p.y, p.w, 6);
+      ctx.fillStyle = currentZone === 'foundry' ? '#4a4a5a' :
+                      currentZone === 'cryptvault' ? '#3a3a66' : '#3a4a2a';
+      ctx.fillRect(p.x, p.y, p.w, 2);
+    });
+
+    // Enemies
+    enemies.forEach(e => {
+      if (e.dead) return;
+      ctx.save();
+      if (e.hit > 0) { ctx.globalAlpha = e.hit % 2 === 0 ? 0.5 : 1; }
+      drawEnemy(ctx, e.type, Math.floor(e.x/2)*2, Math.floor(e.y/2)*2, 2);
+      ctx.restore();
+      // HP bar
+      if (e.hp < e.maxHp) {
+        ctx.fillStyle = '#333';
+        ctx.fillRect(e.x, e.y - 6, 20, 3);
+        ctx.fillStyle = '#cc1133';
+        ctx.fillRect(e.x, e.y - 6, 20 * (e.hp / e.maxHp), 3);
+      }
+    });
+
+    // Projectiles
+    projectiles.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x - 4, p.y, 8, 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(p.x - 1, p.y, 2, 2);
+    });
+
+    // Player
+    ctx.save();
+    if (player.invincible > 0 && player.invincible % 2 === 0) ctx.globalAlpha = 0.4;
+    if (player.facing < 0) {
+      ctx.translate(player.x + player.w, 0);
+      ctx.scale(-1, 1);
+      drawVanguard(ctx, 0, Math.floor(player.y / 2) * 2, 1, player.frame);
+    } else {
+      drawVanguard(ctx, Math.floor(player.x / 2) * 2, Math.floor(player.y / 2) * 2, 1, player.frame);
+    }
+    ctx.restore();
+
+    // Attack slash effect
+    if (player.attacking) {
+      const sx = player.facing > 0 ? player.x + player.w + 2 : player.x - 18;
+      ctx.fillStyle = '#00ccff66';
+      ctx.fillRect(sx, player.y - 2, 16, 20);
+      ctx.fillStyle = '#ffffff44';
+      ctx.fillRect(sx + 4, player.y + 2, 8, 12);
+    }
+
+    // Particles
+    particles.forEach(p => {
+      const alpha = Math.floor((p.life / p.maxLife) * 255).toString(16).padStart(2, '0');
+      ctx.fillStyle = p.color.slice(0, 7) + alpha;
+      ctx.fillRect(p.x, p.y, 2, 2);
+    });
+
+    // HUD
+    ctx.fillStyle = '#0a0a1488';
+    ctx.fillRect(4, 4, 140, 28);
+    // HP
+    ctx.fillStyle = '#333';
+    ctx.fillRect(8, 8, 80, 6);
+    ctx.fillStyle = '#cc1133';
+    ctx.fillRect(8, 8, 80 * (player.hp / 100), 6);
+    ctx.fillStyle = '#ff3355';
+    ctx.fillRect(8, 8, 80 * (player.hp / 100), 3);
+    // Energy
+    ctx.fillStyle = '#333';
+    ctx.fillRect(8, 18, 80, 5);
+    ctx.fillStyle = '#0088cc';
+    ctx.fillRect(8, 18, 80 * (player.energy / 100), 5);
+    ctx.fillStyle = '#00aaee';
+    ctx.fillRect(8, 18, 80 * (player.energy / 100), 2);
+    // Labels
+    ctx.fillStyle = '#ffffff';
+    ctx.font = '6px "Press Start 2P"';
+    ctx.fillText('HP', 92, 13);
+    ctx.fillStyle = '#88ccff';
+    ctx.fillText('EN', 92, 23);
+    // Boss power icon
+    ctx.fillStyle = '#00ccff44';
+    ctx.fillRect(118, 8, 14, 14);
+    ctx.fillStyle = '#00ccff';
+    ctx.font = '8px "Press Start 2P"';
+    ctx.fillText('⚡', 120, 19);
+
+    // Zone name
+    ctx.fillStyle = '#ffffff44';
+    ctx.font = '7px "Press Start 2P"';
+    const zoneName = currentZone === 'foundry' ? 'NEON FOUNDRY' :
+                     currentZone === 'cryptvault' ? 'CRYPTVAULT' : 'BLIGHTED GARDEN';
+    ctx.fillText(zoneName, W - ctx.measureText(zoneName).width - 8, 14);
+  }
+
+  function gameLoop() {
+    update();
+    render();
+    requestAnimationFrame(gameLoop);
+  }
+
+  gameLoop();
+}
+
+// ============================================================
+// TITLE SCREEN ANIMATION
+// ============================================================
+
+function initTitleScreen() {
+  const canvas = document.getElementById('title-bg-canvas');
+  const ctx = canvas.getContext('2d');
+  let w, h;
+  const particles = [];
+
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+
+  // Create background particles
+  for (let i = 0; i < 100; i++) {
+    particles.push({
+      x: Math.random() * w,
+      y: Math.random() * h,
+      vx: (Math.random() - 0.5) * 0.5,
+      vy: -Math.random() * 0.5 - 0.2,
+      size: Math.random() * 2 + 1,
+      color: ['#00ccff','#ff00aa','#ffd700','#6b2fa0'][Math.floor(Math.random() * 4)],
+      alpha: Math.random() * 0.5 + 0.1,
+    });
+  }
+
+  function animate() {
+    ctx.fillStyle = '#0a0a12';
+    ctx.fillRect(0, 0, w, h);
+
+    // Grid lines
+    ctx.strokeStyle = '#1a1a3e22';
+    ctx.lineWidth = 1;
+    for (let x = 0; x < w; x += 40) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, h);
+      ctx.stroke();
+    }
+    for (let y = 0; y < h; y += 40) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(w, y);
+      ctx.stroke();
+    }
+
+    // Particles
+    particles.forEach(p => {
+      p.x += p.vx;
+      p.y += p.vy;
+      if (p.y < -10) { p.y = h + 10; p.x = Math.random() * w; }
+      if (p.x < -10) p.x = w + 10;
+      if (p.x > w + 10) p.x = -10;
+      ctx.globalAlpha = p.alpha;
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, p.size, p.size);
+    });
+    ctx.globalAlpha = 1;
+
+    requestAnimationFrame(animate);
+  }
+  animate();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+
+document.querySelectorAll('.nav-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+    btn.classList.add('active');
+    const section = document.getElementById(btn.dataset.section);
+    section.classList.add('active');
+    if (btn.dataset.section === 'demo' && !window.demoInit) {
+      window.demoInit = true;
+      initDemo();
+    }
+  });
+});
+
+// ============================================================
+// INIT
+// ============================================================
+
+window.addEventListener('load', () => {
+  initTitleScreen();
+  buildZones();
+  buildCharacters();
+  buildEnemies();
+  buildBosses();
+  buildItems();
+  buildHud();
+});
+</script>
+</body>
+</html>

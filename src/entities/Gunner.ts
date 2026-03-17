@@ -7,6 +7,10 @@ import {
   PLAYER_JUMP_VELOCITY,
   PLAYER_MAX_HP,
   PLAYER_MAX_ENERGY,
+  PLAYER_ACCEL,
+  PLAYER_DECEL,
+  PLAYER_AIR_ACCEL,
+  PLAYER_AIR_DECEL,
   COYOTE_TIME_MS,
   JUMP_BUFFER_MS,
   INVINCIBILITY_FRAMES_MS,
@@ -156,6 +160,23 @@ export class Gunner {
       this.sprite.setAlpha(1);
     }
 
+    // Landing detection — dust + squash
+    if (onFloor && !this.wasOnFloor) {
+      // Landing dust burst
+      const dust = this.scene.add.particles(this.sprite.x, this.sprite.y, 'particle', {
+        speed: { min: 10, max: 30 }, angle: { min: 160, max: 200 },
+        scale: { start: 0.5, end: 0 }, lifespan: 200,
+        tint: [0x888888, 0xaaaaaa], quantity: 4, emitting: false,
+      });
+      dust.explode(4);
+      this.scene.time.delayedCall(300, () => dust.destroy());
+
+      // Landing squash
+      this.scene.tweens.killTweensOf(this.sprite);
+      this.sprite.setScale(1.15, 0.85);
+      this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: 120, ease: 'Back.easeOut' });
+    }
+
     // Coyote time
     if (onFloor) this.coyoteTimeLeft = COYOTE_TIME_MS;
     if (!onFloor) this.coyoteTimeLeft = Math.max(0, this.coyoteTimeLeft - delta);
@@ -191,7 +212,7 @@ export class Gunner {
     }
 
     this.handleDropThrough(onFloor);
-    this.handleMovement(onFloor);
+    this.handleMovement(onFloor, delta);
     this.handleJump(onFloor);
     this.handleShooting(time, delta);
     this.handleDash(time);
@@ -207,28 +228,39 @@ export class Gunner {
     this.updateGunBarrel();
   }
 
-  private handleMovement(onFloor: boolean) {
-    // Slower while charging
-    const speedMult = this.isCharging ? 0.5 : 1;
+  private handleMovement(onFloor: boolean, delta: number) {
+    const dt = delta / 1000;
+    // Slower while charging — applied to max speed target, not accel rate
+    const maxSpeed = PLAYER_SPEED * (this.isCharging ? 0.5 : 1);
+    const accel = onFloor ? PLAYER_ACCEL : PLAYER_AIR_ACCEL;
+    const decel = onFloor ? PLAYER_DECEL : PLAYER_AIR_DECEL;
+
     const left = this.cursors.left.isDown || !!this.gp?.left;
     const right = this.cursors.right.isDown || !!this.gp?.right;
+    let vx = this.body.velocity.x;
 
     if (left) {
-      this.body.setVelocityX(-PLAYER_SPEED * speedMult);
+      vx -= accel * dt;
+      if (vx < -maxSpeed) vx = -maxSpeed;
       this.facingRight = false;
       this.sprite.setFlipX(true);
     } else if (right) {
-      this.body.setVelocityX(PLAYER_SPEED * speedMult);
+      vx += accel * dt;
+      if (vx > maxSpeed) vx = maxSpeed;
       this.facingRight = true;
       this.sprite.setFlipX(false);
     } else {
-      if (onFloor) {
-        this.body.setVelocityX(this.body.velocity.x * 0.6);
-        if (Math.abs(this.body.velocity.x) < 8) this.body.setVelocityX(0);
-      } else {
-        this.body.setVelocityX(this.body.velocity.x * 0.9);
+      // Decelerate toward 0
+      if (vx > 0) {
+        vx -= decel * dt;
+        if (vx < 10) vx = 0;
+      } else if (vx < 0) {
+        vx += decel * dt;
+        if (vx > -10) vx = 0;
       }
     }
+
+    this.body.setVelocityX(vx);
   }
 
   private handleJump(onFloor: boolean) {
@@ -245,6 +277,11 @@ export class Gunner {
       this.jumpBuffered = false;
       this.coyoteTimeLeft = 0;
       playSound('jump');
+
+      // Jump stretch
+      this.scene.tweens.killTweensOf(this.sprite);
+      this.sprite.setScale(0.85, 1.15);
+      this.scene.tweens.add({ targets: this.sprite, scaleX: 1, scaleY: 1, duration: 150, ease: 'Back.easeOut' });
     }
     if ((this.cursors.up.isUp && this.keys.up.isUp && !this.gp?.jump) && this.body.velocity.y < PLAYER_JUMP_VELOCITY * 0.4) {
       this.body.setVelocityY(this.body.velocity.y * 0.5);
@@ -383,6 +420,18 @@ export class Gunner {
     // Recoil opposite to aim direction
     const recoilX = aim.x !== 0 ? -aim.x * 30 : 0;
     this.body.setVelocityX(this.body.velocity.x + recoilX);
+
+    // Muzzle flash particles
+    const projX = this.sprite.x + spawnOffX;
+    const projY = this.sprite.y + spawnOffY;
+    const dir = aim.x >= 0 ? 1 : -1;
+    const muzzle = this.scene.add.particles(projX, projY, 'particle', {
+      speed: { min: 20, max: 60 }, angle: { min: dir > 0 ? -30 : 150, max: dir > 0 ? 30 : 210 },
+      scale: { start: 0.8, end: 0 }, lifespan: 100,
+      tint: [0x44ff88, 0xffffff], quantity: 5, emitting: false,
+    });
+    muzzle.explode(5);
+    this.scene.time.delayedCall(200, () => muzzle.destroy());
 
     this.isAttacking = true;
     this.scene.time.delayedCall(150, () => { this.isAttacking = false; });
