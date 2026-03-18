@@ -444,6 +444,8 @@ export class InventoryScene extends Phaser.Scene {
       if (item) {
         inv.equip(item);
         playSound('menuConfirm');
+        // Clamp index after backpack changes
+        this.selectedIndex = Math.min(this.selectedIndex, Math.max(0, inv.backpack.length - 1));
         this.refresh();
       }
     } else if (this.mode === 'skills') {

@@ -27,6 +27,7 @@ export class CombatSystem {
   private enemyProjectiles: Phaser.Physics.Arcade.Sprite[] = [];
   private hitEnemiesThisSwing: Set<Phaser.Physics.Arcade.Sprite> = new Set();
   private lastAttackCombo = -1;
+  private _pogoHitboxWasActive = false;
   private overlapCollider: Phaser.Physics.Arcade.Collider;
 
   // Hit-combo tracker
@@ -57,10 +58,15 @@ export class CombatSystem {
       this.hitEnemiesThisSwing.clear();
       this.lastAttackCombo = this.scene.player.attackCombo;
     }
-    // Pogo attacks clear hit tracking each frame (allows repeated bounces)
-    if ((this.scene.player as any).isPogoing) {
+    // Pogo hit gating: hitbox returns null during 200ms cooldown after each bounce.
+    // Clear hit tracking only when pogo hitbox transitions from null → active
+    // (i.e., cooldown just expired), allowing one hit per bounce cycle.
+    const pogoHitboxActive = (this.scene.player as any).isPogoing
+      && this.scene.player.getAttackHitbox() !== null;
+    if (pogoHitboxActive && !this._pogoHitboxWasActive) {
       this.hitEnemiesThisSwing.clear();
     }
+    this._pogoHitboxWasActive = pogoHitboxActive;
 
     // Combo decay — reset if no hits within the window
     if (this.comboCount > 0 && time - this.comboLastHitTime > COMBO_DECAY_MS) {

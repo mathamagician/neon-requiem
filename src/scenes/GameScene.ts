@@ -394,14 +394,22 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    this.player.update(time, delta);
+    // While downed, freeze the player (no movement/attack/dash)
+    if (this.isDowned) {
+      (this.player.sprite.body as Phaser.Physics.Arcade.Body)?.setVelocity(0, 0);
+      // Still update multiplayer, bosses, and enemies so the world keeps going
+    } else {
+      this.player.update(time, delta);
+    }
     for (const enemy of this.enemyInstances) enemy.update(time, delta);
     this.combat.update(time, delta);
     this.bossPowerSystem.update(time, delta);
     this.tutorial.update(time, delta);
-    this.checkLootPickup();
-    this.checkSavePoints(time);
-    this.handleBossPowerInput(time);
+    if (!this.isDowned) {
+      this.checkLootPickup();
+      this.checkSavePoints(time);
+      this.handleBossPowerInput(time);
+    }
 
     // Boss triggers (zone-relative)
     const bossTriggerX = (this.zoneDef.bossTriggerTileX ?? 999) * TILE_SIZE;
@@ -1537,6 +1545,17 @@ export class GameScene extends Phaser.Scene {
   private openNPCInteraction(type: string) {
     if (type === 'shop') {
       this.dialogue.show(this.getShopDialogue());
+      // Open actual shop after dialogue finishes
+      const waitForDialogue = this.time.addEvent({
+        delay: 100, loop: true,
+        callback: () => {
+          if (!this.dialogue.isActive()) {
+            waitForDialogue.destroy();
+            this.scene.launch('ShopScene', { gameScene: this });
+            this.scene.pause('GameScene');
+          }
+        },
+      });
     } else if (type === 'lore') {
       this.dialogue.show(this.getLoreDialogue());
     } else if (type === 'training') {

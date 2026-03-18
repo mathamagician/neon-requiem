@@ -51,8 +51,12 @@ export class InventorySystem {
   /** Equip an item from backpack. Returns the previously equipped item (or null). */
   equip(item: EquipmentItem): EquipmentItem | null {
     const prev = this.equipped[item.slot] ?? null;
+    // Don't re-equip the same item that's already in the slot
+    if (prev && prev.id === item.id) return null;
     this.equipped[item.slot] = item;
-    this.backpack = this.backpack.filter(i => i.id !== item.id);
+    // Remove by reference (splice), not by ID filter, to avoid deleting duplicates
+    const idx = this.backpack.indexOf(item);
+    if (idx !== -1) this.backpack.splice(idx, 1);
     if (prev) this.backpack.push(prev);
     return prev;
   }
